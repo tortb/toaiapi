@@ -345,6 +345,9 @@ model SubscriptionPlan {
   features        Json
 
   is_active       Boolean  @default(true)
+
+  subscriptions   UserSubscription[]
+
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 }

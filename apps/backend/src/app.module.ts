@@ -1,6 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
+import { UserModule } from './modules/user/user.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { ApiKeyModule } from './modules/api-key/api-key.module';
+import { GatewayModule } from './modules/gateway/gateway.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { BalanceModule } from './modules/balance/balance.module';
+import { RequestLogModule } from './modules/request-log/request-log.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -11,6 +20,12 @@ import { AppService } from './app.service';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
+
+    // Database
+    PrismaModule,
+
+    // Cache
+    RedisModule,
 
     // Rate limiting
     ThrottlerModule.forRoot([
@@ -30,6 +45,15 @@ import { AppService } from './app.service';
         limit: 100,
       },
     ]),
+
+    // Business modules
+    UserModule,
+    AuthModule,
+    ApiKeyModule,
+    GatewayModule,
+    BillingModule,
+    BalanceModule,
+    RequestLogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

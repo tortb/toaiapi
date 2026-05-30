@@ -1,0 +1,30 @@
+import { IsEmail, IsString, MinLength, MaxLength, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+/**
+ * 创建用户 DTO
+ *
+ * 用于用户注册
+ */
+export class CreateUserDto {
+  @ApiProperty({ description: '邮箱地址', example: 'user@example.com' })
+  @IsEmail()
+  readonly email!: string;
+
+  @ApiProperty({
+    description: '密码',
+    example: 'SecurePass123',
+    minLength: 8,
+    maxLength: 128,
+  })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  readonly password!: string;
+
+  @ApiPropertyOptional({ description: '显示名称', example: 'John Doe' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  readonly displayName?: string;
+}

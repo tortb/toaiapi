@@ -3,6 +3,8 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -12,6 +14,10 @@ async function bootstrap() {
 
   // Global prefix
   app.setGlobalPrefix('api/v1');
+
+  // Global filters and interceptors
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new TransformInterceptor());
 
   // Validation
   app.useGlobalPipes(
@@ -27,7 +33,7 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: process.env['ALLOWED_ORIGINS']?.split(',') || ['http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
@@ -46,7 +52,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   // Start
-  const port = process.env.PORT || 3001;
+  const port = process.env['PORT'] || 3001;
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 ToAIAPI Backend running on http://localhost:${port}`);
