@@ -1,0 +1,437 @@
+// ToAIAPI Database Schema
+// 所有数据库变更必须通过 Prisma Migration
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// 用户系统
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?   @unique
+  password_hash String
+  display_name  String?
+  avatar_url    String?
+  role          UserRole  @default(USER)
+  status        UserStatus @default(ACTIVE)
+
+  // OAuth
+  github_id     String?   @unique
+  google_id     String?   @unique
+  wechat_id     String?   @unique
+
+  // 关联
+  balance       UserBalance?
+  apiKeys       ApiKey[]
+  subscriptions UserSubscription[]
+  orders        Order[]
+  transactions  UserTransaction[]
+  requestLogs   RequestLog[]
+  organization  Organization? @relation(fields: [organization_id], references: [id])
+  organization_id String?
+
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  deleted_at    DateTime?
+
+  @@index([created_at])
+  @@index([role])
+  @@index([status])
+}
+
+enum UserRole {
+  USER
+  VIP
+  ENTERPRISE
+  AGENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+// ============================================================
+// 余额系统
+// ============================================================
+
+model UserBalance {
+  id         String   @id @default(cuid())
+  user_id    String   @unique
+  user       User     @relation(fields: [user_id], references: [id])
+
+  // 余额单位：分
+  amount     Int      @default(0)
+  // 冻结金额
+  frozen     Int      @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model UserTransaction {
+  id            String          @id @default(cuid())
+  user_id       String
+  user          User            @relation(fields: [user_id], references: [id])
+
+  type          TransactionType
+  amount        Int
+  balance_after Int
+
+  order_id      String?
+  remark        String?
+
+  created_at    DateTime        @default(now())
+
+  @@index([user_id, created_at])
+  @@index([order_id])
+}
+
+enum TransactionType {
+  RECHARGE
+  DEDUCT
+  REFUND
+  GIFT
+  REWARD
+  FREEZE
+  UNFREEZE
+}
+
+// ============================================================
+// API Key 系统
+// ============================================================
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  user_id     String
+  user        User      @relation(fields: [user_id], references: [id])
+
+  key_hash    String    @unique
+  key_prefix  String    // sk-toai-xxxxxx (前16位，用于展示)
+  name        String?
+
+  is_active   Boolean   @default(true)
+  expires_at  DateTime?
+
+  // 限制
+  rate_limit  Int?      // 请求/分钟
+  token_limit Int?      // token/分钟
+  model_limit String[]  // 允许的模型列表
+
+  // IP 白名单
+  ip_whitelist String[]
+
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@index([user_id])
+  @@index([key_prefix])
+}
+
+// ============================================================
+// 模型系统
+// ============================================================
+
+model Model {
+  id              String    @id @default(cuid())
+  name            String    @unique  // 'claude-sonnet-4', 'gpt-4o'
+  display_name    String
+  provider_id     String
+
+  max_context     Int
+  supports_streaming Boolean @default(true)
+  supports_tools     Boolean @default(false)
+  supports_vision    Boolean @default(false)
+
+  is_active       Boolean   @default(true)
+
+  pricing         ModelPricing?
+  channels        ChannelModel[]
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+}
+
+model ModelPricing {
+  id              String   @id @default(cuid())
+  model_id        String   @unique
+  model           Model    @relation(fields: [model_id], references: [id])
+
+  // 价格单位：分/百万 token
+  input_price     Int
+  output_price    Int
+  cached_price    Int?
+  reasoning_price Int?
+
+  multiplier      Decimal  @default(1.0)
+
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+}
+
+// ============================================================
+// 渠道系统
+// ============================================================
+
+model Provider {
+  id          String    @id @default(cuid())
+  name        String    @unique  // 'openai', 'anthropic', 'google'
+  display_name String
+  base_url    String
+
+  is_active   Boolean   @default(true)
+  channels    Channel[]
+
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+}
+
+model Channel {
+  id           String    @id @default(cuid())
+  provider_id  String
+  provider     Provider  @relation(fields: [provider_id], references: [id])
+  name         String
+  base_url     String
+  api_key      String    // 加密存储
+
+  weight       Int       @default(1)
+  priority     Int       @default(0)
+
+  is_active    Boolean   @default(true)
+  status       ChannelStatus @default(ACTIVE)
+
+  total_requests Int     @default(0)
+  failed_requests Int    @default(0)
+  avg_latency_ms Int     @default(0)
+
+  rate_limit   Int?
+  token_limit  Int?
+
+  models       ChannelModel[]
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@index([provider_id, is_active])
+}
+
+model ChannelModel {
+  id          String  @id @default(cuid())
+  channel_id  String
+  channel     Channel @relation(fields: [channel_id], references: [id])
+  model_id    String
+  model       Model   @relation(fields: [model_id], references: [id])
+
+  alias       String?
+  is_active   Boolean @default(true)
+
+  @@unique([channel_id, model_id])
+}
+
+enum ChannelStatus {
+  ACTIVE
+  RATE_LIMITED
+  ERROR
+  DISABLED
+}
+
+// ============================================================
+// 订单系统
+// ============================================================
+
+model Order {
+  id           String      @id @default(cuid())
+  order_no     String      @unique
+  user_id      String
+  user         User        @relation(fields: [user_id], references: [id])
+
+  amount       Int
+  paid_amount  Int?
+
+  payment_method PaymentMethod?
+
+  status       OrderStatus @default(PENDING)
+
+  product_type String
+  product_id   String?
+  product_name String
+
+  paid_at      DateTime?
+  expired_at   DateTime?
+  remark       String?
+
+  payment      Payment?
+
+  created_at   DateTime    @default(now())
+  updated_at   DateTime    @updatedAt
+
+  @@index([user_id, created_at])
+  @@index([status])
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  WECHAT_PAY
+  ALIPAY
+}
+
+// ============================================================
+// 支付系统
+// ============================================================
+
+model Payment {
+  id              String        @id @default(cuid())
+  order_id        String        @unique
+  order           Order         @relation(fields: [order_id], references: [id])
+
+  method          PaymentMethod
+  amount          Int
+
+  // 第三方支付信息
+  trade_no        String?
+  buyer_id        String?
+
+  status          PaymentStatus @default(PENDING)
+
+  paid_at         DateTime?
+  refunded_at     DateTime?
+  refund_amount   Int?
+
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+// ============================================================
+// 套餐系统
+// ============================================================
+
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  display_name    String
+
+  monthly_price   Int
+  yearly_price    Int
+
+  monthly_quota   Int
+
+  rate_limit      Int
+  token_limit     Int
+
+  features        Json
+
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+}
+
+model UserSubscription {
+  id              String           @id @default(cuid())
+  user_id         String           @unique
+  user            User             @relation(fields: [user_id], references: [id])
+  plan_id         String
+  plan            SubscriptionPlan @relation(fields: [plan_id], references: [id])
+
+  type            SubscriptionType
+
+  period          String
+  start_date      DateTime
+  end_date        DateTime
+
+  used_quota      Int              @default(0)
+
+  auto_renew      Boolean          @default(true)
+
+  status          SubscriptionStatus @default(ACTIVE)
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+}
+
+enum SubscriptionType {
+  PAY_AS_YOU_GO
+  SUBSCRIPTION
+  HYBRID
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+// ============================================================
+// 企业系统
+// ============================================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+
+  // 企业余额
+  balance     Int      @default(0)
+
+  members     User[]
+
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
+
+// ============================================================
+// 请求日志
+// ============================================================
+
+model RequestLog {
+  id                String   @id @default(cuid())
+  user_id           String
+  user              User     @relation(fields: [user_id], references: [id])
+  api_key_id        String
+  model_id          String
+  channel_id        String
+
+  request_path      String
+  request_method    String
+
+  prompt_tokens     Int
+  completion_tokens Int
+  cached_tokens     Int      @default(0)
+  reasoning_tokens  Int      @default(0)
+  total_tokens      Int
+
+  cost              Int
+
+  status_code       Int
+  latency_ms        Int
+
+  created_at        DateTime @default(now())
+
+  @@index([user_id, created_at])
+  @@index([model_id, created_at])
+  @@index([channel_id, created_at])
+  @@index([created_at])
+}
