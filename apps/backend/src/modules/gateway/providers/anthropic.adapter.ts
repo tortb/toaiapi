@@ -172,10 +172,25 @@ export class AnthropicAdapter implements ProviderAdapter {
     const systemMessage = request.messages.find((m) => m.role === 'system');
     const messages = request.messages
       .filter((m) => m.role !== 'system')
-      .map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      }));
+      .map((m) => {
+        // Anthropic 使用 user 消息携带 tool_result
+        if (m.role === 'tool') {
+          return {
+            role: 'user' as const,
+            content: [
+              {
+                type: 'tool_result' as const,
+                tool_use_id: m.tool_call_id || '',
+                content: m.content,
+              },
+            ],
+          };
+        }
+        return {
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        };
+      });
 
     return {
       model: request.model,
@@ -243,7 +258,12 @@ interface AnthropicMessageRequest {
   system?: string;
   messages: Array<{
     role: 'user' | 'assistant';
-    content: string;
+    content: string | Array<{
+      type: 'text' | 'tool_result' | 'tool_use';
+      text?: string;
+      tool_use_id?: string;
+      content?: string;
+    }>;
   }>;
   temperature?: number;
   top_p?: number;

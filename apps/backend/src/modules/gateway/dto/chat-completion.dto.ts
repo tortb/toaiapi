@@ -34,20 +34,6 @@ export class ChatMessageDto {
 }
 
 /**
- * 工具定义
- */
-export class ToolDto {
-  @ApiProperty({ description: '工具类型', example: 'function' })
-  @IsString()
-  readonly type!: string;
-
-  @ApiProperty({ description: '函数定义' })
-  @ValidateNested()
-  @Type(() => FunctionDto)
-  readonly function!: FunctionDto;
-}
-
-/**
  * 函数定义
  */
 export class FunctionDto {
@@ -63,6 +49,20 @@ export class FunctionDto {
   @ApiPropertyOptional({ description: '参数 JSON Schema' })
   @IsOptional()
   readonly parameters?: Record<string, unknown>;
+}
+
+/**
+ * 工具定义
+ */
+export class ToolDto {
+  @ApiProperty({ description: '工具类型', example: 'function' })
+  @IsString()
+  readonly type!: string;
+
+  @ApiProperty({ description: '函数定义' })
+  @ValidateNested()
+  @Type(() => FunctionDto)
+  readonly function!: FunctionDto;
 }
 
 /**

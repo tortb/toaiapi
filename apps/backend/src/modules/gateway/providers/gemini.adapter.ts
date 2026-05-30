@@ -33,18 +33,22 @@ export class GeminiAdapter implements ProviderAdapter {
   async chat(request: ChatRequest): Promise<ChatResponse> {
     const geminiRequest = this.convertRequest(request);
 
-    const url = `${this.config.baseUrl}/v1beta/models/${request.model}:generateContent?key=${this.config.apiKey}`;
+    // Google API 使用 API Key 作为查询参数（这是官方要求的方式）
+    const url = `${this.config.baseUrl}/v1beta/models/${request.model}:generateContent`;
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': this.config.apiKey,
+      },
       body: JSON.stringify(geminiRequest),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       this.logger.error(
-        `Gemini error: ${response.status} ${response.statusText} - ${errorText}`,
+        `Gemini error: ${response.status} ${response.statusText}`,
       );
       throw new Error(
         `Gemini returned ${response.status}: ${errorText}`,
@@ -61,18 +65,21 @@ export class GeminiAdapter implements ProviderAdapter {
   async *chatStream(request: ChatRequest): AsyncGenerator<ChatChunk> {
     const geminiRequest = this.convertRequest(request);
 
-    const url = `${this.config.baseUrl}/v1beta/models/${request.model}:streamGenerateContent?alt=sse&key=${this.config.apiKey}`;
+    const url = `${this.config.baseUrl}/v1beta/models/${request.model}:streamGenerateContent?alt=sse`;
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': this.config.apiKey,
+      },
       body: JSON.stringify(geminiRequest),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       this.logger.error(
-        `Gemini stream error: ${response.status} ${response.statusText} - ${errorText}`,
+        `Gemini stream error: ${response.status} ${response.statusText}`,
       );
       throw new Error(
         `Gemini returned ${response.status}: ${errorText}`,

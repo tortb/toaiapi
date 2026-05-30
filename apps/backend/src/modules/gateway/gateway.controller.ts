@@ -24,6 +24,22 @@ import type { ApiKeyInfo } from '../../common/decorators/api-key.decorator';
 import { ChatRequest } from './providers/provider-adapter.interface';
 
 /**
+ * Fastify 请求/响应接口
+ */
+interface FastifyRequest {
+  url: string;
+}
+
+interface FastifyReply {
+  raw: {
+    setHeader(name: string, value: string): void;
+    write(chunk: string): void;
+    end(): void;
+  };
+  send(data: unknown): void;
+}
+
+/**
  * 网关控制器
  *
  * 提供 OpenAI 兼容的 API 端点。
@@ -58,8 +74,8 @@ export class GatewayController {
   async chatCompletions(
     @Body() dto: ChatCompletionDto,
     @ApiKey() apiKey: ApiKeyInfo,
-    @Req() request: Record<string, unknown>,
-    @Res() reply: Record<string, unknown>,
+    @Req() request: FastifyRequest,
+    @Res() reply: FastifyReply,
   ): Promise<void> {
     // 构建内部请求格式
     const chatRequest: ChatRequest = {
@@ -84,23 +100,22 @@ export class GatewayController {
 
     // 流式响应
     if (dto.stream) {
-      const rawReply = reply as unknown as { raw: { setHeader: (k: string, v: string) => void; write: (d: string) => void; end: () => void } };
-      rawReply.raw.setHeader('Content-Type', 'text/event-stream');
-      rawReply.raw.setHeader('Cache-Control', 'no-cache');
-      rawReply.raw.setHeader('Connection', 'keep-alive');
+      reply.raw.setHeader('Content-Type', 'text/event-stream');
+      reply.raw.setHeader('Cache-Control', 'no-cache');
+      reply.raw.setHeader('Connection', 'keep-alive');
 
       const stream = this.gatewayService.handleChatCompletionStream(
         chatRequest,
         apiKey,
-        request['url'] as string,
+        request.url,
       );
 
       for await (const chunk of stream) {
-        rawReply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
       }
 
-      rawReply.raw.write('data: [DONE]\n\n');
-      rawReply.raw.end();
+      reply.raw.write('data: [DONE]\n\n');
+      reply.raw.end();
       return;
     }
 
@@ -108,10 +123,10 @@ export class GatewayController {
     const response = await this.gatewayService.handleChatCompletion(
       chatRequest,
       apiKey,
-      request['url'] as string,
+      request.url,
     );
 
-    (reply as unknown as { send: (data: unknown) => void }).send(response);
+    reply.send(response);
   }
 
   /**

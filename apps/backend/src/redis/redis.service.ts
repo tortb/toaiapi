@@ -111,6 +111,14 @@ export class RedisService implements OnModuleDestroy {
   }
 
   /**
+   * Ping 测试连接
+   */
+  async ping(): Promise<boolean> {
+    const result = await this.client.ping();
+    return result === 'PONG';
+  }
+
+  /**
    * 分布式锁 - 获取锁
    *
    * @param key - 锁的键
