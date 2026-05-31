@@ -13,12 +13,13 @@
 - [x] 用户信息管理
 - [x] 密码重置（忘记密码 + 修改密码）
 - [x] 登出（Token 撤销）
+- [x] 前端 Token 自动刷新（401 拦截 + 重试）
 
 ### API Key 系统
 
 - [x] 创建 API Key
 - [x] 删除 API Key
-- [x] API Key 验证（Guard）
+- [x] API Key 验证（Guard + Redis 缓存）
 - [x] 启用 / 禁用 API Key
 - [x] 更新 API Key 配置
 - [x] 基本限流（多级：短期/中期/长期）
@@ -33,12 +34,14 @@
 - [x] 错误处理与异常过滤
 - [x] 模型列表接口（`/v1/models`）
 - [x] 请求限流（ThrottlerGuard）
+- [x] Provider 适配器请求超时（60s/120s）
+- [x] Graceful Shutdown
 
 ### 计费系统
 
 - [x] Token 使用记录
 - [x] 基本费用计算（`@toai/billing` 包）
-- [x] 余额扣减（数据库事务）
+- [x] 余额扣减（数据库事务，402 异常）
 - [x] 请求日志（RequestLog）
 - [x] 模型定价管理
 
@@ -55,7 +58,12 @@
 - [x] Prisma Schema 设计
 - [x] PostgreSQL 配置
 - [x] Redis 配置
+- [x] JWT 安全加固（移除硬编码默认密钥，启动校验）
+- [x] .env.example 环境变量模板
 - [x] 前端页面（登录、注册、密码重置、仪表盘、API Key 管理、使用记录、设置）
+- [x] 前端侧边栏 Active 高亮 + 图标
+- [x] 前端统一错误提示（inline 替代 console.error/alert）
+- [x] 前端清理未使用依赖
 
 ### 里程碑
 
@@ -64,60 +72,71 @@
 - [x] 用户可以通过 API Key 调用 OpenAI 兼容接口
 - [x] 系统可以记录 token 使用并扣费
 - [x] 前端仪表盘展示余额和请求日志
+- [x] 前端 Token 过期后自动刷新，不中断操作
 
 ---
 
-## V2.0 - 多模型支持
+## V2.0 - 多模型支持 + 管理后台
 
-**目标**: 支持主流 AI 模型
+**目标**: 支持主流 AI 模型，提供平台管理能力
 
 **状态**: 🚧 进行中
 
-### 功能清单
-
-#### Provider 适配器
+### Provider 适配器
 
 - [x] OpenAI 适配器
 - [x] Anthropic Claude 适配器
 - [x] Google Gemini 适配器
-- [ ] DeepSeek 适配器
-- [ ] Qwen 适配器
-- [ ] GLM 适配器
-- [ ] Moonshot（Kimi）适配器
-- [ ] Grok 适配器
+- [x] DeepSeek 适配器（通过 OpenAI 兼容模式）
+- [x] Qwen 适配器（通过 OpenAI 兼容模式）
+- [x] GLM 适配器（通过 OpenAI 兼容模式）
+- [x] Moonshot（Kimi）适配器（通过 OpenAI 兼容模式）
+- [x] Grok 适配器（通过 OpenAI 兼容模式）
 
-#### 渠道管理
+### 渠道管理
 
-- [x] 渠道创建 / 编辑 / 删除
 - [x] 渠道权重配置
 - [x] 渠道优先级配置
 - [x] 自动故障转移
 - [x] 渠道状态监控（请求数、失败数、平均延迟）
+- [x] Admin API：渠道 CRUD + 启禁用（`/admin/channels`）
 - [ ] 渠道管理前端页面
 
-#### 模型管理
+### 模型管理
 
 - [x] 模型配置（Prisma Schema）
 - [x] 模型定价（输入/输出/缓存/推理 分开计价）
+- [x] Admin API：模型 CRUD + 定价管理（`/admin/models`）
 - [ ] 模型别名
-- [ ] 模型状态管理前端页面
-- [ ] 模型管理 API
+- [ ] 模型管理前端页面
+
+### Provider 管理
+
+- [x] Admin API：Provider CRUD（`/admin/providers`）
+- [x] 删除前关联检查（防止级联删除渠道）
+
+### 用户管理（Admin）
+
+- [x] Admin API：用户列表 / 详情（含余额和统计）
+- [x] Admin API：修改用户角色（仅 super_admin）
+- [x] Admin API：修改用户状态（禁用/封禁）
 
 ### 技术任务
 
 - [x] Provider 适配器架构（`ProviderAdapter` 接口 + 工厂模式）
 - [x] 渠道选择算法（`ChannelService`）
 - [x] 故障转移机制（`selectChannelsWithFallback`）
-- [ ] 更多 Provider 适配器实现
+- [x] Admin 模块（Controller → Service → Repository 标准分层）
+- [x] Admin 角色双层防护（JWT + RolesGuard）
 - [ ] 渠道管理前端页面
 - [ ] 模型管理前端页面
 
 ### 里程碑
 
-- [x] 支持 3 个主流 AI 模型（OpenAI、Anthropic、Google）
-- [ ] 支持 8+ 主流 AI 模型
+- [x] 支持 8 个主流 AI 模型（OpenAI/Anthropic/Google/DeepSeek/Qwen/GLM/Moonshot/Grok）
 - [x] 渠道自动故障转移
-- [ ] 灵活的模型配置管理界面
+- [x] Admin 可通过 API 管理 Provider / Channel / Model / User
+- [ ] 管理后台前端界面
 
 ---
 
@@ -203,13 +222,6 @@
 - [ ] 验证码发送
 - [ ] 通知短信
 
-### 技术任务
-
-- [ ] 实名认证接口对接
-- [ ] 内容安全服务对接
-- [ ] 风控规则引擎
-- [ ] 短信服务对接
-
 ### 里程碑
 
 - [ ] 用户可以完成实名认证
@@ -246,13 +258,6 @@
 - [ ] 代理商管理
 - [ ] 分润计算
 - [ ] 代理商账单
-
-### 技术任务
-
-- [ ] 多租户架构
-- [ ] 权限系统扩展
-- [ ] 企业账单系统
-- [ ] 代理商管理系统
 
 ### 里程碑
 
@@ -302,13 +307,6 @@
 - [ ] 插件市场
 - [ ] 提示词市场
 
-### 技术任务
-
-- [ ] 缓存系统
-- [ ] 数据分析引擎
-- [ ] 可视化仪表盘
-- [ ] 市场系统
-
 ### 里程碑
 
 - [ ] 支持所有主流 AI 编程工具
@@ -342,7 +340,7 @@
 | 版本 | 预计时间 | 核心目标 | 当前状态 |
 |------|---------|---------|---------|
 | V1.0 | 4-6 周 | MVP 验证 | ✅ 已完成 |
-| V2.0 | 3-4 周 | 多模型支持 | 🚧 进行中 |
+| V2.0 | 3-4 周 | 多模型 + 管理后台 | 🚧 进行中（后端 API 已完成，前端待开发） |
 | V3.0 | 4-6 周 | 支付与套餐 | 📋 规划中 |
 | V4.0 | 3-4 周 | 安全与合规 | 📋 规划中 |
 | V5.0 | 4-6 周 | 企业管理 | 📋 规划中 |
