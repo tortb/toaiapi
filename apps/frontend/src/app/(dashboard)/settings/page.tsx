@@ -81,13 +81,16 @@ export default function SettingsPage() {
     }
   };
 
+  const [deleteError, setDeleteError] = useState('');
+
   const handleDeleteAccount = async () => {
     setDeleteLoading(true);
+    setDeleteError('');
     try {
       await api.user.deleteMe();
       logout();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '删除失败');
+      setDeleteError(err instanceof Error ? err.message : '删除失败');
     } finally {
       setDeleteLoading(false);
       setShowDeleteConfirm(false);
@@ -249,6 +252,11 @@ export default function SettingsPage() {
         <p className="text-sm text-gray-600 mb-4">
           删除账户后，所有数据将被永久删除且无法恢复。请谨慎操作。
         </p>
+        {deleteError && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            {deleteError}
+          </div>
+        )}
         {!showDeleteConfirm ? (
           <button
             onClick={() => setShowDeleteConfirm(true)}

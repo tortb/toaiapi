@@ -43,6 +43,7 @@ export class GeminiAdapter implements ProviderAdapter {
         'x-goog-api-key': this.config.apiKey,
       },
       body: JSON.stringify(geminiRequest),
+      signal: AbortSignal.timeout(60000),
     });
 
     if (!response.ok) {
@@ -74,6 +75,7 @@ export class GeminiAdapter implements ProviderAdapter {
         'x-goog-api-key': this.config.apiKey,
       },
       body: JSON.stringify(geminiRequest),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (!response.ok) {

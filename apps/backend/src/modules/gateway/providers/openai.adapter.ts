@@ -58,6 +58,7 @@ export class OpenAIAdapter implements ProviderAdapter {
         Authorization: `Bearer ${this.config.apiKey}`,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000),
     });
 
     if (!response.ok) {
@@ -108,6 +109,7 @@ export class OpenAIAdapter implements ProviderAdapter {
         Authorization: `Bearer ${this.config.apiKey}`,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (!response.ok) {

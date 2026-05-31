@@ -1,9 +1,51 @@
-import type { ApiResponse, AuthResponse, User, ApiKey, Balance, Transaction, RequestLog, Model } from '@/types';
+import type { AuthResponse, User, ApiKey, Balance, Transaction, RequestLog, Model } from '@/types';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
 
+/** 是否正在刷新 token，防止并发刷新 */
+let isRefreshing = false;
+/** 等待 token 刷新完成的请求队列 */
+let refreshQueue: Array<() => void> = [];
+
 /**
- * 通用请求方法
+ * 刷新 access token
+ */
+async function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+  if (!refreshToken) return false;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    const tokens = data.data || data;
+    localStorage.setItem('accessToken', tokens.accessToken);
+    localStorage.setItem('refreshToken', tokens.refreshToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 清除认证状态并跳转登录
+ */
+function handleAuthFailure(): void {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login';
+  }
+}
+
+/**
+ * 通用请求方法（带 401 自动刷新）
  */
 async function request<T>(
   path: string,
@@ -24,6 +66,35 @@ async function request<T>(
     ...options,
     headers,
   });
+
+  // 401 自动刷新 token
+  if (response.status === 401 && token) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      const refreshed = await refreshAccessToken();
+      isRefreshing = false;
+
+      if (refreshed) {
+        // 刷新成功，执行等待队列中的请求
+        refreshQueue.forEach((cb) => cb());
+        refreshQueue = [];
+        // 重试当前请求
+        return request<T>(path, options);
+      } else {
+        // 刷新失败，清除认证状态
+        refreshQueue = [];
+        handleAuthFailure();
+        throw new Error('Session expired');
+      }
+    } else {
+      // 已有刷新请求在进行中，等待刷新完成后重试
+      return new Promise<T>((resolve) => {
+        refreshQueue.push(() => {
+          resolve(request<T>(path, options));
+        });
+      });
+    }
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));

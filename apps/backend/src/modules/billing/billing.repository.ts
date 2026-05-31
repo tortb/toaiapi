@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 import { Prisma, UserBalance, UserTransaction } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -58,13 +58,14 @@ export class BillingRepository {
       });
 
       if (!balance) {
-        throw new Error('User balance not found');
+        throw new NotFoundException('User balance not found');
       }
 
       const available = balance.amount - balance.frozen;
       if (available < amount) {
-        throw new Error(
+        throw new HttpException(
           `Insufficient balance: required ${amount}, available ${available}`,
+          HttpStatus.PAYMENT_REQUIRED,
         );
       }
 

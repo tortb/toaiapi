@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [logs, setLogs] = useState<RequestLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -33,8 +34,9 @@ export default function DashboardPage() {
       ]);
       setBalance(balanceData);
       setLogs(logsData.items);
+      setError(null);
     } catch (err) {
-      console.error('Failed to load dashboard data:', err);
+      setError(err instanceof Error ? err.message : '加载数据失败');
     } finally {
       setLoading(false);
     }
@@ -55,6 +57,19 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* 错误提示 */}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-4">
+          <p className="text-sm text-red-700">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="mt-1 text-xs text-red-600 hover:text-red-500"
+          >
+            关闭
+          </button>
+        </div>
+      )}
+
       {/* 余额卡片 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">

@@ -19,6 +19,7 @@ export default function UsagePage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [modelFilter, setModelFilter] = useState('');
 
   useEffect(() => {
@@ -32,8 +33,9 @@ export default function UsagePage() {
       setLogs(data.items);
       setTotal(data.total);
       setTotalPages(data.totalPages);
+      setError(null);
     } catch (err) {
-      console.error('Failed to load logs:', err);
+      setError(err instanceof Error ? err.message : '加载使用记录失败');
     } finally {
       setLoading(false);
     }
@@ -51,6 +53,19 @@ export default function UsagePage() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">使用记录</h2>
+
+      {/* 错误提示 */}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-4">
+          <p className="text-sm text-red-700">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="mt-1 text-xs text-red-600 hover:text-red-500"
+          >
+            关闭
+          </button>
+        </div>
+      )}
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

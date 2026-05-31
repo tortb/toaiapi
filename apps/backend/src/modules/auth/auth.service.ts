@@ -110,7 +110,7 @@ export class AuthService {
     try {
       payload = verifyToken(
         refreshToken,
-        this.config.get<string>('JWT_REFRESH_SECRET', 'default-refresh-secret'),
+        this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       );
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -211,8 +211,8 @@ export class AuthService {
     const tokenPair = generateTokenPair(
       { sub: userId, email, role },
       {
-        jwtSecret: this.config.get<string>('JWT_SECRET', 'default-jwt-secret'),
-        jwtRefreshSecret: this.config.get<string>('JWT_REFRESH_SECRET', 'default-refresh-secret'),
+        jwtSecret: this.config.getOrThrow<string>('JWT_SECRET'),
+        jwtRefreshSecret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
         accessTokenExpiry: this.config.get<string>('JWT_EXPIRATION', '15m'),
         refreshTokenExpiry: this.config.get<string>('JWT_REFRESH_EXPIRATION', '7d'),
       },

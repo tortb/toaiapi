@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { ChannelService, ChannelSelectionResult } from './channel/channel.service';
 import { BillingService } from '../billing/billing.service';
 import { RequestLogService } from '../request-log/request-log.service';
@@ -61,7 +61,7 @@ export class GatewayService {
       apiKey.modelLimit.length > 0 &&
       !apiKey.modelLimit.includes(request.model)
     ) {
-      throw new Error(
+      throw new ForbiddenException(
         `Model ${request.model} is not allowed for this API key`,
       );
     }
@@ -162,7 +162,7 @@ export class GatewayService {
       apiKey.modelLimit.length > 0 &&
       !apiKey.modelLimit.includes(request.model)
     ) {
-      throw new Error(
+      throw new ForbiddenException(
         `Model ${request.model} is not allowed for this API key`,
       );
     }

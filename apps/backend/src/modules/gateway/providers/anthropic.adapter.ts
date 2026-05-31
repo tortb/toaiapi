@@ -41,6 +41,7 @@ export class AnthropicAdapter implements ProviderAdapter {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(anthropicRequest),
+      signal: AbortSignal.timeout(60000),
     });
 
     if (!response.ok) {
@@ -71,6 +72,7 @@ export class AnthropicAdapter implements ProviderAdapter {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({ ...anthropicRequest, stream: true }),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (!response.ok) {

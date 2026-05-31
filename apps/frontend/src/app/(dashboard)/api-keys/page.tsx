@@ -11,6 +11,7 @@ import { formatDate, maskApiKey } from '@/lib/utils';
 export default function ApiKeysPage() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [createdKey, setCreatedKey] = useState<string | null>(null);
@@ -23,8 +24,9 @@ export default function ApiKeysPage() {
     try {
       const keys = await api.apiKeys.list();
       setApiKeys(keys);
+      setError(null);
     } catch (err) {
-      console.error('Failed to load API keys:', err);
+      setError(err instanceof Error ? err.message : '加载 API Key 失败');
     } finally {
       setLoading(false);
     }
@@ -36,9 +38,10 @@ export default function ApiKeysPage() {
       setCreatedKey(result.key || null);
       setNewKeyName('');
       setShowCreate(false);
+      setError(null);
       loadApiKeys();
     } catch (err) {
-      console.error('Failed to create API key:', err);
+      setError(err instanceof Error ? err.message : '创建 API Key 失败');
     }
   };
 
@@ -47,18 +50,20 @@ export default function ApiKeysPage() {
 
     try {
       await api.apiKeys.delete(id);
+      setError(null);
       loadApiKeys();
     } catch (err) {
-      console.error('Failed to delete API key:', err);
+      setError(err instanceof Error ? err.message : '删除 API Key 失败');
     }
   };
 
   const handleToggle = async (id: string, enable: boolean) => {
     try {
       await api.apiKeys.toggle(id, enable);
+      setError(null);
       loadApiKeys();
     } catch (err) {
-      console.error('Failed to toggle API key:', err);
+      setError(err instanceof Error ? err.message : '操作失败');
     }
   };
 
@@ -68,6 +73,19 @@ export default function ApiKeysPage() {
 
   return (
     <div className="space-y-6">
+      {/* 错误提示 */}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-4">
+          <p className="text-sm text-red-700">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="mt-1 text-xs text-red-600 hover:text-red-500"
+          >
+            关闭
+          </button>
+        </div>
+      )}
+
       {/* 创建成功提示 */}
       {createdKey && (
         <div className="rounded-lg bg-green-50 p-4">
