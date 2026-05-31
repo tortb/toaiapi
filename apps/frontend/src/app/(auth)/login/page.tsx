@@ -89,6 +89,12 @@ export default function LoginPage() {
           注册
         </Link>
       </p>
+
+      <p className="text-center text-sm text-gray-600">
+        <Link href="/forgot-password" className="text-blue-600 hover:text-blue-500">
+          忘记密码？
+        </Link>
+      </p>
     </form>
   );
 }
