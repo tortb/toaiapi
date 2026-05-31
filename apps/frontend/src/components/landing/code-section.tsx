@@ -52,29 +52,29 @@ export function CodeSection() {
   const [activeTab, setActiveTab] = useState<string>('curl');
 
   return (
-    <section id="docs" className="bg-background py-20 md:py-24">
+    <section id="docs" className="bg-[#030712] py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <div className="text-center animate-fade-in-up">
+          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
             开发者体验
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
+          <p className="mt-4 text-lg text-white/40">
             OpenAI 兼容格式，5 分钟完成接入
           </p>
         </div>
 
-        <div className="mx-auto mt-12 max-w-3xl">
+        <div className="mx-auto mt-16 max-w-3xl">
           {/* Tab 栏 */}
-          <div className="flex gap-1 rounded-t-lg border border-b-0 border-border bg-card p-1">
+          <div className="flex gap-1 rounded-t-xl border border-b-0 border-white/[0.06] bg-white/[0.03] p-1">
             {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  'rounded-md px-4 py-2 text-sm font-medium transition-colors',
+                  'rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200',
                   activeTab === tab
-                    ? 'bg-background text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
+                    ? 'bg-white/[0.08] text-white'
+                    : 'text-white/40 hover:text-white/70',
                 )}
               >
                 {tab}
@@ -83,9 +83,9 @@ export function CodeSection() {
           </div>
 
           {/* 代码块 */}
-          <div className="overflow-x-auto rounded-b-lg border border-border bg-card p-6">
+          <div className="overflow-x-auto rounded-b-xl border border-white/[0.06] bg-white/[0.02] p-6">
             <pre className="text-sm leading-relaxed">
-              <code className="text-muted-foreground">{CODE_SAMPLES[activeTab]}</code>
+              <code className="text-white/50 font-mono">{CODE_SAMPLES[activeTab]}</code>
             </pre>
           </div>
         </div>

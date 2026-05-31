@@ -17,44 +17,39 @@ const MODEL_DATA = [
 /** 支持模型区域 */
 export function ModelsSection() {
   return (
-    <section id="models" className="border-y border-border bg-card/50 py-20 md:py-24">
+    <section id="models" className="bg-[#030712] py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <div className="text-center animate-fade-in-up">
+          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
             支持模型
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
+          <p className="mt-4 text-lg text-white/40">
             覆盖主流 AI 模型，统一接口调用
           </p>
         </div>
 
-        <div className="mt-12 overflow-x-auto">
+        <div className="mt-16 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.02]">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Provider
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  模型
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  上下文
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  状态
-                </th>
+              <tr className="border-b border-white/[0.06]">
+                <th className="px-5 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/30">Provider</th>
+                <th className="px-5 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/30">模型</th>
+                <th className="px-5 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/30">上下文</th>
+                <th className="px-5 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/30">状态</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {MODEL_DATA.map((row) => (
-                <tr key={`${row.provider}-${row.model}`} className="hover:bg-muted/30">
-                  <td className="px-4 py-3 text-sm text-foreground">{row.provider}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-foreground">{row.model}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{row.context}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant="success">{row.status}</Badge>
-                  </td>
+            <tbody>
+              {MODEL_DATA.map((row, index) => (
+                <tr
+                  key={`${row.provider}-${row.model}`}
+                  className={`transition-colors hover:bg-white/[0.03] ${
+                    index < MODEL_DATA.length - 1 ? 'border-b border-white/[0.04]' : ''
+                  }`}
+                >
+                  <td className="px-5 py-3.5 text-sm text-white/60">{row.provider}</td>
+                  <td className="px-5 py-3.5 text-sm font-medium text-white/80">{row.model}</td>
+                  <td className="px-5 py-3.5 text-sm text-white/40">{row.context}</td>
+                  <td className="px-5 py-3.5"><Badge variant="success">{row.status}</Badge></td>
                 </tr>
               ))}
             </tbody>

@@ -26,30 +26,30 @@ const CAPABILITIES = [
 /** 平台能力区域 */
 export function CapabilitiesSection() {
   return (
-    <section className="border-y border-border bg-card/50 py-20 md:py-24">
+    <section className="bg-[#030712] py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <div className="text-center animate-fade-in-up">
+          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
             平台能力
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
+          <p className="mt-4 text-lg text-white/40">
             完整的企业级 AI 平台基础设施
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {CAPABILITIES.map((cap) => {
             const Icon = cap.icon;
             return (
               <div
                 key={cap.title}
-                className="rounded-xl border border-border bg-card p-6 text-center"
+                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 text-center backdrop-blur-xl transition-all duration-300 hover:border-white/[0.15] hover:bg-white/[0.04]"
               >
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <Icon className="h-6 w-6 text-primary" />
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <Icon className="h-6 w-6 text-blue-400" />
                 </div>
-                <h3 className="mt-4 text-base font-semibold text-foreground">{cap.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <h3 className="mt-5 text-base font-semibold text-white/90">{cap.title}</h3>
+                <p className="mt-2.5 text-sm leading-relaxed text-white/40">
                   {cap.description}
                 </p>
               </div>

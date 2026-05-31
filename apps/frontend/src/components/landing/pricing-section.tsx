@@ -50,43 +50,52 @@ const PLANS = [
   },
 ] as const;
 
-/** 价格方案区域 */
+/** 价格方案区域 — Stripe 风格卡片 */
 export function PricingSection() {
   return (
-    <section id="pricing" className="bg-background py-20 md:py-24">
+    <section id="pricing" className="bg-[#030712] py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <div className="text-center animate-fade-in-up">
+          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
             价格方案
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
+          <p className="mt-4 text-lg text-white/40">
             按需选择，灵活计费
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+        <div className="mt-16 grid gap-5 lg:grid-cols-3">
           {PLANS.map((plan) => (
             <div
               key={plan.name}
-              className={`flex flex-col rounded-xl border p-6 ${
+              className={`relative flex flex-col rounded-2xl p-7 transition-all duration-300 ${
                 plan.highlight
-                  ? 'border-primary bg-card'
-                  : 'border-border bg-card'
+                  ? 'border border-blue-500/40 bg-white/[0.04] shadow-[0_0_30px_rgba(59,130,246,0.1)]'
+                  : 'border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.15]'
               }`}
             >
+              {/* 推荐标签 */}
+              {plan.highlight && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-1 text-xs font-medium text-white shadow-lg shadow-blue-500/30">
+                    推荐
+                  </span>
+                </div>
+              )}
+
               <div>
-                <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
+                <h3 className="text-lg font-semibold text-white/90">{plan.name}</h3>
+                <p className="mt-1 text-sm text-white/30">{plan.description}</p>
               </div>
 
-              <div className="mt-6">
-                <span className="text-3xl font-bold text-foreground">{plan.price}</span>
+              <div className="mt-7">
+                <span className="text-4xl font-bold text-white">{plan.price}</span>
               </div>
 
-              <ul className="mt-6 flex-1 space-y-3">
+              <ul className="mt-7 flex-1 space-y-3.5">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <li key={feature} className="flex items-start gap-2.5 text-sm text-white/50">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
                     {feature}
                   </li>
                 ))}

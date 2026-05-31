@@ -40,35 +40,35 @@ const FEATURES = [
   },
 ] as const;
 
-/** 产品优势区域 */
+/** 产品优势区域 — 微光卡片 */
 export function FeaturesSection() {
   return (
-    <section id="features" className="bg-background py-20 md:py-24">
+    <section id="features" className="relative bg-[#030712] py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <div className="text-center animate-fade-in-up">
+          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
             产品优势
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
+          <p className="mt-4 text-lg text-white/40">
             为开发者和企业团队打造的 AI 基础设施
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature) => {
             const Icon = feature.icon;
             return (
               <div
                 key={feature.title}
-                className="rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/30"
+                className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.15] hover:bg-white/[0.04]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Icon className="h-5 w-5 text-primary" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <Icon className="h-5 w-5 text-blue-400" />
                 </div>
-                <h3 className="mt-4 text-base font-semibold text-foreground">
+                <h3 className="mt-5 text-base font-semibold text-white/90">
                   {feature.title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <p className="mt-2.5 text-sm leading-relaxed text-white/40">
                   {feature.description}
                 </p>
               </div>

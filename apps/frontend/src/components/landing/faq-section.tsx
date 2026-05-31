@@ -34,14 +34,14 @@ const FAQ_ITEMS = [
 /** FAQ 区域 */
 export function FaqSection() {
   return (
-    <section id="faq" className="border-y border-border bg-card/50 py-20 md:py-24">
+    <section id="faq" className="bg-[#030712] py-24 md:py-32">
       <div className="mx-auto max-w-3xl px-4">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <div className="text-center animate-fade-in-up">
+          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
             常见问题
           </h2>
         </div>
-        <div className="mt-12">
+        <div className="mt-16">
           <Accordion items={FAQ_ITEMS.map((item) => ({ question: item.question, answer: item.answer }))} />
         </div>
       </div>
