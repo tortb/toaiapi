@@ -10,6 +10,7 @@ import { GatewayModule } from './modules/gateway/gateway.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { BalanceModule } from './modules/balance/balance.module';
 import { RequestLogModule } from './modules/request-log/request-log.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -54,6 +55,7 @@ import { AppService } from './app.service';
     BillingModule,
     BalanceModule,
     RequestLogModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
