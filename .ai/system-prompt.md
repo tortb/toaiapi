@@ -66,6 +66,15 @@ ToAIAPI 是一个企业级 AI Gateway 平台，定位为下一代 AI Infrastruct
 - 无 HardCode（必须使用配置或环境变量）
 - 所有 API 接口必须生成 Swagger 文档
 
+## 前端开发规范
+
+前端代码必须遵守 `.ai/frontend.md` 中的设计系统规范，包括：
+- 色彩系统（语义化 CSS 变量，禁止硬编码颜色）
+- 组件规范（复用 `components/ui/`，统一尺寸）
+- 布局规范（Sidebar + Main，Page Header → Stats → Content）
+- 页面规范（充值中心、订单中心、财务中心等）
+- 禁止清单（花哨动效、emoji 图标、CSS Modules 等）
+
 ## 架构原则
 
 后端采用分层架构：

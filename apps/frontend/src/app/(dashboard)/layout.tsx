@@ -5,10 +5,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/services/api';
-import { LayoutDashboard, KeyRound, FileText, Settings, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, CreditCard, KeyRound, FileText, Settings, LogOut, Menu, X } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/', label: '仪表盘', icon: LayoutDashboard },
+  { href: '/recharge', label: '充值', icon: CreditCard },
   { href: '/api-keys', label: 'API Keys', icon: KeyRound },
   { href: '/usage', label: '使用记录', icon: FileText },
   { href: '/settings', label: '设置', icon: Settings },

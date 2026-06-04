@@ -14,6 +14,7 @@ import {
   Settings,
   Zap,
   ArrowRight,
+  CreditCard,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -124,7 +125,20 @@ export default function DashboardPage() {
       </div>
 
       {/* 快捷操作 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+        <Link
+          href="/recharge"
+          className="group flex items-center gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/30 hover:bg-primary/5"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+            <CreditCard className="h-5 w-5 text-success" />
+          </div>
+          <div className="flex-1">
+            <p className="font-medium text-foreground">充值</p>
+            <p className="text-xs text-muted-foreground">为账户充值</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+        </Link>
         <Link
           href="/api-keys"
           className="group flex items-center gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/30 hover:bg-primary/5"

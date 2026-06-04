@@ -145,3 +145,39 @@ export interface ChannelStatus {
   failedRequests: number;
   failureRate: number;
 }
+
+/**
+ * 支付方式
+ */
+export interface PaymentMethod {
+  name: string;
+  displayName: string;
+}
+
+/**
+ * 充值订单
+ */
+export interface RechargeOrder {
+  orderNo: string;
+  amount: number;
+  paymentMethod: string;
+  status: string;
+  payUrl: string;
+  createdAt: string;
+}
+
+/**
+ * 订单详情（后端返回 snake_case）
+ */
+export interface OrderDetail {
+  id: string;
+  order_no: string;
+  amount: number;
+  paid_amount: number | null;
+  payment_method: string;
+  status: string;
+  product_type: string;
+  product_name: string;
+  paid_at: string | null;
+  created_at: string;
+}

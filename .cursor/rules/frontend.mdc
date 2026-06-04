@@ -1,0 +1,44 @@
+---
+description: ToAIAPI Frontend Design System — 色彩、组件、布局、动效、页面规范
+globs: ["apps/frontend/**/*.tsx", "apps/frontend/**/*.ts", "apps/frontend/**/*.css"]
+alwaysApply: false
+---
+
+# ToAIAPI Frontend Design System
+
+本文件是前端开发的权威规范。完整内容见 `.ai/frontend.md`。
+
+## 核心规则速查
+
+### 技术栈
+- Next.js App Router + TypeScript strict + TailwindCSS v4
+- shadcn/ui 模式组件 · Lucide React 图标 · Zustand 状态管理
+- 禁止：Ant Design、MUI、CSS Modules、emoji 图标
+
+### 色彩
+- 深色模式优先，使用 CSS 变量语义化 token
+- `bg-card` / `text-foreground` / `border-border` / `bg-primary`
+- 禁止硬编码颜色值如 `bg-[#111113]`
+
+### 布局
+- Sidebar (w-60) + Main Content (p-6)
+- 页面 max-width: 1440px，卡片间距 gap-4，模块间距 gap-6
+- 每个页面：Page Header → Stats Cards → Content Area
+
+### 组件尺寸
+- Button/Input: h-10, rounded-lg, text-sm
+- Card: rounded-xl, border border-border, bg-card, p-6
+- Badge: rounded-full, text-xs
+- 数字必须突出：text-2xl font-bold tracking-tight
+
+### 动效
+- 允许：150ms hover (opacity/background/border), animate-fade-in
+- 禁止：bounce、zoom、shake、flip、粒子效果
+
+### 页面路由
+- `/recharge` 充值中心 — 余额卡片 → 金额选择(卡片) → 支付方式(卡片) → 记录
+- `/orders` 订单中心 — 统计 → 筛选 → 表格（Badge 状态）
+- `/billing` 财务中心 — 统计 → 趋势图 → 余额变化 → 消费明细
+
+### AI 检查清单
+生成代码前确认：语义化 token ✓ 严格类型 ✓ 响应式 ✓ 深色主题 ✓ Lucide 图标 ✓ 中文优先 ✓ 复用组件 ✓ 无花哨动效 ✓

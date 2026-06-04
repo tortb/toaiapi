@@ -1,4 +1,4 @@
-import type { AuthResponse, User, ApiKey, Balance, Transaction, RequestLog, Model, PublicModel, ChannelStatus } from '@/types';
+import type { AuthResponse, User, ApiKey, Balance, Transaction, RequestLog, Model, PublicModel, ChannelStatus, PaymentMethod, RechargeOrder, OrderDetail } from '@/types';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
 
@@ -241,6 +241,41 @@ export const api = {
       request<{ items: RequestLog[]; total: number; page: number; pageSize: number; totalPages: number }>(
         `/api/v1/balance/logs?page=${page}&pageSize=${pageSize}`
       ),
+  },
+
+  // ──────────────────────────────────────────────
+  // 支付
+  // ──────────────────────────────────────────────
+
+  payment: {
+    /** 获取可用支付方式（无需认证） */
+    getMethods: () =>
+      request<PaymentMethod[]>('/api/v1/payment/methods'),
+
+    /** 创建充值订单 */
+    createOrder: (data: { amount: number; paymentMethod: string }) =>
+      request<RechargeOrder>('/api/v1/payment/orders', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    /** 获取订单列表 */
+    getOrders: async (page = 1, pageSize = 20) => {
+      const res = await request<{ data: OrderDetail[]; total: number; page: number; pageSize: number; totalPages: number }>(
+        `/api/v1/payment/orders?page=${page}&pageSize=${pageSize}`
+      );
+      return { items: res.data ?? [], total: res.total, page: res.page, pageSize: res.pageSize, totalPages: res.totalPages };
+    },
+
+    /** 获取订单详情 */
+    getOrder: (orderNo: string) =>
+      request<OrderDetail>(`/api/v1/payment/orders/${orderNo}`),
+
+    /** 取消订单 */
+    cancelOrder: (orderNo: string) =>
+      request<void>(`/api/v1/payment/orders/${orderNo}/cancel`, {
+        method: 'POST',
+      }),
   },
 
   // ──────────────────────────────────────────────

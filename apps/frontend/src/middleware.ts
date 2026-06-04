@@ -13,7 +13,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 受保护的 Dashboard 路径
-  const protectedPaths = ['/api-keys', '/usage', '/settings'];
+  const protectedPaths = ['/api-keys', '/usage', '/settings', '/recharge', '/orders'];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
   if (isProtected && !token) {
@@ -36,6 +36,8 @@ export const config = {
     '/api-keys/:path*',
     '/usage/:path*',
     '/settings/:path*',
+    '/recharge/:path*',
+    '/orders/:path*',
     '/login',
     '/register',
     '/forgot-password',
