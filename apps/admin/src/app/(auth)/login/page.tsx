@@ -38,7 +38,7 @@ export default function LoginPage() {
       localStorage.setItem('admin-refresh-token', response.tokens.refreshToken);
 
       setAuth(response.user, response.tokens);
-      router.push('/');
+      setTimeout(() => router.replace('/'), 50);
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
     } finally {
