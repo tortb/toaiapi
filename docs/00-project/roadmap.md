@@ -16,7 +16,7 @@
 - [x] 前端页面（Landing / Dashboard / API Keys / Usage / Settings）
 - [x] Prisma Schema + PostgreSQL + Redis
 
-### V2.0 多模型 + 管理后台 🔄 进行中
+### V2.0 多模型 + 管理后台 ✅ 已完成 (v0.4.2)
 
 **目标：** 完善管理能力和多模型支持
 
@@ -24,8 +24,8 @@
 - [x] 更多 Provider 适配器（DeepSeek / Qwen / GLM / Moonshot / Grok）
 - [x] Channel 健康监控（成功率、延迟、状态追踪）
 - [x] Seed 系统（自动初始化 Provider/Model/Channel/Admin）
-- [ ] Admin 前端 — Channel 管理页面
-- [ ] Admin 前端 — Model 管理页面
+- [x] Admin 前端 — Channel 管理页面
+- [x] Admin 前端 — Model 管理页面
 - [ ] Model 别名支持
 - [ ] Channel 批量导入/导出
 
@@ -66,13 +66,33 @@
 - [x] 所有修改文件添加完整中文 JSDoc
 - [x] Prisma Schema 添加 model 级文档注释
 - [x] SECURITY 标记所有安全相关代码
-- [ ] 用户邀请系统
 
-### V3.0 支付与订阅 📋 计划中
+### V3.0 支付与订阅 🔄 进行中 (v0.4.3)
 
 **目标：** 完成商业化闭环
 
-- [ ] 支付系统（微信支付 / 支付宝）
+**后端已完成：**
+- [x] PaymentConfig / SmtpConfig 数据库表
+- [x] ConfigEncryptionService（AES-256-GCM加密）
+- [x] EPayService（易支付：支付宝/微信/QQ）
+- [x] AlipayService（支付宝网页支付）
+- [x] WechatPayService（微信Native/H5支付）
+- [x] PaymentService（统一支付服务）
+- [x] PaymentController（支付API端点）
+- [x] EmailService重构（从数据库读取SMTP配置）
+
+**Admin前端已完成：**
+- [x] 支付配置页面（易支付/支付宝/微信支付配置）
+- [x] SMTP配置页面（邮件服务器配置）
+- [x] 订单管理页面
+
+**待开发：**
+- [ ] 用户端充值页面 `/recharge`
+- [ ] 用户端订单列表 `/orders`
+- [ ] 支付宝公钥证书模式
+- [ ] 微信支付完整验签
+- [ ] 退款流程
+- [ ] 订单超时取消
 - [ ] Stripe 集成（海外用户）
 - [ ] 订阅计划管理
 - [ ] 优惠券/折扣系统
@@ -83,13 +103,20 @@
 
 **目标：** 达到企业安全标准
 
+**已完成：**
+- [x] 敏感字段加密（AES-256-GCM）
+- [x] 数据脱敏（API返回时脱敏显示）
+- [x] 签名验证（timingSafeEqual）
+
+**待开发：**
 - [ ] 2FA（TOTP）
 - [ ] Passkey (WebAuthn)
 - [ ] IP 风控
 - [ ] 异常检测
 - [ ] 审计日志
-- [ ] 数据加密（AES-256-GCM）
 - [ ] 合规报告
+- [ ] 邮箱验证
+- [ ] OAuth 登录（GitHub / Google）
 
 ### V5.0 企业版 📋 计划中
 
@@ -122,3 +149,25 @@
 2. **商业化优先** — 支付 → 订阅 → 报表
 3. **安全合规** — 不可跳过，但可以渐进式完善
 4. **文档驱动** — 每个模块先写文档再写代码
+
+---
+
+## 版本发布历史
+
+### v0.4.3 (2026-06-04)
+- 支付系统集成（易支付/支付宝/微信支付）
+- 支付配置和SMTP配置Admin管理
+- 敏感字段AES-256-GCM加密存储
+
+### v0.4.2 (2026-06-04)
+- 清理编译产物
+- 补充UI组件
+- 新增支付文档
+
+### v0.4.1 (2026-06-04)
+- 全面安全加固
+- 修复7个严重漏洞、8个高危问题
+- 新增加密工具和28个文档
+
+### v0.4.0
+- Seed系统自动初始化数据库
