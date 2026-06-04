@@ -26,6 +26,8 @@ export const useAuthStore = create<AuthState>()(
         // SECURITY: 同步写入 localStorage，供 api.ts 的 request() 读取
         localStorage.setItem('admin-access-token', tokens.accessToken);
         localStorage.setItem('admin-refresh-token', tokens.refreshToken);
+        // SECURITY: 设置 cookie 供 middleware 路由守卫使用
+        document.cookie = `admin-accessToken=${tokens.accessToken}; path=/; max-age=900; SameSite=Lax`;
         set({
           user,
           accessToken: tokens.accessToken,
@@ -37,6 +39,8 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         localStorage.removeItem('admin-access-token');
         localStorage.removeItem('admin-refresh-token');
+        // SECURITY: 清除 cookie
+        document.cookie = 'admin-accessToken=; path=/; max-age=0';
         set({
           user: null,
           accessToken: null,

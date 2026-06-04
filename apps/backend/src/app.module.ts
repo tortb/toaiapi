@@ -11,6 +11,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { BalanceModule } from './modules/balance/balance.module';
 import { RequestLogModule } from './modules/request-log/request-log.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { EmailModule } from './common/services/email.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -46,6 +47,9 @@ import { AppService } from './app.service';
         limit: 100,
       },
     ]),
+
+    // Common modules
+    EmailModule,
 
     // Business modules
     UserModule,

@@ -11,7 +11,7 @@ import { GeminiAdapter } from './gemini.adapter';
  * 支持运行时注册新的适配器。
  *
  * 注册规则：
- * - OpenAI, DeepSeek, Qwen, GLM, Moonshot, Grok → OpenAI 适配器
+ * - OpenAI, DeepSeek, Qwen, GLM, Moonshot, Grok, OpenRouter → OpenAI 适配器
  * - Anthropic → Anthropic 适配器
  * - Google → Gemini 适配器
  */
@@ -32,6 +32,7 @@ export class ProviderAdapterFactory {
     ['glm', 'openai'],
     ['moonshot', 'openai'],
     ['grok', 'openai'],
+    ['openrouter', 'openai'],
     ['anthropic', 'anthropic'],
     ['google', 'gemini'],
   ]);

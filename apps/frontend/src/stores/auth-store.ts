@@ -33,6 +33,8 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (user, tokens) => {
         localStorage.setItem('accessToken', tokens.accessToken);
         localStorage.setItem('refreshToken', tokens.refreshToken);
+        // SECURITY: 设置 cookie 供 middleware 路由守卫使用
+        document.cookie = `accessToken=${tokens.accessToken}; path=/; max-age=900; SameSite=Lax`;
         set({
           user,
           accessToken: tokens.accessToken,
@@ -44,6 +46,8 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        // SECURITY: 清除 cookie
+        document.cookie = 'accessToken=; path=/; max-age=0';
         set({
           user: null,
           accessToken: null,

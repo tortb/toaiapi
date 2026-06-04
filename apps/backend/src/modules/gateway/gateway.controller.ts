@@ -208,4 +208,71 @@ export class GatewayController {
       })),
     };
   }
+
+  /**
+   * 公开模型列表（营销页面用，无需认证）
+   *
+   * GET /v1/models/public
+   * 返回模型名、定价、能力等公开信息。
+   */
+  @Get('v1/models/public')
+  @ApiOperation({
+    summary: '公开模型列表',
+    description: '获取所有可用模型的公开信息（含定价和能力），无需认证',
+  })
+  @ApiOkResponse()
+  async listPublicModels() {
+    const models = await this.channelService.getAvailableModels();
+
+    return {
+      data: models.map((model) => ({
+        id: model.name,
+        displayName: model.display_name,
+        providerId: model.provider_id,
+        maxContext: model.max_context,
+        supportsStreaming: model.supports_streaming,
+        supportsTools: model.supports_tools,
+        supportsVision: model.supports_vision,
+        pricing: model.pricing
+          ? {
+              inputPrice: model.pricing.input_price,
+              outputPrice: model.pricing.output_price,
+              cachedPrice: model.pricing.cached_price,
+              reasoningPrice: model.pricing.reasoning_price,
+              multiplier: Number(model.pricing.multiplier),
+            }
+          : null,
+      })),
+    };
+  }
+
+  /**
+   * 公开渠道状态（服务状态页用，无需认证）
+   *
+   * GET /v1/status
+   * 返回所有活跃渠道的运行状态。
+   */
+  @Get('v1/status')
+  @ApiOperation({
+    summary: '服务状态',
+    description: '获取所有活跃渠道的运行状态，无需认证',
+  })
+  @ApiOkResponse()
+  async getServiceStatus() {
+    const channels = await this.channelService.getChannelStats();
+
+    return {
+      data: channels.map((ch) => ({
+        provider: ch.provider.display_name || ch.provider.name,
+        channel: ch.name,
+        status: ch.status,
+        avgLatencyMs: ch.avg_latency_ms,
+        totalRequests: ch.total_requests,
+        failedRequests: ch.failed_requests,
+        failureRate: ch.total_requests > 0
+          ? Number(((ch.failed_requests / ch.total_requests) * 100).toFixed(2))
+          : 0,
+      })),
+    };
+  }
 }

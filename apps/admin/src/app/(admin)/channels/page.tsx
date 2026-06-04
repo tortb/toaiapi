@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ErrorAlert } from '@/components/error-alert';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { formatDate, formatPercent } from '@/lib/utils';
 import {
   Dialog,
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Channel, CreateChannelInput } from '@/types';
+import type { Channel, CreateChannelInput, UpdateChannelInput } from '@/types';
 
 /** 渠道管理页面 */
 export default function ChannelsPage() {
@@ -32,6 +32,11 @@ export default function ChannelsPage() {
     providerId: '', name: '', baseUrl: '', apiKey: '',
   });
   const [createLoading, setCreateLoading] = useState(false);
+
+  // 编辑对话框
+  const [editChannel, setEditChannel] = useState<Channel | null>(null);
+  const [editForm, setEditForm] = useState<UpdateChannelInput>({});
+  const [editLoading, setEditLoading] = useState(false);
 
   // 删除确认
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -79,6 +84,38 @@ export default function ChannelsPage() {
       setError(err instanceof Error ? err.message : '创建渠道失败');
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const openEditDialog = (channel: Channel) => {
+    setEditChannel(channel);
+    setEditForm({
+      name: channel.name,
+      baseUrl: channel.baseUrl,
+      weight: channel.weight,
+      priority: channel.priority,
+    });
+  };
+
+  const handleEdit = async () => {
+    if (!editChannel) return;
+    setEditLoading(true);
+    try {
+      // 过滤掉空值，apiKey 为空时不更新
+      const payload: UpdateChannelInput = {};
+      if (editForm.name) payload.name = editForm.name;
+      if (editForm.baseUrl) payload.baseUrl = editForm.baseUrl;
+      if (editForm.apiKey) payload.apiKey = editForm.apiKey;
+      if (editForm.weight !== undefined) payload.weight = editForm.weight;
+      if (editForm.priority !== undefined) payload.priority = editForm.priority;
+
+      await api.channels.update(editChannel.id, payload);
+      setEditChannel(null);
+      loadChannels();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '更新渠道失败');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -140,6 +177,9 @@ export default function ChannelsPage() {
       header: '操作',
       render: (c) => (
         <div className="flex gap-1">
+          <Button variant="ghost" size="sm" onClick={() => openEditDialog(c)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => handleToggle(c.id, !c.isActive)}>
             {c.isActive
               ? <ToggleRight className="h-4 w-4 text-emerald-400" />
@@ -217,6 +257,70 @@ export default function ChannelsPage() {
               <Button variant="outline" onClick={() => setShowCreate(false)}>取消</Button>
               <Button onClick={handleCreate} disabled={createLoading}>
                 {createLoading ? '创建中...' : '创建'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑渠道对话框 */}
+      <Dialog open={editChannel !== null} onOpenChange={(open) => !open && setEditChannel(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑渠道</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">渠道名称</label>
+              <Input
+                value={editForm.name ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                placeholder="DeepSeek Main"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">API 基础 URL</label>
+              <Input
+                value={editForm.baseUrl ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, baseUrl: e.target.value })}
+                placeholder="https://api.deepseek.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">上游 API Key（留空不更新）</label>
+              <Input
+                type="password"
+                value={editForm.apiKey ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, apiKey: e.target.value })}
+                placeholder="留空则保持原有 Key"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">权重（1-100）</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={editForm.weight ?? 50}
+                  onChange={(e) => setEditForm({ ...editForm, weight: Number(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">优先级</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editForm.priority ?? 0}
+                  onChange={(e) => setEditForm({ ...editForm, priority: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setEditChannel(null)}>取消</Button>
+              <Button onClick={handleEdit} disabled={editLoading}>
+                {editLoading ? '保存中...' : '保存'}
               </Button>
             </div>
           </div>

@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { hashPassword, verifyPassword, generateTokenPair, verifyToken, validatePasswordStrength } from '@toai/auth';
+import { EmailService } from '../../common/services/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes, createHash } from 'crypto';
@@ -24,6 +25,7 @@ export class AuthService {
     private readonly redis: RedisService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -235,10 +237,8 @@ export class AuthService {
     // SECURITY: 不在日志中输出重置链接，防止日志泄露
     this.logger.log(`Password reset token generated for user: ${user.id}`);
 
-    // TODO: 集成邮件服务，发送重置链接到用户邮箱
-    // const appUrl = this.config.get('APP_URL', 'http://localhost:3000');
-    // const resetUrl = `${appUrl}/reset-password?token=${resetToken}`;
-    // await emailService.send(email, '密码重置', `点击链接重置密码: ${resetUrl}`);
+    // 发送密码重置邮件
+    await this.emailService.sendPasswordResetEmail(email, resetToken);
   }
 
   /**

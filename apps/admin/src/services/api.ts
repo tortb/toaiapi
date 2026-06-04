@@ -47,6 +47,8 @@ async function refreshAccessToken(): Promise<boolean> {
     const tokens: TokenResponse = data.data || data;
     localStorage.setItem('admin-access-token', tokens.accessToken);
     localStorage.setItem('admin-refresh-token', tokens.refreshToken);
+    // SECURITY: 同步更新 cookie 供 middleware 使用
+    document.cookie = `admin-accessToken=${tokens.accessToken}; path=/; max-age=900; SameSite=Lax`;
     return true;
   } catch {
     return false;

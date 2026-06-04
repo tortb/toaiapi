@@ -1,4 +1,4 @@
-import type { AuthResponse, User, ApiKey, Balance, Transaction, RequestLog, Model } from '@/types';
+import type { AuthResponse, User, ApiKey, Balance, Transaction, RequestLog, Model, PublicModel, ChannelStatus } from '@/types';
 
 const API_BASE = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
 
@@ -31,6 +31,8 @@ async function refreshAccessToken(): Promise<boolean> {
     const tokens = data.data || data;
     localStorage.setItem('accessToken', tokens.accessToken);
     localStorage.setItem('refreshToken', tokens.refreshToken);
+    // SECURITY: 同步更新 cookie 供 middleware 使用
+    document.cookie = `accessToken=${tokens.accessToken}; path=/; max-age=900; SameSite=Lax`;
     return true;
   } catch {
     return false;
@@ -246,7 +248,19 @@ export const api = {
   // ──────────────────────────────────────────────
 
   models: {
-    /** 获取可用模型列表 */
+    /** 获取可用模型列表（需 API Key） */
     list: () => request<{ object: string; data: Model[] }>('/api/v1/models'),
+
+    /** 获取公开模型列表（含定价和能力，无需认证） */
+    listPublic: () => request<{ data: PublicModel[] }>('/api/v1/models/public'),
+  },
+
+  // ──────────────────────────────────────────────
+  // 服务状态
+  // ──────────────────────────────────────────────
+
+  status: {
+    /** 获取渠道状态（无需认证） */
+    get: () => request<{ data: ChannelStatus[] }>('/api/v1/status'),
   },
 };

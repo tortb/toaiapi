@@ -133,6 +133,29 @@ export class ChannelRepository {
   }
 
   /**
+   * 获取所有活跃渠道的统计信息（公开状态页用）
+   */
+  async findChannelStats() {
+    return this.prisma.channel.findMany({
+      where: {
+        is_active: true,
+      },
+      include: {
+        provider: {
+          select: {
+            name: true,
+            display_name: true,
+          },
+        },
+      },
+      orderBy: [
+        { provider: { name: 'asc' } },
+        { name: 'asc' },
+      ],
+    });
+  }
+
+  /**
    * 获取所有可用模型
    */
   async findAvailableModels() {

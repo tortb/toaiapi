@@ -104,11 +104,44 @@ export interface AuthResponse {
 }
 
 /**
- * 模型信息
+ * 模型信息（OpenAI 格式）
  */
 export interface Model {
   id: string;
   object: string;
   created: number;
   owned_by: string;
+}
+
+/**
+ * 公开模型信息（含定价和能力）
+ */
+export interface PublicModel {
+  id: string;
+  displayName: string;
+  providerId: string;
+  maxContext: number;
+  supportsStreaming: boolean;
+  supportsTools: boolean;
+  supportsVision: boolean;
+  pricing: {
+    inputPrice: number;
+    outputPrice: number;
+    cachedPrice: number | null;
+    reasoningPrice: number | null;
+    multiplier: number;
+  } | null;
+}
+
+/**
+ * 渠道状态
+ */
+export interface ChannelStatus {
+  provider: string;
+  channel: string;
+  status: string;
+  avgLatencyMs: number;
+  totalRequests: number;
+  failedRequests: number;
+  failureRate: number;
 }

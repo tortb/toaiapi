@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ErrorAlert } from '@/components/error-alert';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { Plus, Trash2, DollarSign } from 'lucide-react';
+import { Plus, Pencil, Trash2, DollarSign } from 'lucide-react';
 import { formatDate, formatAmount } from '@/lib/utils';
 import {
   Dialog,
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Model, CreateModelInput, UpsertPricingInput } from '@/types';
+import type { Model, CreateModelInput, UpdateModelInput, UpsertPricingInput } from '@/types';
 
 /** 模型管理页面 */
 export default function ModelsPage() {
@@ -32,6 +32,11 @@ export default function ModelsPage() {
     name: '', displayName: '', providerId: '', maxContext: 128000,
   });
   const [createLoading, setCreateLoading] = useState(false);
+
+  // 编辑对话框
+  const [editModel, setEditModel] = useState<Model | null>(null);
+  const [editForm, setEditForm] = useState<UpdateModelInput>({});
+  const [editLoading, setEditLoading] = useState(false);
 
   // 定价对话框
   const [pricingModelId, setPricingModelId] = useState<string | null>(null);
@@ -73,6 +78,32 @@ export default function ModelsPage() {
       setError(err instanceof Error ? err.message : '创建模型失败');
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const openEditDialog = (model: Model) => {
+    setEditModel(model);
+    setEditForm({
+      displayName: model.displayName,
+      maxContext: model.maxContext,
+      supportsStreaming: model.supportsStreaming,
+      supportsTools: model.supportsTools,
+      supportsVision: model.supportsVision,
+      isActive: model.isActive,
+    });
+  };
+
+  const handleEdit = async () => {
+    if (!editModel) return;
+    setEditLoading(true);
+    try {
+      await api.models.update(editModel.id, editForm);
+      setEditModel(null);
+      loadModels();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '更新模型失败');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -152,6 +183,9 @@ export default function ModelsPage() {
       header: '操作',
       render: (m) => (
         <div className="flex gap-1">
+          <Button variant="ghost" size="sm" onClick={() => openEditDialog(m)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => openPricingDialog(m)}>
             <DollarSign className="h-4 w-4" />
           </Button>
@@ -209,6 +243,52 @@ export default function ModelsPage() {
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowCreate(false)}>取消</Button>
               <Button onClick={handleCreate} disabled={createLoading}>{createLoading ? '创建中...' : '创建'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑模型对话框 */}
+      <Dialog open={editModel !== null} onOpenChange={(open) => !open && setEditModel(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑模型</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">显示名称</label>
+              <Input value={editForm.displayName ?? ''} onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })} placeholder="DeepSeek Chat" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">最大上下文</label>
+              <Input type="number" value={editForm.maxContext ?? 0} onChange={(e) => setEditForm({ ...editForm, maxContext: Number(e.target.value) })} />
+            </div>
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-muted-foreground">能力</label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={editForm.supportsStreaming ?? false} onChange={(e) => setEditForm({ ...editForm, supportsStreaming: e.target.checked })} className="rounded border-border" />
+                  流式输出
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={editForm.supportsTools ?? false} onChange={(e) => setEditForm({ ...editForm, supportsTools: e.target.checked })} className="rounded border-border" />
+                  工具调用
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={editForm.supportsVision ?? false} onChange={(e) => setEditForm({ ...editForm, supportsVision: e.target.checked })} className="rounded border-border" />
+                  视觉
+                </label>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={editForm.isActive ?? true} onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })} className="rounded border-border" />
+                启用
+              </label>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setEditModel(null)}>取消</Button>
+              <Button onClick={handleEdit} disabled={editLoading}>{editLoading ? '保存中...' : '保存'}</Button>
             </div>
           </div>
         </DialogContent>

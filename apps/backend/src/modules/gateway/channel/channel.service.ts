@@ -176,6 +176,13 @@ export class ChannelService {
   }
 
   /**
+   * 获取所有活跃渠道的统计信息（公开状态页用）
+   */
+  async getChannelStats() {
+    return this.channelRepo.findChannelStats();
+  }
+
+  /**
    * 解密 Channel API Key
    * SECURITY: 兼容处理未加密的历史数据（明文）
    *
