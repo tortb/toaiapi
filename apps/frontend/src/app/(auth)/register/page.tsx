@@ -27,7 +27,7 @@ export default function RegisterPage() {
     try {
       const response = await api.auth.register(email, password, displayName || undefined);
       setAuth(response.user, response.tokens);
-      router.push('/');
+      setTimeout(() => router.replace('/'), 50);
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败');
     } finally {

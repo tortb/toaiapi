@@ -24,7 +24,8 @@ export default function LoginPage() {
     try {
       const response = await api.auth.login(email, password);
       setAuth(response.user, response.tokens);
-      router.push('/');
+      // 等待 Zustand 状态更新后再跳转
+      setTimeout(() => router.replace('/'), 50);
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
     } finally {
