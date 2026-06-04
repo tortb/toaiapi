@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -9,11 +10,19 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    new FastifyAdapter({
+      bodyLimit: 10 * 1024 * 1024, // 10MB 请求体限制
+    }),
   );
 
   // Global prefix
   app.setGlobalPrefix('api/v1');
+
+  // SECURITY: Helmet 安全头
+  await app.register(helmet, {
+    contentSecurityPolicy: false, // 前端需要 inline styles/scripts
+    crossOriginEmbedderPolicy: false,
+  });
 
   // Global filters and interceptors
   app.useGlobalFilters(new HttpExceptionFilter());
@@ -39,17 +48,20 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
   });
 
-  // Swagger
-  const config = new DocumentBuilder()
-    .setTitle('ToAIAPI')
-    .setDescription('Enterprise AI Gateway Platform API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addApiKey({ type: 'apiKey', name: 'X-API-Key', in: 'header' }, 'api-key')
-    .build();
+  // SECURITY: Swagger 仅在非生产环境启用
+  if (process.env['NODE_ENV'] !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('ToAIAPI')
+      .setDescription('Enterprise AI Gateway Platform API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addApiKey({ type: 'apiKey', name: 'X-API-Key', in: 'header' }, 'api-key')
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+    console.log(`📚 Swagger docs: http://localhost:${process.env['PORT'] || 3001}/api/docs`);
+  }
 
   // Graceful shutdown
   app.enableShutdownHooks();
@@ -59,7 +71,6 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 ToAIAPI Backend running on http://localhost:${port}`);
-  console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

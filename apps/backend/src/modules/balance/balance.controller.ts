@@ -18,19 +18,27 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { IsInt, Min } from 'class-validator';
+import { IsInt, Min, IsString, IsNotEmpty, IsOptional, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
  * 充值请求 DTO
  */
 class RechargeDto {
+  @ApiProperty({ description: '目标用户 ID', example: 'uuid-string' })
+  @IsString()
+  @IsNotEmpty()
+  readonly targetUserId!: string;
+
   @ApiProperty({ description: '充值金额（分）', example: 10000 })
   @IsInt()
   @Min(1)
+  @Max(100000000) // 单次最多 100 万元
   readonly amount!: number;
 
   @ApiPropertyOptional({ description: '备注' })
+  @IsOptional()
+  @IsString()
   readonly remark?: string;
 }
 
@@ -78,7 +86,7 @@ export class BalanceController {
     @CurrentUser() user: CurrentUserInfo,
     @Body() dto: RechargeDto,
   ) {
-    return this.balanceService.recharge(user.id, dto.amount, dto.remark);
+    return this.balanceService.recharge(dto.targetUserId, dto.amount, dto.remark);
   }
 
   /**

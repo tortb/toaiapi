@@ -15,7 +15,7 @@ const AUTH_TAG_LENGTH = 16;
 
 /**
  * 获取加密密钥
- * 从环境变量 ENCRYPTION_KEY 读取，必须为 32 字节
+ * 从环境变量 ENCRYPTION_KEY 读取，支持 hex 或 utf-8 格式，必须为 32 字节
  *
  * @returns 32 字节的加密密钥
  * @throws 环境变量未配置或长度不足
@@ -23,12 +23,21 @@ const AUTH_TAG_LENGTH = 16;
 function getEncryptionKey(): Buffer {
   const key = process.env['ENCRYPTION_KEY'];
   if (!key) {
-    throw new Error('[SECURITY] ENCRYPTION_KEY 未配置！请在 .env 中设置 32 字节密钥');
+    throw new Error('[SECURITY] ENCRYPTION_KEY 未配置！请在 .env 中设置 32 字节密钥（推荐 hex 格式：openssl rand -hex 32）');
   }
-  if (key.length < 32) {
-    throw new Error(`[SECURITY] ENCRYPTION_KEY 长度不足 32 字节，当前: ${key.length}`);
+
+  // 尝试 hex 解码（推荐格式：64 个 hex 字符 = 32 字节）
+  const hexMatch = key.match(/^[0-9a-fA-F]{64}$/);
+  if (hexMatch) {
+    return Buffer.from(key, 'hex');
   }
-  return Buffer.from(key.slice(0, 32), 'utf-8');
+
+  // 回退到 utf-8，按字节长度截取
+  const keyBuffer = Buffer.from(key, 'utf-8');
+  if (keyBuffer.length < 32) {
+    throw new Error(`[SECURITY] ENCRYPTION_KEY 字节长度不足 32，当前: ${keyBuffer.length}。推荐使用 hex 格式：openssl rand -hex 32`);
+  }
+  return keyBuffer.subarray(0, 32);
 }
 
 /**

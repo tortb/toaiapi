@@ -1,10 +1,7 @@
-import type { Metadata } from 'next';
-import { Badge } from '@/components/ui/badge';
+'use client';
 
-export const metadata: Metadata = {
-  title: '支持模型 - ToAIAPI',
-  description: '查看 ToAIAPI 支持的所有 AI 模型、上下文长度、API 价格和价格倍率。',
-};
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 
 interface ModelRow {
   provider: string;
@@ -35,6 +32,12 @@ const PROVIDERS = ['全部', ...new Set(MODEL_DATA.map((m) => m.provider))];
 
 /** 模型矩阵页面 */
 export default function ModelsPage() {
+  const [selectedProvider, setSelectedProvider] = useState('全部');
+
+  const filteredModels = selectedProvider === '全部'
+    ? MODEL_DATA
+    : MODEL_DATA.filter((m) => m.provider === selectedProvider);
+
   return (
     <div className="bg-background">
       {/* 标题区 */}
@@ -49,12 +52,17 @@ export default function ModelsPage() {
         {/* Provider 筛选 */}
         <div className="mt-8 flex flex-wrap gap-2">
           {PROVIDERS.map((p) => (
-            <span
+            <button
               key={p}
-              className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground cursor-default"
+              onClick={() => setSelectedProvider(p)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                selectedProvider === p
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border bg-card text-muted-foreground hover:text-foreground'
+              }`}
             >
               {p}
-            </span>
+            </button>
           ))}
         </div>
       </div>
@@ -76,7 +84,7 @@ export default function ModelsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {MODEL_DATA.map((row) => (
+              {filteredModels.map((row) => (
                 <tr key={`${row.provider}-${row.model}`} className="hover:bg-muted/30">
                   <td className="px-4 py-3 text-sm text-foreground">{row.provider}</td>
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{row.model}</td>
@@ -96,6 +104,13 @@ export default function ModelsPage() {
                   </td>
                 </tr>
               ))}
+              {filteredModels.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    该 Provider 暂无可用模型
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

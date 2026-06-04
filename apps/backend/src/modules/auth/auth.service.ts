@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
-import { hashPassword, verifyPassword, generateTokenPair, verifyToken } from '@toai/auth';
+import { hashPassword, verifyPassword, generateTokenPair, verifyToken, validatePasswordStrength } from '@toai/auth';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes, createHash } from 'crypto';
@@ -37,6 +37,12 @@ export class AuthService {
    * @throws ConflictException 邮箱已注册
    */
   async register(dto: RegisterDto) {
+    // SECURITY: 验证密码强度（大小写字母 + 数字 + 长度 8-128）
+    const strength = validatePasswordStrength(dto.password);
+    if (!strength.valid) {
+      throw new BadRequestException(strength.errors);
+    }
+
     const passwordHash = await hashPassword(dto.password);
 
     try {
@@ -182,6 +188,12 @@ export class AuthService {
       throw new BadRequestException('当前密码错误');
     }
 
+    // SECURITY: 验证新密码强度
+    const strength = validatePasswordStrength(newPassword);
+    if (!strength.valid) {
+      throw new BadRequestException(strength.errors);
+    }
+
     // SECURITY: 新密码不能与旧密码相同
     if (currentPassword === newPassword) {
       throw new BadRequestException('新密码不能与当前密码相同');
@@ -245,6 +257,12 @@ export class AuthService {
 
     if (!userId) {
       throw new BadRequestException('重置 Token 无效或已过期');
+    }
+
+    // SECURITY: 验证新密码强度
+    const strength = validatePasswordStrength(newPassword);
+    if (!strength.valid) {
+      throw new BadRequestException(strength.errors);
     }
 
     // SECURITY: 验证用户仍存在

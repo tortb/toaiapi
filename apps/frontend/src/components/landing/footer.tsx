@@ -14,8 +14,8 @@ const FOOTER_SECTIONS = [
     title: '开发者',
     links: [
       { href: '/#docs', label: 'API 文档' },
-      { href: '/#examples', label: '接入示例' },
-      { href: '/#sdks', label: 'SDK' },
+      { href: '/models', label: '模型列表' },
+      { href: '/status', label: '服务状态' },
     ],
   },
   {
@@ -23,7 +23,7 @@ const FOOTER_SECTIONS = [
     links: [
       { href: '/login', label: '登录' },
       { href: '/register', label: '注册' },
-      { href: '/dashboard', label: '控制台' },
+      { href: '/', label: '控制台' },
     ],
   },
 ] as const;

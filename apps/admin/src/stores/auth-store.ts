@@ -23,6 +23,9 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       setAuth: (user, tokens) => {
+        // SECURITY: 同步写入 localStorage，供 api.ts 的 request() 读取
+        localStorage.setItem('admin-access-token', tokens.accessToken);
+        localStorage.setItem('admin-refresh-token', tokens.refreshToken);
         set({
           user,
           accessToken: tokens.accessToken,
@@ -32,6 +35,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        localStorage.removeItem('admin-access-token');
+        localStorage.removeItem('admin-refresh-token');
         set({
           user: null,
           accessToken: null,

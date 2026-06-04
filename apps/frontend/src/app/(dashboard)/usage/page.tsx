@@ -50,17 +50,38 @@ export default function UsagePage() {
 
   const uniqueModels = Array.from(new Set(logs.map((l) => l.modelId)));
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="mb-2 h-7 w-32 animate-pulse rounded-lg bg-muted" />
+          <div className="h-4 w-64 animate-pulse rounded-lg bg-muted" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-xl border border-border bg-card" />
+          ))}
+        </div>
+        <div className="h-96 animate-pulse rounded-xl border border-border bg-card" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">使用记录</h2>
+      {/* 页面标题 */}
+      <div>
+        <h3 className="text-lg font-semibold text-foreground">使用记录</h3>
+        <p className="text-sm text-muted-foreground">查看 API 调用历史和费用</p>
+      </div>
 
       {/* 错误提示 */}
       {error && (
-        <div className="rounded-lg bg-red-50 p-4">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">{error}</p>
           <button
             onClick={() => setError(null)}
-            className="mt-1 text-xs text-red-600 hover:text-red-500"
+            className="mt-1 text-xs text-destructive/70 hover:text-destructive"
           >
             关闭
           </button>
@@ -69,36 +90,36 @@ export default function UsagePage() {
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-              <Activity className="h-5 w-5 text-blue-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Activity className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">总请求数</p>
-              <p className="text-2xl font-bold text-gray-900">{total}</p>
+              <p className="text-sm text-muted-foreground">总请求数</p>
+              <p className="text-2xl font-bold text-foreground">{total}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50">
-              <Hash className="h-5 w-5 text-violet-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
+              <Hash className="h-5 w-5 text-accent" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">本页 Token</p>
-              <p className="text-2xl font-bold text-gray-900">{formatTokens(totalTokens)}</p>
+              <p className="text-sm text-muted-foreground">本页 Token</p>
+              <p className="text-2xl font-bold text-foreground">{formatTokens(totalTokens)}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50">
-              <Coins className="h-5 w-5 text-green-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+              <Coins className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">本页费用</p>
-              <p className="text-2xl font-bold text-gray-900">{formatAmount(totalCost)}</p>
+              <p className="text-sm text-muted-foreground">本页费用</p>
+              <p className="text-2xl font-bold text-foreground">{formatAmount(totalCost)}</p>
             </div>
           </div>
         </div>
@@ -106,14 +127,14 @@ export default function UsagePage() {
 
       {/* 筛选 */}
       <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <div className="relative max-w-xs flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={modelFilter}
             onChange={(e) => setModelFilter(e.target.value)}
             placeholder="搜索模型..."
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-lg border border-border bg-muted/50 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
         {uniqueModels.length > 0 && (
@@ -124,8 +145,8 @@ export default function UsagePage() {
                 onClick={() => setModelFilter(modelFilter === model ? '' : model)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   modelFilter === model
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }`}
               >
                 {model}
@@ -136,67 +157,61 @@ export default function UsagePage() {
       </div>
 
       {/* 请求列表 */}
-      <div className="rounded-xl bg-white shadow-sm border border-gray-100">
+      <div className="rounded-xl border border-border bg-card">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b bg-gray-50/50">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">模型</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">输入</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">输出</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">总计</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">费用</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">延迟</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">状态</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">时间</th>
+              <tr className="border-b border-border">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">模型</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">输入</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">输出</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">总计</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">费用</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">延迟</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">状态</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">时间</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {loading ? (
+            <tbody className="divide-y divide-border">
+              {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-sm text-gray-400">
-                    加载中...
-                  </td>
-                </tr>
-              ) : filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={8} className="px-6 py-8 text-center text-sm text-muted-foreground">
                     {modelFilter ? '无匹配的记录' : '暂无请求记录'}
                   </td>
                 </tr>
               ) : (
                 filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50/50">
-                    <td className="px-6 py-3 text-sm font-medium text-gray-900">
+                  <tr key={log.id} className="hover:bg-muted/30">
+                    <td className="whitespace-nowrap px-6 py-3 text-sm font-medium text-foreground">
                       {log.modelId}
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-500">
+                    <td className="whitespace-nowrap px-6 py-3 text-sm text-muted-foreground">
                       {formatTokens(log.promptTokens)}
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-500">
+                    <td className="whitespace-nowrap px-6 py-3 text-sm text-muted-foreground">
                       {formatTokens(log.completionTokens)}
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-500">
+                    <td className="whitespace-nowrap px-6 py-3 text-sm text-muted-foreground">
                       {formatTokens(log.totalTokens)}
                     </td>
-                    <td className="px-6 py-3 text-sm font-medium text-gray-900">
+                    <td className="whitespace-nowrap px-6 py-3 text-sm font-medium text-foreground">
                       {formatAmount(log.cost)}
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-500">
+                    <td className="whitespace-nowrap px-6 py-3 text-sm text-muted-foreground">
                       {log.latencyMs}ms
                     </td>
-                    <td className="px-6 py-3">
+                    <td className="whitespace-nowrap px-6 py-3">
                       <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                           log.statusCode === 200
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-success/10 text-success'
+                            : 'bg-destructive/10 text-destructive'
                         }`}
                       >
                         {log.statusCode}
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-500">
+                    <td className="whitespace-nowrap px-6 py-3 text-sm text-muted-foreground">
                       {formatDate(log.createdAt)}
                     </td>
                   </tr>
@@ -208,22 +223,22 @@ export default function UsagePage() {
 
         {/* 分页 */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t px-6 py-4">
+          <div className="flex items-center justify-between border-t border-border px-6 py-4">
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-lg bg-muted px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/80 disabled:opacity-50"
             >
               <ChevronLeft className="h-4 w-4" />
               上一页
             </button>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               第 {page} / {totalPages} 页
             </span>
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-lg bg-muted px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/80 disabled:opacity-50"
             >
               下一页
               <ChevronRight className="h-4 w-4" />

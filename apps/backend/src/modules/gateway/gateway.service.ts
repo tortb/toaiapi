@@ -293,14 +293,35 @@ export class GatewayService {
 
   /**
    * 估算文本的 Token 数量
-   * 粗略估算：中文约 1.5 token/字，英文约 0.25 token/字符
-   * 简化为：总字符数 / 2
+   *
+   * 启发式估算（适用于流式响应中 Provider 未返回 usage 的场景）：
+   * - CJK 字符：约 1.5 token/字
+   * - ASCII 字母/数字：约 0.25 token/字符（4 字符/token）
+   * - 标点/空格：约 0.5 token/字符
    *
    * @param text - 文本内容
    * @returns 估算的 token 数量
    */
   private estimateTokens(text: string): number {
     if (!text) return 0;
-    return Math.ceil(text.length / 2);
+
+    let cjkCount = 0;
+    let asciiCount = 0;
+    let otherCount = 0;
+
+    for (const char of text) {
+      const code = char.charCodeAt(0);
+      // CJK 统一表意文字 + 扩展
+      if (code >= 0x4e00 && code <= 0x9fff) {
+        cjkCount++;
+      } else if (code >= 0x0020 && code <= 0x007e) {
+        // ASCII 可打印字符
+        asciiCount++;
+      } else {
+        otherCount++;
+      }
+    }
+
+    return Math.ceil(cjkCount * 1.5 + asciiCount * 0.25 + otherCount * 0.5);
   }
 }

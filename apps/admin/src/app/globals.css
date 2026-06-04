@@ -1,52 +1,139 @@
 @import "tailwindcss";
 
-/* 深色模式优先 */
+/*
+ * ToAIAPI Admin — 统一暗色主题
+ * 风格：60% Linear + 20% Stripe + 20% Vercel
+ * 深色模式优先，HSL 格式兼容 shadcn/ui
+ */
+
+/* ──────────────────────────────────────────────
+   自定义动画
+   ────────────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ──────────────────────────────────────────────
+   暗色主题变量
+   ────────────────────────────────────────────── */
+
 :root {
-  --background: 222.2 84% 4.9%;
+  /* 背景 */
+  --background: 224 71% 4%;
   --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
+
+  /* 卡片 */
+  --card: 224 71% 4%;
   --card-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
+
+  /* 主色 — 蓝色（品牌色） */
+  --primary: 217 91% 60%;
+  --primary-foreground: 210 40% 98%;
+
+  /* 次要色 */
+  --secondary: 215 28% 17%;
   --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
+
+  /* 静音色 */
+  --muted: 215 28% 17%;
+  --muted-foreground: 215 20% 55%;
+
+  /* 强调色 */
+  --accent: 215 28% 17%;
   --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
+
+  /* 危险色 */
+  --destructive: 0 72% 51%;
   --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+
+  /* 成功色 */
+  --success: 160 84% 39%;
+  --success-foreground: 210 40% 98%;
+
+  /* 警告色 */
+  --warning: 38 92% 50%;
+  --warning-foreground: 210 40% 98%;
+
+  /* 边框/输入 */
+  --border: 215 28% 17%;
+  --input: 215 28% 17%;
+  --ring: 217 91% 60%;
+
+  /* 圆角 */
   --radius: 0.5rem;
 }
 
-.light {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-}
+/* ──────────────────────────────────────────────
+   全局基础样式
+   ────────────────────────────────────────────── */
 
 * {
-  border-color: var(--border);
+  border-color: hsl(var(--border));
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ──────────────────────────────────────────────
+   动画工具类
+   ────────────────────────────────────────────── */
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, hsl(var(--muted)) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ──────────────────────────────────────────────
+   自定义滚动条
+   ────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
 }

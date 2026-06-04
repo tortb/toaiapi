@@ -1,6 +1,6 @@
 {
   "name": "@toai/gateway",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "ToAIAPI Gateway Core",
   "main": "./dist/index.js",

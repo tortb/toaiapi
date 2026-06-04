@@ -3,10 +3,12 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import * as argon2 from 'argon2';
+import { isIPv4 } from 'net';
 
 /**
  * API Key 认证守卫
@@ -49,7 +51,7 @@ export class ApiKeyAuthGuard implements CanActivate {
     // 尝试从 Redis 获取 key ID
     const cachedKeyId = await this.redis.get(cacheKey);
 
-    let keyRecord: { id: string; key_hash: string; user_id: string; name: string | null; is_active: boolean; expires_at: Date | null; rate_limit: number | null; token_limit: number | null; model_limit: string[] } | null = null;
+    let keyRecord: { id: string; key_hash: string; user_id: string; name: string | null; is_active: boolean; expires_at: Date | null; rate_limit: number | null; token_limit: number | null; model_limit: string[]; ip_whitelist: string[] } | null = null;
 
     if (cachedKeyId) {
       keyRecord = await this.prisma.apiKey.findUnique({
@@ -64,6 +66,7 @@ export class ApiKeyAuthGuard implements CanActivate {
           rate_limit: true,
           token_limit: true,
           model_limit: true,
+          ip_whitelist: true,
         },
       });
     }
@@ -82,6 +85,7 @@ export class ApiKeyAuthGuard implements CanActivate {
           rate_limit: true,
           token_limit: true,
           model_limit: true,
+          ip_whitelist: true,
         },
       });
 
@@ -111,6 +115,14 @@ export class ApiKeyAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid API key');
     }
 
+    // SECURITY: 检查 IP 白名单
+    if (keyRecord.ip_whitelist && keyRecord.ip_whitelist.length > 0) {
+      const clientIp = this.extractClientIp(request);
+      if (!this.isIpWhitelisted(clientIp, keyRecord.ip_whitelist)) {
+        throw new ForbiddenException(`IP ${clientIp} is not allowed by this API key's whitelist`);
+      }
+    }
+
     // 将 key 信息附加到请求
     request['apiKey'] = {
       id: keyRecord.id,
@@ -119,6 +131,7 @@ export class ApiKeyAuthGuard implements CanActivate {
       rateLimit: keyRecord.rate_limit,
       tokenLimit: keyRecord.token_limit,
       modelLimit: keyRecord.model_limit,
+      ipWhitelist: keyRecord.ip_whitelist,
     };
 
     return true;
@@ -146,5 +159,70 @@ export class ApiKeyAuthGuard implements CanActivate {
     }
 
     return null;
+  }
+
+  /**
+   * 提取客户端真实 IP
+   * SECURITY: 优先使用 X-Forwarded-For（反向代理场景）
+   */
+  private extractClientIp(request: Record<string, unknown>): string {
+    const headers = request['headers'] as Record<string, string | string[]>;
+
+    // X-Forwarded-For 可能包含多个 IP，取第一个（最接近客户端的）
+    const forwarded = headers['x-forwarded-for'];
+    if (typeof forwarded === 'string') {
+      const firstIp = forwarded.split(',')[0]?.trim();
+      if (firstIp) return firstIp;
+    }
+
+    // X-Real-IP（Nginx 常用）
+    const realIp = headers['x-real-ip'];
+    if (typeof realIp === 'string') return realIp;
+
+    // Fastify 默认的 IP
+    return (request['ip'] as string) || '127.0.0.1';
+  }
+
+  /**
+   * 检查 IP 是否在白名单中
+   * 支持精确匹配和 CIDR 表示法（如 10.0.0.0/24）
+   */
+  private isIpWhitelisted(clientIp: string, whitelist: string[]): boolean {
+    for (const entry of whitelist) {
+      if (entry.includes('/')) {
+        // CIDR 表示法
+        if (this.isIpInCidr(clientIp, entry)) return true;
+      } else {
+        // 精确匹配
+        if (clientIp === entry) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 检查 IPv4 地址是否在 CIDR 范围内
+   */
+  private isIpInCidr(ip: string, cidr: string): boolean {
+    const [network, prefixStr] = cidr.split('/');
+    if (!network || !prefixStr) return false;
+
+    const prefix = parseInt(prefixStr, 10);
+    if (!isIPv4(ip) || !isIPv4(network) || isNaN(prefix) || prefix < 0 || prefix > 32) {
+      return false;
+    }
+
+    const ipNum = this.ipv4ToNumber(ip);
+    const networkNum = this.ipv4ToNumber(network);
+    const mask = (~0 << (32 - prefix)) >>> 0;
+
+    return (ipNum & mask) === (networkNum & mask);
+  }
+
+  /**
+   * IPv4 地址转 32 位整数
+   */
+  private ipv4ToNumber(ip: string): number {
+    return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
   }
 }

@@ -36,17 +36,17 @@ export default function RegisterPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">注册</h2>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <h2 className="text-xl font-semibold text-white">注册</h2>
 
       {error && (
-        <div className="rounded-md bg-red-50 p-4 text-sm text-red-600">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
           {error}
         </div>
       )}
 
       <div>
-        <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="displayName" className="block text-sm font-medium text-white/60">
           显示名称（可选）
         </label>
         <input
@@ -54,13 +54,13 @@ export default function RegisterPage() {
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-white/[0.1] bg-white/[0.05] px-3 py-2 text-sm text-white placeholder:text-white/20 transition-all duration-200 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           placeholder="John Doe"
         />
       </div>
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="block text-sm font-medium text-white/60">
           邮箱
         </label>
         <input
@@ -69,13 +69,13 @@ export default function RegisterPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-white/[0.1] bg-white/[0.05] px-3 py-2 text-sm text-white placeholder:text-white/20 transition-all duration-200 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           placeholder="your@email.com"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block text-sm font-medium text-white/60">
           密码
         </label>
         <input
@@ -85,7 +85,7 @@ export default function RegisterPage() {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={8}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-white/[0.1] bg-white/[0.05] px-3 py-2 text-sm text-white placeholder:text-white/20 transition-all duration-200 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           placeholder="至少8位，包含大小写字母和数字"
         />
       </div>
@@ -93,14 +93,14 @@ export default function RegisterPage() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+        className="w-full rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
       >
         {loading ? '注册中...' : '注册'}
       </button>
 
-      <p className="text-center text-sm text-gray-600">
+      <p className="text-center text-sm text-white/30">
         已有账号？{' '}
-        <Link href="/login" className="text-blue-600 hover:text-blue-500">
+        <Link href="/login" className="text-blue-400 hover:text-blue-300">
           登录
         </Link>
       </p>
