@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -34,8 +35,9 @@ interface FastifyRequest {
 interface FastifyReply {
   raw: {
     setHeader(name: string, value: string): void;
-    write(chunk: string): void;
+    write(chunk: string): boolean;
     end(): void;
+    on(event: string, listener: (...args: unknown[]) => void): void;
   };
   send(data: unknown): void;
 }
@@ -51,6 +53,8 @@ interface FastifyReply {
 @ApiTags('Gateway')
 @Controller()
 export class GatewayController {
+  private readonly logger = new Logger(GatewayController.name);
+
   constructor(
     private readonly gatewayService: GatewayService,
     private readonly channelService: ChannelService,
@@ -62,6 +66,7 @@ export class GatewayController {
    * POST /v1/chat/completions
    *
    * 支持同步和流式两种模式。
+   * SECURITY: 流式模式下捕获所有错误，确保发送 [DONE] 标记
    */
   @Post('v1/chat/completions')
   @UseGuards(ThrottlerGuard, ApiKeyAuthGuard)
@@ -106,18 +111,63 @@ export class GatewayController {
       reply.raw.setHeader('Cache-Control', 'no-cache');
       reply.raw.setHeader('Connection', 'keep-alive');
 
-      const stream = this.gatewayService.handleChatCompletionStream(
-        chatRequest,
-        apiKey,
-        request.url,
-      );
+      // SECURITY: 监听客户端断开连接
+      let clientDisconnected = false;
+      reply.raw.on('close', () => {
+        clientDisconnected = true;
+      });
 
-      for await (const chunk of stream) {
-        reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      try {
+        const stream = this.gatewayService.handleChatCompletionStream(
+          chatRequest,
+          apiKey,
+          request.url,
+        );
+
+        for await (const chunk of stream) {
+          // SECURITY: 客户端已断开则停止写入
+          if (clientDisconnected) {
+            this.logger.warn('Client disconnected during stream, stopping');
+            break;
+          }
+
+          try {
+            reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
+          } catch (writeError) {
+            this.logger.warn(`SSE write error: ${writeError}`);
+            break;
+          }
+        }
+
+        // SECURITY: 确保发送 [DONE] 标记
+        if (!clientDisconnected) {
+          try {
+            reply.raw.write('data: [DONE]\n\n');
+            reply.raw.end();
+          } catch (endError) {
+            this.logger.warn(`SSE end error: ${endError}`);
+          }
+        }
+      } catch (streamError) {
+        // SECURITY: 流式处理出错时，发送错误信息并确保 [DONE]
+        this.logger.error(`Stream error: ${streamError}`);
+        if (!clientDisconnected) {
+          try {
+            const errorChunk = {
+              error: {
+                message: streamError instanceof Error ? streamError.message : 'Stream processing error',
+                type: 'server_error',
+                code: 500,
+              },
+            };
+            reply.raw.write(`data: ${JSON.stringify(errorChunk)}\n\n`);
+            reply.raw.write('data: [DONE]\n\n');
+            reply.raw.end();
+          } catch {
+            // 客户端可能已断开，忽略写入错误
+          }
+        }
       }
-
-      reply.raw.write('data: [DONE]\n\n');
-      reply.raw.end();
       return;
     }
 

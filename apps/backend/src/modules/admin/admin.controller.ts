@@ -20,6 +20,7 @@ import {
   ApiCreatedResponse,
   ApiNoContentResponse,
 } from '@nestjs/swagger';
+import { UserRole, UserStatus } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -206,8 +207,8 @@ export class AdminController {
   @ApiOkResponse()
   async listUsers(
     @Query() pagination: PaginationDto,
-    @Query('role') role?: string,
-    @Query('status') status?: string,
+    @Query('role') role?: UserRole,
+    @Query('status') status?: UserStatus,
   ) {
     return this.adminService.listUsers(pagination.page, pagination.pageSize, role, status);
   }
@@ -228,7 +229,7 @@ export class AdminController {
     @Body() dto: UpdateUserRoleDto,
     @CurrentUser() operator: CurrentUserInfo,
   ) {
-    return this.adminService.updateUserRole(id, dto, operator.role);
+    return this.adminService.updateUserRole(id, dto, operator.role as UserRole, operator.id);
   }
 
   @Patch('users/:id/status')

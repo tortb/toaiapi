@@ -1,6 +1,7 @@
 import {
   Injectable,
   ConflictException,
+  BadRequestException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -10,12 +11,15 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserEntity, userFromPrisma } from './entities/user.entity';
 import { hashPassword, validatePasswordStrength } from '@toai/auth';
+import { maskEmail } from '@toai/common';
 
 /**
  * 用户业务服务
  *
  * 处理用户相关的业务逻辑。
  * 通过 UserRepository 访问数据库。
+ * SECURITY: 日志中使用 maskEmail 脱敏邮箱
+ * SECURITY: findByEmail 返回脱敏实体，不暴露 password_hash
  */
 @Injectable()
 export class UserService {
@@ -26,21 +30,23 @@ export class UserService {
   /**
    * 创建用户（注册）
    *
-   * @throws {ConflictException} 邮箱已注册
-   * @throws {Error} 密码强度不足
+   * @param dto - 创建用户数据
+   * @returns 脱敏后的用户实体
+   * @throws ConflictException 邮箱已注册
+   * @throws BadRequestException 密码强度不足
    */
   async createUser(dto: CreateUserDto): Promise<UserEntity> {
     // 检查邮箱是否已注册
     const exists = await this.userRepo.existsByEmail(dto.email);
     if (exists) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException('该邮箱已被注册');
     }
 
     // 验证密码强度
     const passwordValidation = validatePasswordStrength(dto.password);
     if (!passwordValidation.valid) {
-      throw new ConflictException(
-        `Password does not meet requirements: ${passwordValidation.errors.join(', ')}`,
+      throw new BadRequestException(
+        `密码不符合要求: ${passwordValidation.errors.join(', ')}`,
       );
     }
 
@@ -54,7 +60,8 @@ export class UserService {
       display_name: dto.displayName,
     });
 
-    this.logger.log(`User created: ${user.id} (${user.email})`);
+    // SECURITY: 日志中脱敏邮箱
+    this.logger.log(`User created: ${user.id} (${maskEmail(user.email)})`);
 
     return userFromPrisma(user);
   }
@@ -62,29 +69,38 @@ export class UserService {
   /**
    * 根据 ID 查找用户
    *
-   * @throws {NotFoundException} 用户不存在
+   * @param id - 用户 ID
+   * @returns 脱敏后的用户实体
+   * @throws NotFoundException 用户不存在
    */
   async findById(id: string): Promise<UserEntity> {
     const user = await this.userRepo.findById(id);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('用户不存在');
     }
     return userFromPrisma(user);
   }
 
   /**
    * 根据邮箱查找用户
+   * SECURITY: 返回脱敏实体，不暴露 password_hash
    *
-   * @returns 用户实体或 null
+   * @param email - 用户邮箱
+   * @returns 脱敏后的用户实体或 null
    */
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userRepo.findByEmail(email);
+  async findByEmail(email: string): Promise<UserEntity | null> {
+    const user = await this.userRepo.findByEmail(email);
+    if (!user) return null;
+    return userFromPrisma(user);
   }
 
   /**
    * 更新用户信息
    *
-   * @throws {NotFoundException} 用户不存在
+   * @param id - 用户 ID
+   * @param dto - 更新数据
+   * @returns 脱敏后的用户实体
+   * @throws NotFoundException 用户不存在
    */
   async updateUser(id: string, dto: UpdateUserDto): Promise<UserEntity> {
     // 检查用户是否存在
@@ -103,7 +119,8 @@ export class UserService {
   /**
    * 软删除用户
    *
-   * @throws {NotFoundException} 用户不存在
+   * @param id - 用户 ID
+   * @throws NotFoundException 用户不存在
    */
   async deleteUser(id: string): Promise<void> {
     await this.findById(id);

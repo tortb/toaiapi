@@ -4,8 +4,11 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
+import { UserRole, UserStatus, Prisma } from '@prisma/client';
 import { AdminRepository } from './admin.repository';
+import { encrypt, decrypt, maskApiKey } from '../../common/utils/crypto.util';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
 import { CreateChannelDto } from './dto/create-channel.dto';
@@ -25,6 +28,7 @@ import type { PaginatedResult } from '../../common/dto/pagination.dto';
  *
  * 职责：Provider / Channel / Model / User 的管理操作。
  * 所有方法仅由 AdminController 调用，需 admin 角色。
+ * SECURITY: Channel API Key 使用 AES-256-GCM 加密存储
  */
 @Injectable()
 export class AdminService {
@@ -36,6 +40,9 @@ export class AdminService {
   // Provider 管理
   // ──────────────────────────────────────────────
 
+  /**
+   * 查询 Provider 列表（分页）
+   */
   async listProviders(page: number, pageSize: number): Promise<PaginatedResult<ProviderResponseDto>> {
     const skip = (page - 1) * pageSize;
     const { items, total } = await this.adminRepo.findProviders({ skip, take: pageSize });
@@ -49,6 +56,9 @@ export class AdminService {
     };
   }
 
+  /**
+   * 获取 Provider 详情
+   */
   async getProvider(id: string): Promise<ProviderResponseDto> {
     const provider = await this.adminRepo.findProviderById(id);
     if (!provider) {
@@ -57,6 +67,9 @@ export class AdminService {
     return this.toProviderResponse(provider);
   }
 
+  /**
+   * 创建 Provider
+   */
   async createProvider(dto: CreateProviderDto): Promise<ProviderResponseDto> {
     const existing = await this.adminRepo.findProviderByName(dto.name);
     if (existing) {
@@ -74,6 +87,9 @@ export class AdminService {
     return this.toProviderResponse(provider);
   }
 
+  /**
+   * 更新 Provider
+   */
   async updateProvider(id: string, dto: UpdateProviderDto): Promise<ProviderResponseDto> {
     const existing = await this.adminRepo.findProviderById(id);
     if (!existing) {
@@ -90,6 +106,10 @@ export class AdminService {
     return this.toProviderResponse(provider);
   }
 
+  /**
+   * 删除 Provider
+   * 有关联 Channel 时拒绝删除
+   */
   async deleteProvider(id: string): Promise<void> {
     const provider = await this.adminRepo.findProviderById(id);
     if (!provider) {
@@ -110,6 +130,9 @@ export class AdminService {
   // Channel 管理
   // ──────────────────────────────────────────────
 
+  /**
+   * 查询 Channel 列表（分页）
+   */
   async listChannels(
     page: number,
     pageSize: number,
@@ -128,6 +151,9 @@ export class AdminService {
     };
   }
 
+  /**
+   * 获取 Channel 详情
+   */
   async getChannel(id: string): Promise<ChannelResponseDto> {
     const channel = await this.adminRepo.findChannelById(id);
     if (!channel) {
@@ -136,43 +162,61 @@ export class AdminService {
     return this.toChannelResponse(channel);
   }
 
+  /**
+   * 创建 Channel
+   * SECURITY: API Key 使用 AES-256-GCM 加密后存储
+   *
+   * @param dto - 创建 Channel 数据
+   * @returns Channel 响应（API Key 已脱敏）
+   */
   async createChannel(dto: CreateChannelDto): Promise<ChannelResponseDto> {
     const provider = await this.adminRepo.findProviderById(dto.providerId);
     if (!provider) {
       throw new NotFoundException('Provider not found');
     }
 
+    // SECURITY: 加密 API Key 后存储
+    const encryptedApiKey = encrypt(dto.apiKey);
+
     const channel = await this.adminRepo.createChannel({
       provider: { connect: { id: dto.providerId } },
       name: dto.name,
       base_url: dto.baseUrl,
-      api_key: dto.apiKey,
+      api_key: encryptedApiKey,
       weight: dto.weight ?? 1,
       priority: dto.priority ?? 0,
     });
 
     this.logger.log(`Channel created: ${channel.id} (${channel.name}) under provider ${provider.name}`);
-    return this.toChannelResponse(channel);
+    return this.toChannelResponse(channel, dto.apiKey);
   }
 
+  /**
+   * 更新 Channel
+   * SECURITY: API Key 使用 AES-256-GCM 加密后存储
+   */
   async updateChannel(id: string, dto: UpdateChannelDto): Promise<ChannelResponseDto> {
     const existing = await this.adminRepo.findChannelById(id);
     if (!existing) {
       throw new NotFoundException('Channel not found');
     }
 
-    const channel = await this.adminRepo.updateChannel(id, {
-      ...(dto.name !== undefined && { name: dto.name }),
-      ...(dto.baseUrl !== undefined && { base_url: dto.baseUrl }),
-      ...(dto.apiKey !== undefined && { api_key: dto.apiKey }),
-      ...(dto.weight !== undefined && { weight: dto.weight }),
-      ...(dto.priority !== undefined && { priority: dto.priority }),
-    });
+    const updateData: Record<string, unknown> = {};
+    if (dto.name !== undefined) updateData['name'] = dto.name;
+    if (dto.baseUrl !== undefined) updateData['base_url'] = dto.baseUrl;
+    if (dto.apiKey !== undefined) updateData['api_key'] = encrypt(dto.apiKey);
+    if (dto.weight !== undefined) updateData['weight'] = dto.weight;
+    if (dto.priority !== undefined) updateData['priority'] = dto.priority;
+
+    const channel = await this.adminRepo.updateChannel(id, updateData);
 
     this.logger.log(`Channel updated: ${id}`);
-    return this.toChannelResponse(channel);
+    return this.toChannelResponse(channel, dto.apiKey);
   }
 
+  /**
+   * 启用 Channel
+   */
   async enableChannel(id: string): Promise<ChannelResponseDto> {
     const existing = await this.adminRepo.findChannelById(id);
     if (!existing) {
@@ -184,6 +228,9 @@ export class AdminService {
     return this.toChannelResponse(channel);
   }
 
+  /**
+   * 禁用 Channel
+   */
   async disableChannel(id: string): Promise<ChannelResponseDto> {
     const existing = await this.adminRepo.findChannelById(id);
     if (!existing) {
@@ -195,6 +242,9 @@ export class AdminService {
     return this.toChannelResponse(channel);
   }
 
+  /**
+   * 删除 Channel
+   */
   async deleteChannel(id: string): Promise<void> {
     const existing = await this.adminRepo.findChannelById(id);
     if (!existing) {
@@ -209,6 +259,9 @@ export class AdminService {
   // Model 管理
   // ──────────────────────────────────────────────
 
+  /**
+   * 查询 Model 列表（分页）
+   */
   async listModels(page: number, pageSize: number): Promise<PaginatedResult<ModelResponseDto>> {
     const skip = (page - 1) * pageSize;
     const { items, total } = await this.adminRepo.findModels({ skip, take: pageSize });
@@ -222,6 +275,9 @@ export class AdminService {
     };
   }
 
+  /**
+   * 获取 Model 详情
+   */
   async getModel(id: string): Promise<ModelResponseDto> {
     const model = await this.adminRepo.findModelById(id);
     if (!model) {
@@ -230,6 +286,9 @@ export class AdminService {
     return this.toModelResponse(model);
   }
 
+  /**
+   * 创建 Model
+   */
   async createModel(dto: CreateModelDto): Promise<ModelResponseDto> {
     const existing = await this.adminRepo.findModelByName(dto.name);
     if (existing) {
@@ -250,6 +309,9 @@ export class AdminService {
     return this.toModelResponse(model);
   }
 
+  /**
+   * 更新 Model
+   */
   async updateModel(id: string, dto: UpdateModelDto): Promise<ModelResponseDto> {
     const existing = await this.adminRepo.findModelById(id);
     if (!existing) {
@@ -269,6 +331,9 @@ export class AdminService {
     return this.toModelResponse(model);
   }
 
+  /**
+   * 删除 Model
+   */
   async deleteModel(id: string): Promise<void> {
     const existing = await this.adminRepo.findModelById(id);
     if (!existing) {
@@ -279,6 +344,9 @@ export class AdminService {
     this.logger.log(`Model deleted: ${id} (${existing.name})`);
   }
 
+  /**
+   * 更新或创建 Model 定价
+   */
   async upsertPricing(modelId: string, dto: UpsertPricingDto): Promise<ModelResponseDto> {
     const model = await this.adminRepo.findModelById(modelId);
     if (!model) {
@@ -295,21 +363,33 @@ export class AdminService {
 
     this.logger.log(`Pricing updated for model: ${modelId} (${model.name})`);
     const updated = await this.adminRepo.findModelById(modelId);
-    return this.toModelResponse(updated!);
+    if (!updated) {
+      throw new NotFoundException('Model not found after pricing update');
+    }
+    return this.toModelResponse(updated);
   }
 
   // ──────────────────────────────────────────────
   // User 管理
   // ──────────────────────────────────────────────
 
+  /**
+   * 查询用户列表（分页）
+   * SECURITY: role 和 status 参数使用 Prisma 枚举类型校验
+   *
+   * @param page - 页码
+   * @param pageSize - 每页数量
+   * @param role - 角色筛选（UserRole 枚举值）
+   * @param status - 状态筛选（UserStatus 枚举值）
+   */
   async listUsers(
     page: number,
     pageSize: number,
-    role?: string,
-    status?: string,
+    role?: UserRole,
+    status?: UserStatus,
   ): Promise<PaginatedResult<Record<string, unknown>>> {
     const skip = (page - 1) * pageSize;
-    const where: Record<string, unknown> = {};
+    const where: Prisma.UserWhereInput = {};
     if (role) where['role'] = role;
     if (status) where['status'] = status;
 
@@ -332,6 +412,9 @@ export class AdminService {
     };
   }
 
+  /**
+   * 获取用户详情（含余额和统计）
+   */
   async getUser(id: string): Promise<Record<string, unknown>> {
     const user = await this.adminRepo.findUserById(id);
     if (!user) {
@@ -358,10 +441,16 @@ export class AdminService {
     };
   }
 
+  /**
+   * 更新用户角色
+   * SECURITY: 仅 SUPER_ADMIN 可修改角色
+   * SECURITY: 使用 Prisma 枚举类型，移除 `as never` 断言
+   */
   async updateUserRole(
     id: string,
     dto: UpdateUserRoleDto,
-    operatorRole: string,
+    operatorRole: UserRole,
+    operatorId?: string,
   ): Promise<Record<string, unknown>> {
     const user = await this.adminRepo.findUserById(id);
     if (!user) {
@@ -369,14 +458,16 @@ export class AdminService {
     }
 
     // 仅 super_admin 可修改角色
-    if (operatorRole !== 'SUPER_ADMIN') {
+    if (operatorRole !== UserRole.SUPER_ADMIN) {
       throw new ForbiddenException('Only super_admin can modify user roles');
     }
 
     // 不允许修改自己的角色
-    // （由 Controller 层传入 operatorId 进行校验，此处简化处理）
+    if (operatorId && id === operatorId) {
+      throw new ForbiddenException('Cannot modify your own role');
+    }
 
-    const updated = await this.adminRepo.updateUserRole(id, dto.role);
+    const updated = await this.adminRepo.updateUserRole(id, dto.role as UserRole);
     this.logger.log(`User role updated: ${id} -> ${dto.role}`);
 
     return {
@@ -386,6 +477,11 @@ export class AdminService {
     };
   }
 
+  /**
+   * 更新用户状态
+   * SECURITY: 不允许禁用自己
+   * SECURITY: 使用 Prisma 枚举类型
+   */
   async updateUserStatus(
     id: string,
     dto: UpdateUserStatusDto,
@@ -401,7 +497,7 @@ export class AdminService {
       throw new ForbiddenException('Cannot modify your own status');
     }
 
-    const updated = await this.adminRepo.updateUserStatus(id, dto.status);
+    const updated = await this.adminRepo.updateUserStatus(id, dto.status as UserStatus);
     this.logger.log(`User status updated: ${id} -> ${dto.status}${dto.reason ? ` (${dto.reason})` : ''}`);
 
     return {
@@ -415,6 +511,9 @@ export class AdminService {
   // 响应转换（snake_case -> camelCase）
   // ──────────────────────────────────────────────
 
+  /**
+   * Provider 响应转换
+   */
   private toProviderResponse(provider: Record<string, unknown>): ProviderResponseDto {
     return {
       id: provider['id'] as string,
@@ -428,8 +527,17 @@ export class AdminService {
     };
   }
 
-  private toChannelResponse(channel: Record<string, unknown>): ChannelResponseDto {
-    const apiKey = channel['api_key'] as string;
+  /**
+   * Channel 响应转换
+   * SECURITY: API Key 脱敏显示，不暴露原始密钥
+   *
+   * @param channel - 数据库记录
+   * @param plainApiKey - 明文 API Key（仅创建/更新时传入）
+   */
+  private toChannelResponse(channel: Record<string, unknown>, plainApiKey?: string): ChannelResponseDto {
+    // 用于脱敏显示的 API Key
+    const displayKey = plainApiKey || (channel['api_key'] as string) || '';
+
     return {
       id: channel['id'] as string,
       providerId: channel['provider_id'] as string,
@@ -440,7 +548,7 @@ export class AdminService {
       } : undefined,
       name: channel['name'] as string,
       baseUrl: channel['base_url'] as string,
-      keyPrefix: apiKey ? `${apiKey.slice(0, 8)}****` : '',
+      keyPrefix: maskApiKey(displayKey),
       weight: channel['weight'] as number,
       priority: channel['priority'] as number,
       isActive: channel['is_active'] as boolean,
@@ -454,6 +562,9 @@ export class AdminService {
     };
   }
 
+  /**
+   * Model 响应转换
+   */
   private toModelResponse(model: Record<string, unknown>): ModelResponseDto {
     const pricing = model['pricing'] as Record<string, unknown> | null;
     return {

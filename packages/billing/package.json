@@ -1,6 +1,6 @@
 {
   "name": "@toai/billing",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "ToAIAPI Billing Core",
   "main": "./dist/index.js",

@@ -9,6 +9,7 @@ import {
   ProviderAdapter,
   ProviderConfig,
 } from '../providers/provider-adapter.interface';
+import { decrypt } from '../../../common/utils/crypto.util';
 
 /**
  * 渠道选择结果
@@ -30,6 +31,8 @@ export interface ChannelSelectionResult {
  * 1. 按优先级降序排列
  * 2. 在最高优先级中按权重随机选择
  * 3. 失败时自动尝试下一个渠道
+ *
+ * SECURITY: 数据库中存储的是加密的 API Key，使用时需解密
  */
 @Injectable()
 export class ChannelService {
@@ -39,10 +42,11 @@ export class ChannelService {
 
   /**
    * 选择渠道并创建适配器
+   * SECURITY: 从数据库读取加密的 API Key，解密后传给适配器
    *
    * @param modelName - 模型名称
    * @returns 渠道选择结果
-   * @throws {NotFoundException} 没有可用渠道
+   * @throws 没有可用渠道
    */
   async selectChannel(modelName: string): Promise<ChannelSelectionResult> {
     const channels = await this.channelRepo.findAvailableChannels(modelName);
@@ -69,10 +73,13 @@ export class ChannelService {
       throw new NotFoundException(`No available channel for model: ${modelName}`);
     }
 
+    // SECURITY: 解密 API Key
+    const decryptedApiKey = this.decryptChannelApiKey(selected.channel.api_key);
+
     // 创建适配器
     const config: ProviderConfig = {
       baseUrl: selected.channel.base_url,
-      apiKey: selected.channel.api_key,
+      apiKey: decryptedApiKey,
     };
 
     const adapter = ProviderAdapterFactory.create(
@@ -84,13 +91,14 @@ export class ChannelService {
       channelId: selected.channel.id,
       providerName: selected.channel.provider.name,
       baseUrl: selected.channel.base_url,
-      apiKey: selected.channel.api_key,
+      apiKey: decryptedApiKey,
       adapter,
     };
   }
 
   /**
    * 选择渠道（带故障转移）
+   * SECURITY: 从数据库读取加密的 API Key，解密后传给适配器
    *
    * @param modelName - 模型名称
    * @returns 渠道选择结果列表（用于故障转移）
@@ -111,9 +119,12 @@ export class ChannelService {
 
     for (const channelModel of channels) {
       try {
+        // SECURITY: 解密 API Key
+        const decryptedApiKey = this.decryptChannelApiKey(channelModel.channel.api_key);
+
         const config: ProviderConfig = {
           baseUrl: channelModel.channel.base_url,
-          apiKey: channelModel.channel.api_key,
+          apiKey: decryptedApiKey,
         };
 
         const adapter = ProviderAdapterFactory.create(
@@ -125,7 +136,7 @@ export class ChannelService {
           channelId: channelModel.channel.id,
           providerName: channelModel.channel.provider.name,
           baseUrl: channelModel.channel.base_url,
-          apiKey: channelModel.channel.api_key,
+          apiKey: decryptedApiKey,
           adapter,
         });
       } catch (error) {
@@ -165,6 +176,23 @@ export class ChannelService {
   }
 
   /**
+   * 解密 Channel API Key
+   * SECURITY: 兼容处理未加密的历史数据（明文）
+   *
+   * @param encryptedApiKey - 加密的 API Key（Base64 格式）
+   * @returns 解密后的明文 API Key
+   */
+  private decryptChannelApiKey(encryptedApiKey: string): string {
+    try {
+      return decrypt(encryptedApiKey);
+    } catch {
+      // 兼容：如果解密失败，可能是未加密的历史数据
+      this.logger.warn('API Key 解密失败，可能是未加密的历史数据，按明文处理');
+      return encryptedApiKey;
+    }
+  }
+
+  /**
    * 按权重随机选择
    */
   private selectByWeight<T extends { channel: { weight: number } }>(
@@ -178,6 +206,10 @@ export class ChannelService {
       (sum, item) => sum + item.channel.weight,
       0,
     );
+
+    if (totalWeight === 0) {
+      return items[0];
+    }
 
     let random = Math.random() * totalWeight;
 

@@ -14,6 +14,10 @@ datasource db {
 // 用户系统
 // ============================================================
 
+/// 用户表
+/// 存储所有用户信息，支持邮箱/密码登录和 OAuth（GitHub/Google/微信）
+/// SECURITY: password_hash 使用 Argon2id 算法
+/// 支持软删除（deleted_at 字段）
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -67,6 +71,8 @@ enum UserStatus {
 // 余额系统
 // ============================================================
 
+/// 用户余额表（一对一）
+/// 所有金额单位：分（fen），1 元 = 100 分
 model UserBalance {
   id         String   @id @default(cuid())
   user_id    String   @unique
@@ -81,6 +87,8 @@ model UserBalance {
   updated_at DateTime @updatedAt
 }
 
+/// 交易流水表
+/// 记录所有余额变动，支持审计和对账
 model UserTransaction {
   id            String          @id @default(cuid())
   user_id       String
@@ -113,6 +121,9 @@ enum TransactionType {
 // API Key 系统
 // ============================================================
 
+/// API Key 表
+/// SECURITY: key_hash 使用 Argon2id 哈希，不存储明文
+/// key_prefix 存储前 16 字符用于列表展示
 model ApiKey {
   id          String    @id @default(cuid())
   user_id     String
@@ -144,6 +155,8 @@ model ApiKey {
 // 模型系统
 // ============================================================
 
+/// AI 模型定义表
+/// 存储支持的 AI 模型及其能力（流式/工具/视觉）
 model Model {
   id              String    @id @default(cuid())
   name            String    @unique  // 'claude-sonnet-4', 'gpt-4o'
@@ -163,6 +176,8 @@ model Model {
   updated_at      DateTime  @updatedAt
 }
 
+/// 模型定价表（一对一）
+/// 价格单位：分/百万 Token
 model ModelPricing {
   id              String   @id @default(cuid())
   model_id        String   @unique
@@ -184,6 +199,7 @@ model ModelPricing {
 // 渠道系统
 // ============================================================
 
+/// AI 服务商表（如 OpenAI、Anthropic、Google）
 model Provider {
   id          String    @id @default(cuid())
   name        String    @unique  // 'openai', 'anthropic', 'google'
@@ -197,6 +213,9 @@ model Provider {
   updated_at  DateTime  @updatedAt
 }
 
+/// 渠道表
+/// 每个渠道对应一个 Provider 的一个 API 端点/凭证
+/// SECURITY: api_key 使用 AES-256-GCM 加密存储
 model Channel {
   id           String    @id @default(cuid())
   provider_id  String
@@ -225,6 +244,8 @@ model Channel {
   @@index([provider_id, is_active])
 }
 
+/// 渠道-模型关联表（多对多）
+/// 一个渠道可以支持多个模型，一个模型可以有多个渠道
 model ChannelModel {
   id          String  @id @default(cuid())
   channel_id  String
@@ -249,6 +270,8 @@ enum ChannelStatus {
 // 订单系统
 // ============================================================
 
+/// 订单表
+/// 金额单位：分（fen）
 model Order {
   id           String      @id @default(cuid())
   order_no     String      @unique
@@ -296,6 +319,7 @@ enum PaymentMethod {
 // 支付系统
 // ============================================================
 
+/// 支付记录表（一对一关联 Order）
 model Payment {
   id              String        @id @default(cuid())
   order_id        String        @unique
@@ -329,6 +353,8 @@ enum PaymentStatus {
 // 套餐系统
 // ============================================================
 
+/// 订阅计划表
+/// 定义可用的订阅套餐及其配额和限制
 model SubscriptionPlan {
   id              String   @id @default(cuid())
   name            String   @unique
@@ -352,6 +378,7 @@ model SubscriptionPlan {
   updated_at      DateTime @updatedAt
 }
 
+/// 用户订阅表（一对一）
 model UserSubscription {
   id              String           @id @default(cuid())
   user_id         String           @unique
@@ -391,6 +418,8 @@ enum SubscriptionStatus {
 // 企业系统
 // ============================================================
 
+/// 企业组织表
+/// 支持多租户，一个组织有多个成员
 model Organization {
   id          String   @id @default(cuid())
   name        String
@@ -409,6 +438,9 @@ model Organization {
 // 请求日志
 // ============================================================
 
+/// API 请求日志表
+/// 记录每次 API 调用的详细信息，用于计费审计和使用统计
+/// 注意：不设外键约束，避免高频写入时的锁竞争
 model RequestLog {
   id                String   @id @default(cuid())
   user_id           String

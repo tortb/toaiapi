@@ -65,7 +65,14 @@ function handleAuthFailure(): void {
 // 通用请求方法
 // ──────────────────────────────────────────────
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+/** 最大重试次数（防止无限递归） */
+const MAX_RETRY_COUNT = 1;
+
+/**
+ * 通用请求方法（带 401 自动刷新）
+ * SECURITY: 限制最大重试次数，防止无限递归
+ */
+async function request<T>(path: string, options: RequestInit = {}, retryCount = 0): Promise<T> {
   const token = typeof window !== 'undefined'
     ? localStorage.getItem('admin-access-token')
     : null;
@@ -80,8 +87,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
-  // 401 自动刷新
-  if (response.status === 401 && token) {
+  // 401 自动刷新（限制重试次数）
+  if (response.status === 401 && token && retryCount < MAX_RETRY_COUNT) {
     if (!isRefreshing) {
       isRefreshing = true;
       const refreshed = await refreshAccessToken();
@@ -89,14 +96,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       if (refreshed) {
         refreshQueue.forEach((cb) => cb());
         refreshQueue = [];
-        return request<T>(path, options);
+        return request<T>(path, options, retryCount + 1);
       }
       refreshQueue = [];
       handleAuthFailure();
       throw new Error('会话已过期');
     }
     return new Promise<T>((resolve) => {
-      refreshQueue.push(() => resolve(request<T>(path, options)));
+      refreshQueue.push(() => resolve(request<T>(path, options, retryCount + 1)));
     });
   }
 

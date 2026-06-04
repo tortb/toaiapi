@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, ChannelStatus } from '@prisma/client';
+import { Prisma, UserRole, UserStatus, ChannelStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
  * Admin 数据访问层
  *
  * 封装 Admin 管理所需的数据库操作。
- * Provider/Channel/Model/User 的 CRUD 和聚合查询。
+ * Provider / Channel / Model / User 的 CRUD 和聚合查询。
  */
 @Injectable()
 export class AdminRepository {
@@ -16,6 +16,12 @@ export class AdminRepository {
   // Provider
   // ──────────────────────────────────────────────
 
+  /**
+   * 查询 Provider 列表（分页）
+   *
+   * @param params - 分页和筛选参数
+   * @returns Provider 列表和总数
+   */
   async findProviders(params: { skip?: number; take?: number; where?: Prisma.ProviderWhereInput }) {
     const [items, total] = await Promise.all([
       this.prisma.provider.findMany({
@@ -32,6 +38,9 @@ export class AdminRepository {
     return { items, total };
   }
 
+  /**
+   * 根据 ID 查询 Provider（含关联 Channel）
+   */
   async findProviderById(id: string) {
     return this.prisma.provider.findUnique({
       where: { id },
@@ -43,6 +52,9 @@ export class AdminRepository {
     });
   }
 
+  /**
+   * 根据名称查询 Provider
+   */
   async findProviderByName(name: string) {
     return this.prisma.provider.findUnique({ where: { name } });
   }
@@ -63,6 +75,9 @@ export class AdminRepository {
   // Channel
   // ──────────────────────────────────────────────
 
+  /**
+   * 查询 Channel 列表（分页，含 Provider 和 Model 关联）
+   */
   async findChannels(params: {
     skip?: number;
     take?: number;
@@ -84,6 +99,9 @@ export class AdminRepository {
     return { items, total };
   }
 
+  /**
+   * 根据 ID 查询 Channel（含 Provider 和 Model 详情）
+   */
   async findChannelById(id: string) {
     return this.prisma.channel.findUnique({
       where: { id },
@@ -108,6 +126,13 @@ export class AdminRepository {
     return this.prisma.channel.delete({ where: { id } });
   }
 
+  /**
+   * 设置 Channel 状态
+   *
+   * @param id - Channel ID
+   * @param status - 新状态（使用 Prisma 枚举类型）
+   * @param isActive - 是否激活
+   */
   async setChannelStatus(id: string, status: ChannelStatus, isActive: boolean) {
     return this.prisma.channel.update({
       where: { id },
@@ -119,6 +144,9 @@ export class AdminRepository {
   // Model
   // ──────────────────────────────────────────────
 
+  /**
+   * 查询 Model 列表（分页，含定价）
+   */
   async findModels(params: {
     skip?: number;
     take?: number;
@@ -137,6 +165,9 @@ export class AdminRepository {
     return { items, total };
   }
 
+  /**
+   * 根据 ID 查询 Model（含定价和 Channel 关联）
+   */
   async findModelById(id: string) {
     return this.prisma.model.findUnique({
       where: { id },
@@ -177,6 +208,9 @@ export class AdminRepository {
   // User
   // ──────────────────────────────────────────────
 
+  /**
+   * 查询 User 列表（分页）
+   */
   async findUsers(params: {
     skip?: number;
     take?: number;
@@ -203,6 +237,9 @@ export class AdminRepository {
     return { items, total };
   }
 
+  /**
+   * 根据 ID 查询 User（含余额和统计）
+   */
   async findUserById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
@@ -220,18 +257,32 @@ export class AdminRepository {
     });
   }
 
-  async updateUserRole(id: string, role: string) {
+  /**
+   * 更新用户角色
+   * SECURITY: 使用 Prisma 枚举类型，移除 `as never` 断言
+   *
+   * @param id - 用户 ID
+   * @param role - 新角色（UserRole 枚举值）
+   */
+  async updateUserRole(id: string, role: UserRole) {
     return this.prisma.user.update({
       where: { id },
-      data: { role: role as never },
+      data: { role },
       select: { id: true, email: true, role: true },
     });
   }
 
-  async updateUserStatus(id: string, status: string) {
+  /**
+   * 更新用户状态
+   * SECURITY: 使用 Prisma 枚举类型，移除 `as never` 断言
+   *
+   * @param id - 用户 ID
+   * @param status - 新状态（UserStatus 枚举值）
+   */
+  async updateUserStatus(id: string, status: UserStatus) {
     return this.prisma.user.update({
       where: { id },
-      data: { status: status as never },
+      data: { status },
       select: { id: true, email: true, status: true },
     });
   }
