@@ -11,6 +11,9 @@ import {
   Radio,
   Cpu,
   Users,
+  CreditCard,
+  Mail,
+  Receipt,
   LogOut,
   Menu,
   X,
@@ -22,6 +25,9 @@ const NAV_ITEMS = [
   { href: '/channels', label: '渠道', icon: Radio },
   { href: '/models', label: '模型', icon: Cpu },
   { href: '/users', label: '用户', icon: Users },
+  { href: '/payment-config', label: '支付配置', icon: CreditCard },
+  { href: '/smtp-config', label: '邮件配置', icon: Mail },
+  { href: '/orders', label: '订单管理', icon: Receipt },
 ] as const;
 
 /**

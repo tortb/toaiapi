@@ -18,15 +18,20 @@ import { UpdateModelDto } from './dto/update-model.dto';
 import { UpsertPricingDto } from './dto/upsert-pricing.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
+import { UpdateSmtpConfigDto } from './dto/smtp-config.dto';
 import { ProviderResponseDto } from './dto/provider-response.dto';
 import { ChannelResponseDto } from './dto/channel-response.dto';
 import { ModelResponseDto } from './dto/model-response.dto';
 import type { PaginatedResult } from '../../common/dto/pagination.dto';
+import { PaymentConfigService } from '../../common/services/payment-config.service';
+import { SmtpConfigService } from '../../common/services/smtp-config.service';
+import { EmailService } from '../../common/services/email.service';
 
 /**
  * Admin 管理服务
  *
- * 职责：Provider / Channel / Model / User 的管理操作。
+ * 职责：Provider / Channel / Model / User / PaymentConfig / SmtpConfig 的管理操作。
  * 所有方法仅由 AdminController 调用，需 admin 角色。
  * SECURITY: Channel API Key 使用 AES-256-GCM 加密存储
  */
@@ -34,7 +39,12 @@ import type { PaginatedResult } from '../../common/dto/pagination.dto';
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private readonly adminRepo: AdminRepository) {}
+  constructor(
+    private readonly adminRepo: AdminRepository,
+    private readonly paymentConfigService: PaymentConfigService,
+    private readonly smtpConfigService: SmtpConfigService,
+    private readonly emailService: EmailService,
+  ) {}
 
   // ──────────────────────────────────────────────
   // Provider 管理
@@ -588,5 +598,82 @@ export class AdminService {
       createdAt: model['created_at'] as Date,
       updatedAt: model['updated_at'] as Date,
     };
+  }
+
+  // ──────────────────────────────────────────────
+  // 支付配置管理
+  // ──────────────────────────────────────────────
+
+  /**
+   * 获取所有支付配置
+   */
+  async listPaymentConfigs() {
+    return this.paymentConfigService.findAll();
+  }
+
+  /**
+   * 获取单个支付配置
+   */
+  async getPaymentConfig(name: string) {
+    return this.paymentConfigService.findByName(name);
+  }
+
+  /**
+   * 更新支付配置
+   */
+  async updatePaymentConfig(name: string, dto: UpdatePaymentConfigDto) {
+    return this.paymentConfigService.update(name, dto);
+  }
+
+  /**
+   * 切换支付配置启用状态
+   */
+  async togglePaymentConfig(name: string) {
+    return this.paymentConfigService.toggle(name);
+  }
+
+  // ──────────────────────────────────────────────
+  // SMTP配置管理
+  // ──────────────────────────────────────────────
+
+  /**
+   * 获取SMTP配置
+   */
+  async getSmtpConfig() {
+    return this.smtpConfigService.getConfig();
+  }
+
+  /**
+   * 更新SMTP配置
+   */
+  async updateSmtpConfig(dto: UpdateSmtpConfigDto) {
+    const result = await this.smtpConfigService.update(dto);
+    // 刷新邮件服务
+    await this.emailService.refreshTransporter();
+    return result;
+  }
+
+  /**
+   * 切换SMTP配置启用状态
+   */
+  async toggleSmtpConfig() {
+    const result = await this.smtpConfigService.toggle();
+    // 刷新邮件服务
+    await this.emailService.refreshTransporter();
+    return result;
+  }
+
+  /**
+   * 测试SMTP连接
+   */
+  async testSmtpConnection() {
+    return this.emailService.testConnection();
+  }
+
+  /**
+   * 发送测试邮件
+   */
+  async sendTestEmail(email: string) {
+    return this.emailService.sendTestEmail(email);
   }
 }

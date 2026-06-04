@@ -1,5 +1,6 @@
 import { Module, Global } from '@nestjs/common';
 import { EmailService } from './email.service';
+import { SmtpConfigService } from './smtp-config.service';
 
 /**
  * 邮件模块（全局）
@@ -8,7 +9,7 @@ import { EmailService } from './email.service';
  */
 @Global()
 @Module({
-  providers: [EmailService],
+  providers: [EmailService, SmtpConfigService],
   exports: [EmailService],
 })
 export class EmailModule {}

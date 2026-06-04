@@ -252,4 +252,45 @@ export const api = {
         body: JSON.stringify(data),
       }),
   },
+
+  // 支付配置管理
+  paymentConfigs: {
+    list: () =>
+      request<any[]>('/api/v1/admin/payment-configs'),
+    get: (name: string) =>
+      request<any>(`/api/v1/admin/payment-configs/${name}`),
+    update: (name: string, data: any) =>
+      request<any>(`/api/v1/admin/payment-configs/${name}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    toggle: (name: string) =>
+      request<any>(`/api/v1/admin/payment-configs/${name}/toggle`, {
+        method: 'PATCH',
+      }),
+  },
+
+  // SMTP配置管理
+  smtpConfig: {
+    get: () =>
+      request<any>('/api/v1/admin/smtp-config'),
+    update: (data: any) =>
+      request<any>('/api/v1/admin/smtp-config', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    toggle: () =>
+      request<any>('/api/v1/admin/smtp-config/toggle', {
+        method: 'PATCH',
+      }),
+    testConnection: () =>
+      request<{ success: boolean; message: string }>('/api/v1/admin/smtp-config/test-connection', {
+        method: 'POST',
+      }),
+    sendTest: (email: string) =>
+      request<{ success: boolean; message: string }>('/api/v1/admin/smtp-config/send-test', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+  },
 };

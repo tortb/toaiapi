@@ -39,6 +39,8 @@ import { ModelResponseDto } from './dto/model-response.dto';
 import { UpsertPricingDto } from './dto/upsert-pricing.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
+import { UpdateSmtpConfigDto, SendTestEmailDto } from './dto/smtp-config.dto';
 
 /**
  * Admin 管理控制器
@@ -241,5 +243,79 @@ export class AdminController {
     @CurrentUser() operator: CurrentUserInfo,
   ) {
     return this.adminService.updateUserStatus(id, dto, operator.id);
+  }
+
+  // ──────────────────────────────────────────────
+  // 支付配置管理
+  // ──────────────────────────────────────────────
+
+  @Get('payment-configs')
+  @ApiOperation({ summary: '获取所有支付配置' })
+  @ApiOkResponse()
+  async listPaymentConfigs() {
+    return this.adminService.listPaymentConfigs();
+  }
+
+  @Get('payment-configs/:name')
+  @ApiOperation({ summary: '获取单个支付配置' })
+  @ApiOkResponse()
+  async getPaymentConfig(@Param('name') name: string) {
+    return this.adminService.getPaymentConfig(name);
+  }
+
+  @Put('payment-configs/:name')
+  @ApiOperation({ summary: '更新支付配置' })
+  @ApiOkResponse()
+  async updatePaymentConfig(
+    @Param('name') name: string,
+    @Body() dto: UpdatePaymentConfigDto,
+  ) {
+    return this.adminService.updatePaymentConfig(name, dto);
+  }
+
+  @Patch('payment-configs/:name/toggle')
+  @ApiOperation({ summary: '切换支付配置启用状态' })
+  @ApiOkResponse()
+  async togglePaymentConfig(@Param('name') name: string) {
+    return this.adminService.togglePaymentConfig(name);
+  }
+
+  // ──────────────────────────────────────────────
+  // SMTP配置管理
+  // ──────────────────────────────────────────────
+
+  @Get('smtp-config')
+  @ApiOperation({ summary: '获取SMTP配置' })
+  @ApiOkResponse()
+  async getSmtpConfig() {
+    return this.adminService.getSmtpConfig();
+  }
+
+  @Put('smtp-config')
+  @ApiOperation({ summary: '更新SMTP配置' })
+  @ApiOkResponse()
+  async updateSmtpConfig(@Body() dto: UpdateSmtpConfigDto) {
+    return this.adminService.updateSmtpConfig(dto);
+  }
+
+  @Patch('smtp-config/toggle')
+  @ApiOperation({ summary: '切换SMTP配置启用状态' })
+  @ApiOkResponse()
+  async toggleSmtpConfig() {
+    return this.adminService.toggleSmtpConfig();
+  }
+
+  @Post('smtp-config/test-connection')
+  @ApiOperation({ summary: '测试SMTP连接' })
+  @ApiOkResponse()
+  async testSmtpConnection() {
+    return this.adminService.testSmtpConnection();
+  }
+
+  @Post('smtp-config/send-test')
+  @ApiOperation({ summary: '发送测试邮件' })
+  @ApiOkResponse()
+  async sendTestEmail(@Body() dto: SendTestEmailDto) {
+    return this.adminService.sendTestEmail(dto.email);
   }
 }

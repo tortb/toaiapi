@@ -34,6 +34,7 @@
     "@toai/auth": "workspace:*",
     "@toai/billing": "workspace:*",
     "@toai/common": "workspace:*",
+    "alipay-sdk": "^4.14.0",
     "argon2": "^0.41.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",

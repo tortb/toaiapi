@@ -295,8 +295,8 @@ async function seedModels(): Promise<void> {
 async function seedAdmin(): Promise<void> {
   console.log('\n👤 Seeding Admin User...');
 
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@toaiapi.com';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123456';
+  const adminEmail = process.env['ADMIN_EMAIL'] || 'admin@toaiapi.com';
+  const adminPassword = process.env['ADMIN_PASSWORD'] || 'Admin@123456';
 
   // 使用 Argon2id 哈希密码
   const passwordHash = await argon2.hash(adminPassword, {
@@ -336,6 +336,64 @@ async function seedAdmin(): Promise<void> {
   console.log(`   ✓ Admin: ${adminEmail}`);
 }
 
+/**
+ * 初始化支付配置（默认禁用，需Admin手动配置）
+ */
+async function seedPaymentConfigs(): Promise<void> {
+  console.log('\n💳 Seeding Payment Configs...');
+
+  const configs = [
+    {
+      name: 'epay',
+      display_name: '易支付 (EPay)',
+      is_enabled: false,
+    },
+    {
+      name: 'alipay',
+      display_name: '支付宝',
+      is_enabled: false,
+    },
+    {
+      name: 'wechatpay',
+      display_name: '微信支付',
+      is_enabled: false,
+    },
+  ];
+
+  for (const config of configs) {
+    await prisma.paymentConfig.upsert({
+      where: { name: config.name },
+      update: {
+        display_name: config.display_name,
+      },
+      create: config,
+    });
+    console.log(`   ✓ ${config.display_name}`);
+  }
+
+  console.log(`   📊 Total: ${configs.length} payment configs`);
+}
+
+/**
+ * 初始化SMTP配置（默认禁用）
+ */
+async function seedSmtpConfig(): Promise<void> {
+  console.log('\n📧 Seeding SMTP Config...');
+
+  await prisma.smtpConfig.upsert({
+    where: { name: 'default' },
+    update: {},
+    create: {
+      name: 'default',
+      is_enabled: false,
+      port: 587,
+      secure: false,
+    },
+  });
+
+  console.log('   ✓ Default SMTP config created');
+}
+
 // ============================================================
 // Main
 // ============================================================
@@ -354,6 +412,12 @@ async function main(): Promise<void> {
 
     // 3. Admin（无依赖）
     await seedAdmin();
+
+    // 4. Payment Configs（无依赖）
+    await seedPaymentConfigs();
+
+    // 5. SMTP Config（无依赖）
+    await seedSmtpConfig();
 
     console.log('\n' + '='.repeat(50));
     console.log('✅ Database seeding completed successfully!');

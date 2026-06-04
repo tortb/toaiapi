@@ -313,6 +313,9 @@ enum OrderStatus {
 enum PaymentMethod {
   WECHAT_PAY
   ALIPAY
+  EPAY_ALIPAY
+  EPAY_WECHAT
+  EPAY_QQ
 }
 
 // ============================================================
@@ -469,4 +472,67 @@ model RequestLog {
   @@index([model_id, created_at])
   @@index([channel_id, created_at])
   @@index([created_at])
+}
+
+// ============================================================
+// 支付配置系统
+// ============================================================
+
+/// 支付渠道配置表
+/// 存储各支付渠道的商户配置信息
+/// SECURITY: 敏感字段使用 AES-256-GCM 加密存储
+model PaymentConfig {
+  id              String   @id @default(cuid())
+  name            String   @unique  // 'epay', 'alipay', 'wechatpay'
+  display_name    String
+  is_enabled      Boolean  @default(false)
+
+  // 商户配置（AES-256-GCM加密存储）
+  merchant_id     String?  // 商户ID/pid
+  merchant_key    String?  // 商户密钥（加密）
+  merchant_secret String?  // 商户秘钥/私钥（加密）
+
+  // API端点
+  api_endpoint    String?  // 支付网关地址
+
+  // 回调配置
+  notify_url      String?  // 异步通知地址
+  return_url      String?  // 同步跳转地址
+
+  // 额外配置（JSON，存储支付宝证书路径等）
+  extra_config    Json?
+
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+}
+
+// ============================================================
+// SMTP配置系统
+// ============================================================
+
+/// SMTP邮件配置表
+/// 存储邮件服务器配置
+/// SECURITY: 密码使用 AES-256-GCM 加密存储
+model SmtpConfig {
+  id              String   @id @default(cuid())
+  name            String   @unique  // 'default'
+  is_enabled      Boolean  @default(false)
+
+  host            String?
+  port            Int      @default(587)
+  secure          Boolean  @default(false)
+
+  // 认证信息（AES-256-GCM加密存储）
+  username        String?
+  password        String?
+
+  // 发件人配置
+  from_name       String?
+  from_address    String?
+
+  // 额外配置
+  extra_config    Json?
+
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 }
