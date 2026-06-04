@@ -34,12 +34,12 @@ export async function hashPassword(password: string): Promise<string> {
 /**
  * 验证密码是否匹配哈希
  *
- * @param password - 明文密码
- * @param hash - Argon2id 哈希
+ * @param hash - Argon2id 哈希（数据库中存储的）
+ * @param password - 明文密码（用户输入的）
  * @returns 是否匹配
  * @throws 哈希格式无效时可能抛出异常
  */
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+export async function verifyPassword(hash: string, password: string): Promise<boolean> {
   return argon2.verify(hash, password);
 }
 
