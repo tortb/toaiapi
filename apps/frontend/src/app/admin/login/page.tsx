@@ -9,9 +9,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
+import { usePublicConfig } from "@/providers/public-config-provider";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { config } = usePublicConfig();
   const { login, isAuthenticated, isAdmin, isLoading, error, clearError } =
     useAuthStore();
 
@@ -191,6 +193,14 @@ export default function AdminLoginPage() {
               </svg>
               <p className="text-sm text-red-600">{error}</p>
             </div>
+          )}
+
+          {/* 登录页公告 */}
+          {config.login_notice && (
+            <div
+              className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700 prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: config.login_notice }}
+            />
           )}
 
           {/* 登录表单 */}

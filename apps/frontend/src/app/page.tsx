@@ -19,9 +19,11 @@ import {
   QRCode,
 } from "@/components/PixelIcons";
 import SiteShell from "@/components/SiteShell";
+import HomeWrapper from "@/components/HomeWrapper";
 
 export default function HomePage() {
   return (
+    <HomeWrapper>
     <SiteShell>
       {/* ============== 英雄区域 ============== */}
       <section className="relative overflow-hidden">
@@ -318,6 +320,7 @@ export default function HomePage() {
 
       {/* ============== 页脚 占位由 SiteShell 提供 ============== */}
     </SiteShell>
+    </HomeWrapper>
   );
 }
 

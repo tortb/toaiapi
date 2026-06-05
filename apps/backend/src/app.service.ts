@@ -66,7 +66,8 @@ export class AppService {
   async getPublicConfig() {
     const keys = [
       'site_name', 'site_subtitle', 'logo_url', 'favicon_url',
-      'copyright', 'icp_number', 'contact_email', 'support_email',
+      'copyright', 'icp_number', 'icp_number_show', 'psb_number', 'psb_number_show',
+      'contact_email', 'support_email',
       'default_language', 'default_timezone',
       'maintenance_mode', 'maintenance_notice',
       'home_notice', 'login_notice', 'register_notice', 'footer_content',
@@ -75,6 +76,12 @@ export class AppService {
       'allow_create_api_key', 'allow_delete_api_key', 'allow_webhook',
       'allow_organization', 'allow_delete_account',
       'email_verify', 'captcha_enabled', 'invite_code_required',
+      'whitelist_enabled',
+      'captcha_identity', 'captcha_region', 'captcha_mode',
+      'captcha_register_enabled', 'captcha_register_scene_id',
+      'captcha_login_enabled', 'captcha_login_scene_id',
+      'captcha_forgot_password_enabled', 'captcha_forgot_password_scene_id',
+      'captcha_send_email_code_enabled', 'captcha_send_email_code_scene_id',
     ];
 
     const config: Record<string, unknown> = {};

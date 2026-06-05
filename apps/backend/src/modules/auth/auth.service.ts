@@ -41,11 +41,24 @@ export class AuthService {
    * @returns 用户信息和 Token
    * @throws ConflictException 邮箱已注册
    */
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, captchaVerifyParam?: string) {
     // 功能开关：检查是否允许注册
     const allowRegister = await this.systemSettingService.getTypedByKey<boolean>('allow_register', true);
     if (!allowRegister) {
       throw new ForbiddenException('注册功能已关闭');
+    }
+
+    // 白名单检查
+    const whitelistEnabled = await this.systemSettingService.getTypedByKey<boolean>('whitelist_enabled', false);
+    if (whitelistEnabled) {
+      const whitelistRaw = (await this.systemSettingService.getByKey('whitelist_emails')) ?? '';
+      const whitelist = whitelistRaw
+        .split(/[,;\n]/)
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      if (whitelist.length > 0 && !whitelist.includes(dto.email.toLowerCase())) {
+        throw new ForbiddenException('该邮箱不在允许注册的白名单中');
+      }
     }
 
     // 邀请码检查
@@ -53,6 +66,22 @@ export class AuthService {
     if (inviteCodeRequired && !dto.inviteCode) {
       throw new BadRequestException('请填写邀请码');
     }
+
+    // 阿里云 ESA AI 验证码检查（每 URL 独立 Scene ID）
+    const captchaRegisterEnabled = await this.systemSettingService.getTypedByKey<boolean>('captcha_register_enabled', false);
+    if (captchaRegisterEnabled) {
+      const sceneId = await this.systemSettingService.getByKey('captcha_register_scene_id');
+      if (sceneId && !captchaVerifyParam) {
+        throw new BadRequestException('请完成验证码验证');
+      }
+    }
+
+    // 邮箱验证码检查
+    const emailVerify = await this.systemSettingService.getTypedByKey<boolean>('email_verify', false);
+    if (emailVerify && !dto.emailCode) {
+      throw new BadRequestException('请输入邮箱验证码');
+    }
+    // TODO: 验证邮箱验证码的正确性
 
     // SECURITY: 验证密码强度（大小写字母 + 数字 + 长度 8-128）
     const strength = validatePasswordStrength(dto.password);
@@ -67,12 +96,29 @@ export class AuthService {
     const defaultBalanceFen = Math.round(defaultBalanceYuan * 100);
     const defaultQuota = (await this.systemSettingService.getTypedByKey<number>('default_quota', 0)) ?? 0;
 
+    // 读取默认角色和用户组
+    const defaultRole = (await this.systemSettingService.getByKey('default_role')) ?? 'USER';
+    const defaultGroupName = (await this.systemSettingService.getByKey('default_group')) ?? 'default';
+
+    // 查找默认用户组 ID
+    let groupId: string | undefined;
+    if (defaultGroupName && defaultGroupName !== 'default') {
+      const group = await this.prisma.userGroup.findUnique({
+        where: { name: defaultGroupName },
+      });
+      if (group) {
+        groupId = group.id;
+      }
+    }
+
     try {
       const user = await this.prisma.user.create({
         data: {
           email: dto.email,
           password_hash: passwordHash,
           display_name: dto.displayName,
+          role: defaultRole as any,
+          group_id: groupId,
           balance: {
             create: { amount: defaultBalanceFen, frozen: 0 },
           },
@@ -82,7 +128,7 @@ export class AuthService {
 
       const tokens = await this.generateTokens(user.id, user.email, user.role);
 
-      this.logger.log(`User registered: ${user.id} (balance: ${defaultBalanceYuan} yuan)`);
+      this.logger.log(`User registered: ${user.id} (balance: ${defaultBalanceYuan} yuan, role: ${defaultRole})`);
 
       return {
         user: {
@@ -111,7 +157,16 @@ export class AuthService {
    * @returns 用户信息和 Token
    * @throws UnauthorizedException 凭证无效或账号未激活
    */
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, captchaVerifyParam?: string) {
+    // 阿里云 ESA AI 验证码检查（每 URL 独立 Scene ID）
+    const captchaLoginEnabled = await this.systemSettingService.getTypedByKey<boolean>('captcha_login_enabled', false);
+    if (captchaLoginEnabled) {
+      const sceneId = await this.systemSettingService.getByKey('captcha_login_scene_id');
+      if (sceneId && !captchaVerifyParam) {
+        throw new BadRequestException('请完成验证码验证');
+      }
+    }
+
     // SECURITY: 暴力破解防护 - 检查登录失败次数
     const failKey = `login-fail:${dto.email}`;
     const failCount = await this.redis.getCounter(failKey);
@@ -258,7 +313,16 @@ export class AuthService {
    *
    * @param email - 用户邮箱
    */
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, captchaVerifyParam?: string) {
+    // 阿里云 ESA AI 验证码检查（每 URL 独立 Scene ID）
+    const captchaForgotEnabled = await this.systemSettingService.getTypedByKey<boolean>('captcha_forgot_password_enabled', false);
+    if (captchaForgotEnabled) {
+      const sceneId = await this.systemSettingService.getByKey('captcha_forgot_password_scene_id');
+      if (sceneId && !captchaVerifyParam) {
+        throw new BadRequestException('请完成验证码验证');
+      }
+    }
+
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
       // SECURITY: 用户不存在时也返回成功，防止邮箱枚举

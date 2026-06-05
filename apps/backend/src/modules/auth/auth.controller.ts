@@ -5,6 +5,8 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Req,
+  Headers,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,6 +15,7 @@ import {
   ApiOkResponse,
   ApiCreatedResponse,
 } from '@nestjs/swagger';
+import { FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -35,23 +38,34 @@ export class AuthController {
 
   /**
    * 用户注册
+   *
+   * 支持阿里云 ESA AI 验证码：前端通过 header `captcha-verify-param` 传递验签参数，
+   * ESA 边缘层自动完成验签并在响应头中返回 `X-Captcha-Verify-Code`。
    */
   @Post('register')
   @ApiOperation({ summary: '用户注册', description: '使用邮箱注册新账号' })
   @ApiCreatedResponse({ type: AuthResponseDto })
-  async register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Headers('captcha-verify-param') captchaVerifyParam?: string,
+  ): Promise<AuthResponseDto> {
+    return this.authService.register(dto, captchaVerifyParam);
   }
 
   /**
    * 用户登录
+   *
+   * 支持阿里云 ESA AI 验证码：前端通过 header `captcha-verify-param` 传递验签参数。
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '用户登录', description: '使用邮箱和密码登录' })
   @ApiOkResponse({ type: AuthResponseDto })
-  async login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Headers('captcha-verify-param') captchaVerifyParam?: string,
+  ): Promise<AuthResponseDto> {
+    return this.authService.login(dto, captchaVerifyParam);
   }
 
   /**
@@ -98,7 +112,9 @@ export class AuthController {
   }
 
   /**
-   *忘记密码 - 发送重置链接
+   * 忘记密码 - 发送重置链接
+   *
+   * 支持阿里云 ESA AI 验证码。
    */
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
@@ -106,8 +122,11 @@ export class AuthController {
     summary: '忘记密码',
     description: '发送密码重置链接到用户邮箱',
   })
-  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
-    await this.authService.forgotPassword(dto.email);
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+    @Headers('captcha-verify-param') captchaVerifyParam?: string,
+  ): Promise<{ message: string }> {
+    await this.authService.forgotPassword(dto.email, captchaVerifyParam);
     return { message: 'If the email exists, a reset link has been sent' };
   }
 

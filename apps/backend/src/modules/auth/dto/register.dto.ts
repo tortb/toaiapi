@@ -31,4 +31,15 @@ export class RegisterDto {
   @IsString()
   @MaxLength(50)
   readonly inviteCode?: string;
+
+  @ApiPropertyOptional({ description: '阿里云验证码 Token' })
+  @IsOptional()
+  @IsString()
+  readonly captchaToken?: string;
+
+  @ApiPropertyOptional({ description: '邮箱验证码' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  readonly emailCode?: string;
 }

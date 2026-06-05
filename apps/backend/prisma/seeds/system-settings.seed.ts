@@ -19,6 +19,9 @@ const SEED_DATA: Record<string, Array<{ key: string; value: string; type?: strin
     { key: 'favicon_url', value: '' },
     { key: 'copyright', value: '© 2026 ToAIAPI. All rights reserved.' },
     { key: 'icp_number', value: '' },
+    { key: 'icp_number_show', value: 'false', type: 'boolean' },
+    { key: 'psb_number', value: '' },
+    { key: 'psb_number_show', value: 'false', type: 'boolean' },
     { key: 'contact_email', value: '' },
     { key: 'support_email', value: '' },
     { key: 'default_language', value: 'zh-CN' },
@@ -56,6 +59,7 @@ const SEED_DATA: Record<string, Array<{ key: string; value: string; type?: strin
     { key: 'captcha_enabled', value: 'false', type: 'boolean' },
     { key: 'invite_code_required', value: 'false', type: 'boolean' },
     { key: 'whitelist_enabled', value: 'false', type: 'boolean' },
+    { key: 'whitelist_emails', value: '' },
     { key: 'default_balance', value: '5', type: 'number' },         // 5 元
     { key: 'default_quota', value: '1000000', type: 'number' },     // 100 万 Token
     { key: 'default_group', value: 'default' },
@@ -137,6 +141,26 @@ const SEED_DATA: Record<string, Array<{ key: string; value: string; type?: strin
     { key: 'debug_mode', value: 'false', type: 'boolean' },
     { key: 'log_level', value: 'info' },
     { key: 'system_monitor', value: 'true', type: 'boolean' },
+  ],
+
+  // ─── 验证码设置（阿里云 ESA AI 验证码）───
+  // 每个 URL 对应独立的 Scene ID，identity/region/mode 为全局共享
+  captcha: [
+    { key: 'captcha_identity', value: '' },
+    { key: 'captcha_region', value: 'cn' },
+    { key: 'captcha_mode', value: 'popup' },
+    // 注册 /api/v1/auth/register
+    { key: 'captcha_register_enabled', value: 'true', type: 'boolean' },
+    { key: 'captcha_register_scene_id', value: '' },
+    // 登录 /api/v1/auth/login
+    { key: 'captcha_login_enabled', value: 'false', type: 'boolean' },
+    { key: 'captcha_login_scene_id', value: '' },
+    // 忘记密码 /api/v1/auth/forgot-password
+    { key: 'captcha_forgot_password_enabled', value: 'false', type: 'boolean' },
+    { key: 'captcha_forgot_password_scene_id', value: '' },
+    // 发送邮箱验证码 /api/v1/auth/send-email-code
+    { key: 'captcha_send_email_code_enabled', value: 'false', type: 'boolean' },
+    { key: 'captcha_send_email_code_scene_id', value: '' },
   ],
 };
 

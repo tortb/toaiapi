@@ -36,6 +36,15 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  displayName?: string;
+  inviteCode?: string;
+  captchaToken?: string;
+  emailCode?: string;
+}
+
 // ──────────────────────────────────────────────
 // Token 存储
 // ──────────────────────────────────────────────
@@ -163,6 +172,19 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   if (!adminRoles.includes(data.user.role.toLowerCase())) {
     throw new Error("权限不足：仅管理员可访问后台");
   }
+
+  setAuthData(data);
+  return data;
+}
+
+/**
+ * 用户注册
+ */
+export async function register(payload: RegisterPayload): Promise<AuthResponse> {
+  const data = await authFetch<AuthResponse>(`${API_PREFIX}/auth/register`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 
   setAuthData(data);
   return data;

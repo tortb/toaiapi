@@ -11,6 +11,7 @@ import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth-store";
+import { usePublicConfig } from "@/providers/public-config-provider";
 import {
   ToAiAPILogo,
   IconMenu,
@@ -33,6 +34,7 @@ import {
   IconLog,
   IconMonitor,
   IconBack,
+  IconShield,
 } from "@/components/PixelIcons";
 
 /* ============== 侧边栏导航数据 ============== */
@@ -88,6 +90,7 @@ const sidebarSections: SidebarSection[] = [
     title: "系统与监控",
     items: [
       { icon: <IconSystem size={18} />, label: "系统设置", href: "/admin/settings" },
+      { icon: <IconShield size={18} />, label: "验证码配置", href: "/admin/captcha" },
       { icon: <IconLog size={18} />, label: "操作日志", href: "/admin/logs/operations" },
       { icon: <IconLog size={18} />, label: "调用日志", href: "/admin/logs/requests" },
       { icon: <IconMonitor size={18} />, label: "系统监控", href: "/admin/monitor" },
@@ -115,6 +118,7 @@ interface AdminShellProps {
 export function AdminShell({ children, title }: AdminShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { config } = usePublicConfig();
   const { user, logout } = useAuthStore();
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
@@ -273,7 +277,7 @@ export function AdminShell({ children, title }: AdminShellProps) {
 
         {/* 页脚 */}
         <footer className="h-12 bg-white border-t border-gray-100 px-6 flex items-center justify-between text-[12px] text-gray-400 flex-shrink-0">
-          <span>© 2026 ToAiAPI. All rights reserved.</span>
+          <span>{config.copyright || "© 2026 ToAIAPI. All rights reserved."}</span>
           <div className="flex items-center gap-5">
             <a href="#" className="hover:text-primary">
               文档中心
