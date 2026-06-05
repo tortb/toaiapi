@@ -19,7 +19,8 @@ import type { TokenUsage } from '@toai/common';
  *
  * 关键规则（严格遵循）：
  * - NEVER 信任 provider 返回的 token 数（当前直接使用，未来需集成 Tokenizer）
- * - 所有金额单位：分（fen）
+ * - 数据库存储单位：分（fen）
+ * - API层单位：元（CNY）
  * - 所有费用计算使用 Math.ceil
  * - 余额扣减使用数据库事务
  * - 无定价模型的调用必须拒绝
@@ -52,7 +53,7 @@ export class BillingService {
    * 获取用户余额
    *
    * @param userId - 用户 ID
-   * @returns 余额信息（分）：amount(总额), frozen(冻结), available(可用)
+   * @returns 余额信息（元）：amount(总额), frozen(冻结), available(可用)
    * @throws 余额不存在
    */
   async getBalance(userId: string): Promise<{
@@ -67,9 +68,9 @@ export class BillingService {
     }
 
     return {
-      amount: balance.amount,
-      frozen: balance.frozen,
-      available: balance.amount - balance.frozen,
+      amount: balance.amount / 100, // 将分转换为元
+      frozen: balance.frozen / 100,
+      available: (balance.amount - balance.frozen) / 100,
     };
   }
 
@@ -85,7 +86,7 @@ export class BillingService {
    * @param channelId - 渠道 ID
    * @param modelName - 模型名称
    * @param usage - Token 使用统计
-   * @returns 费用（分）
+   * @returns 费用（分，供 requestLog 记录）
    * @throws 模型无定价或余额不足
    */
   async processUsage(
@@ -137,13 +138,13 @@ export class BillingService {
       multiplier: Number(pricing.multiplier),
     });
 
-    const cost = result.cost;
+    const cost = result.cost; // 分（因数据库定价为 分/百万token）
 
     if (cost <= 0) {
       return 0;
     }
 
-    // 3. 扣减余额（数据库事务保证原子性）
+    // 3. 扣减余额（数据库事务保证原子性，单位：分）
     await this.billingRepo.deductBalance(
       userId,
       cost,
@@ -152,10 +153,10 @@ export class BillingService {
     );
 
     this.logger.debug(
-      `Billed user ${userId}: ${cost} cents for ${modelName} (${usage.total_tokens} tokens)`,
+      `Billed user ${userId}: ${cost} fen for ${modelName} (${usage.total_tokens} tokens)`,
     );
 
-    return cost;
+    return cost; // 返回分（供 requestLog 记录）
   }
 
   /**
@@ -163,7 +164,7 @@ export class BillingService {
    * SECURITY: 校验金额必须为正数
    *
    * @param userId - 用户 ID
-   * @param amount - 充值金额（分），必须大于 0
+   * @param amount - 充值金额（元），必须大于 0
    * @param remark - 备注
    * @throws 金额不是正数
    */
@@ -173,12 +174,15 @@ export class BillingService {
     remark?: string,
   ): Promise<void> {
     // SECURITY: 校验金额
-    if (!Number.isInteger(amount) || amount <= 0) {
-      throw new HttpException('充值金额必须为正整数', 400);
+    if (amount <= 0) {
+      throw new HttpException('充值金额必须为正数', 400);
     }
 
-    await this.billingRepo.rechargeBalance(userId, amount, remark);
-    this.logger.log(`User ${userId} recharged: ${amount} cents`);
+    // 将元转换为分（数据库存储单位）
+    const amountInFen = Math.round(amount * 100);
+
+    await this.billingRepo.rechargeBalance(userId, amountInFen, remark);
+    this.logger.log(`User ${userId} recharged: ${amount} yuan`);
   }
 
   /**
@@ -233,8 +237,8 @@ export class BillingService {
       items: transactions.map((tx) => ({
         id: tx.id,
         type: tx.type,
-        amount: tx.amount,
-        balanceAfter: tx.balance_after,
+        amount: tx.amount / 100, // 将分转换为元
+        balanceAfter: tx.balance_after / 100, // 将分转换为元
         orderId: tx.order_id,
         remark: tx.remark,
         createdAt: tx.created_at,

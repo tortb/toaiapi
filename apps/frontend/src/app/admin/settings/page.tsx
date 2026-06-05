@@ -107,7 +107,7 @@ const FIELDS: Record<string, FieldDef[]> = {
     { key: "captcha_enabled", label: "验证码验证", type: "boolean", tip: "注册时需要图形/行为验证码" },
     { key: "invite_code_required", label: "邀请码注册", type: "boolean", tip: "开启后必须填写有效邀请码" },
     { key: "whitelist_enabled", label: "白名单注册", type: "boolean", tip: "开启后仅白名单邮箱可注册" },
-    { key: "default_balance", label: "默认赠送余额", type: "number", suffix: "分", tip: "1 元 = 100 分，500 = 5 元" },
+    { key: "default_balance", label: "默认赠送余额", type: "number", suffix: "元", tip: "注册时赠送的余额" },
     { key: "default_quota", label: "默认赠送额度", type: "number", suffix: "Token", tip: "1000000 = 100 万 Token" },
     { key: "default_group", label: "默认用户组", type: "text", placeholder: "default" },
     { key: "default_role", label: "默认权限组", type: "select", options: [
@@ -116,8 +116,8 @@ const FIELDS: Record<string, FieldDef[]> = {
     ]},
   ],
   finance: [
-    { key: "min_recharge", label: "最低充值金额", type: "number", suffix: "分", tip: "100 = 1 元" },
-    { key: "max_recharge", label: "最高充值金额", type: "number", suffix: "分" },
+    { key: "min_recharge", label: "最低充值金额", type: "number", suffix: "元", tip: "最低0.01元" },
+    { key: "max_recharge", label: "最高充值金额", type: "number", suffix: "元" },
     { key: "gift_ratio", label: "赠送比例", type: "number", suffix: "%", tip: "充值赠送百分比" },
     { key: "refund_enabled", label: "退款开关", type: "boolean" },
     { key: "withdraw_enabled", label: "余额提现开关", type: "boolean" },
@@ -163,7 +163,7 @@ const FIELDS: Record<string, FieldDef[]> = {
     { key: "webhook_url", label: "Webhook URL", type: "text", placeholder: "https://..." },
     { key: "notify_recharge_success", label: "充值成功通知", type: "boolean" },
     { key: "notify_low_balance", label: "余额不足通知", type: "boolean" },
-    { key: "notify_low_balance_threshold", label: "余额预警阈值", type: "number", suffix: "分", tip: "1000 = 10 元" },
+    { key: "notify_low_balance_threshold", label: "余额预警阈值", type: "number", suffix: "元", tip: "余额低于此值时发送通知" },
     { key: "notify_provider_error", label: "供应商异常通知", type: "boolean" },
     { key: "notify_system_error", label: "系统异常通知", type: "boolean" },
     { key: "notify_invoice_request", label: "发票申请通知", type: "boolean" },

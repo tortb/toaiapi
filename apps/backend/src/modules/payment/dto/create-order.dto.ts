@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsEnum, IsOptional, Min, MaxLength } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsOptional, Min, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -16,9 +16,9 @@ export enum PaymentMethodDto {
  * 创建订单 DTO
  */
 export class CreateOrderDto {
-  @ApiProperty({ description: '充值金额（分）', example: 1000 })
-  @IsInt()
-  @Min(100, { message: '充值金额最少1元' })
+  @ApiProperty({ description: '充值金额（元）', example: 10.00 })
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: '金额最多2位小数' })
+  @Min(0.01, { message: '充值金额最少0.01元' })
   amount!: number;
 
   @ApiProperty({

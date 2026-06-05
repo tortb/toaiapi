@@ -68,7 +68,8 @@ export const CHANNEL_STATUS = {
   DISABLED: 'disabled',
 } as const;
 
-// Money precision (cents)
+// Money precision (cents) - 数据库存储单位：分
+// API层使用元（CNY），存储层使用分（1元 = 100分）
 export const MONEY_PRECISION = 100;
 
 // Token calculation

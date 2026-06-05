@@ -1331,10 +1331,10 @@ export async function sendTestEmail(email: string): Promise<SmtpTestResult> {
 // ──────────────────────────────────────────────
 
 /**
- * 格式化金额（分 → 元）
+ * 格式化金额（元）
  */
-export function formatAmount(fen: number): string {
-  return (fen / 100).toLocaleString("zh-CN", {
+export function formatAmount(yuan: number): string {
+  return yuan.toLocaleString("zh-CN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });

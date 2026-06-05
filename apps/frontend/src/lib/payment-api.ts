@@ -217,8 +217,8 @@ export async function getDailyBills(days: number = 30): Promise<DailyBill[]> {
 // 工具函数
 // ──────────────────────────────────────────────
 
-export function formatAmount(fen: number): string {
-  return (fen / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export function formatAmount(yuan: number): string {
+  return yuan.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function formatNumber(num: number): string {

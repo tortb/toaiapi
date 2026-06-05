@@ -70,7 +70,7 @@ export default function RechargePage() {
     return bonus > bestBonus ? p : best;
   }, null as ActivePromotion | null) : null;
 
-  const currentAmount = isCustom ? (parseFloat(customAmount) || 0) * 100 : selectedAmount * 100;
+  const currentAmount = isCustom ? (parseFloat(customAmount) || 0) : selectedAmount;
   const bonusAmount = bestPromotion ? getBonus(bestPromotion, currentAmount) : 0;
 
   React.useEffect(() => {
@@ -103,7 +103,7 @@ export default function RechargePage() {
   }, [isAuthenticated, router]);
 
   const handleSubmit = async () => {
-    if (currentAmount < 1) {
+    if (currentAmount < 0.01) {
       setError("充值金额最低 0.01 元");
       return;
     }
@@ -282,7 +282,7 @@ export default function RechargePage() {
         {/* 提交 */}
         <button
           onClick={handleSubmit}
-          disabled={isSubmitting || currentAmount < 1 || !selectedMethod}
+          disabled={isSubmitting || currentAmount < 0.01 || !selectedMethod}
           className="w-full py-3 bg-primary text-white text-base font-medium rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? "创建订单中..." : `确认充值 ¥${formatAmount(currentAmount)}${bonusAmount > 0 ? ` (含赠送 ¥${formatAmount(bonusAmount)})` : ""}`}

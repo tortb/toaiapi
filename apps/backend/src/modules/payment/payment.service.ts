@@ -23,6 +23,11 @@ import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
  * - 订单号唯一约束防止重复
  * - 状态只能通过回调修改
  * - 金额校验必须与订单一致
+ *
+ * 单位说明：
+ * - API层：元（CNY）
+ * - 数据库：分（fen）
+ * - 转换：1元 = 100分
  */
 @Injectable()
 export class PaymentService implements OnModuleInit {
@@ -60,8 +65,8 @@ export class PaymentService implements OnModuleInit {
    * 创建订单
    *
    * @param userId - 用户ID
-   * @param dto - 创建订单参数
-   * @returns 订单信息和支付链接
+   * @param dto - 创建订单参数（金额单位：元）
+   * @returns 订单信息和支付链接（金额单位：元）
    */
   async createOrder(
     userId: string,
@@ -80,12 +85,15 @@ export class PaymentService implements OnModuleInit {
     // 映射支付方式
     const paymentMethod = this.mapPaymentMethod(dto.paymentMethod);
 
+    // 将元转换为分（数据库存储单位）
+    const amountInFen = Math.round(dto.amount * 100);
+
     // 创建订单
     const order = await this.prisma.order.create({
       data: {
         order_no: orderNo,
         user_id: userId,
-        amount: dto.amount,
+        amount: amountInFen,
         payment_method: paymentMethod,
         status: 'PENDING',
         product_type: 'recharge',
@@ -106,7 +114,7 @@ export class PaymentService implements OnModuleInit {
 
     return {
       orderNo: order.order_no,
-      amount: order.amount,
+      amount: order.amount / 100, // 将分转换为元
       paymentMethod: order.payment_method || '',
       status: order.status,
       payUrl,
@@ -189,7 +197,7 @@ export class PaymentService implements OnModuleInit {
    *
    * @param orderNo - 订单号
    * @param userId - 用户ID（用于权限验证）
-   * @returns 订单详情
+   * @returns 订单详情（金额单位：元）
    */
   async getOrder(orderNo: string, userId: string) {
     const order = await this.prisma.order.findUnique({
@@ -205,7 +213,11 @@ export class PaymentService implements OnModuleInit {
       throw new NotFoundException('订单不存在');
     }
 
-    return order;
+    return {
+      ...order,
+      amount: order.amount / 100, // 将分转换为元
+      paid_amount: order.paid_amount ? order.paid_amount / 100 : null,
+    };
   }
 
   /**
@@ -214,7 +226,7 @@ export class PaymentService implements OnModuleInit {
    * @param userId - 用户ID
    * @param page - 页码
    * @param pageSize - 每页数量
-   * @returns 订单列表
+   * @returns 订单列表（金额单位：元）
    */
   async getUserOrders(userId: string, page: number = 1, pageSize: number = 20) {
     const skip = (page - 1) * pageSize;
@@ -230,7 +242,11 @@ export class PaymentService implements OnModuleInit {
     ]);
 
     return {
-      data: orders,
+      data: orders.map((order) => ({
+        ...order,
+        amount: order.amount / 100, // 将分转换为元
+        paid_amount: order.paid_amount ? order.paid_amount / 100 : null,
+      })),
       total,
       page,
       pageSize,
@@ -516,6 +532,9 @@ export class PaymentService implements OnModuleInit {
 
   /**
    * 获取当前有效的充值赠送活动
+   *
+   * @param amount - 充值金额（元），用于筛选满足条件的活动
+   * @returns 活动列表（金额单位：元）
    */
   async getActivePromotions(amount: number) {
     const now = new Date();
@@ -525,7 +544,8 @@ export class PaymentService implements OnModuleInit {
       OR: [{ end_at: null }, { end_at: { gte: now } }],
     };
     if (amount > 0) {
-      where.min_amount = { lte: amount };
+      // 将元转换为分进行比较（数据库存储单位）
+      where.min_amount = { lte: Math.round(amount * 100) };
     }
 
     const promos = await this.prisma.rechargePromotion.findMany({
@@ -537,10 +557,10 @@ export class PaymentService implements OnModuleInit {
       id: p.id,
       name: p.name,
       description: p.description,
-      minAmount: p.min_amount,
+      minAmount: p.min_amount / 100, // 将分转换为元
       bonusType: p.bonus_type,
       bonusValue: p.bonus_value,
-      maxBonus: p.max_bonus,
+      maxBonus: p.max_bonus ? p.max_bonus / 100 : null, // 将分转换为元
       startAt: p.start_at,
       endAt: p.end_at,
     }));

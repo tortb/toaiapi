@@ -1045,6 +1045,9 @@ export class AdminService {
 
   /**
    * 更新或创建 Model 定价
+   *
+   * API 层价格单位：元/百万token
+   * 存储层价格单位：分/百万token
    */
   async upsertPricing(modelId: string, dto: UpsertPricingDto): Promise<ModelResponseDto> {
     const model = await this.adminRepo.findModelById(modelId);
@@ -1052,11 +1055,12 @@ export class AdminService {
       throw new NotFoundException('Model not found');
     }
 
+    // 元/百万token → 分/百万token
     await this.adminRepo.upsertModelPricing(modelId, {
-      input_price: dto.inputPrice,
-      output_price: dto.outputPrice,
-      cached_price: dto.cachedPrice ?? null,
-      reasoning_price: dto.reasoningPrice ?? null,
+      input_price: Math.round(dto.inputPrice * 100),
+      output_price: Math.round(dto.outputPrice * 100),
+      cached_price: dto.cachedPrice != null ? Math.round(dto.cachedPrice * 100) : null,
+      reasoning_price: dto.reasoningPrice != null ? Math.round(dto.reasoningPrice * 100) : null,
       multiplier: dto.multiplier ?? 1.0,
     });
 
@@ -1312,6 +1316,8 @@ export class AdminService {
 
   /**
    * Model 响应转换
+   *
+   * 价格从 分/百万token 转换为 元/百万token
    */
   private toModelResponse(model: Record<string, unknown>): ModelResponseDto {
     const pricing = model['pricing'] as Record<string, unknown> | null;
@@ -1327,10 +1333,10 @@ export class AdminService {
       isActive: model['is_active'] as boolean,
       pricing: pricing ? {
         id: pricing['id'] as string,
-        inputPrice: pricing['input_price'] as number,
-        outputPrice: pricing['output_price'] as number,
-        cachedPrice: pricing['cached_price'] as number | null,
-        reasoningPrice: pricing['reasoning_price'] as number | null,
+        inputPrice: (pricing['input_price'] as number) / 100,
+        outputPrice: (pricing['output_price'] as number) / 100,
+        cachedPrice: pricing['cached_price'] != null ? (pricing['cached_price'] as number) / 100 : null,
+        reasoningPrice: pricing['reasoning_price'] != null ? (pricing['reasoning_price'] as number) / 100 : null,
         multiplier: Number(pricing['multiplier']),
       } : null,
       createdAt: model['created_at'] as Date,

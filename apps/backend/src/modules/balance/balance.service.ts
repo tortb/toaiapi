@@ -8,6 +8,11 @@ import { RequestLogService } from '../request-log/request-log.service';
  *
  * 提供余额查询、充值、交易流水查询等功能。
  * 作为 BillingService 和 RequestLogService 的上层封装，提供用户友好的接口。
+ *
+ * 单位说明：
+ * - API层：元（CNY）
+ * - 数据库：分（fen）
+ * - 转换：1元 = 100分
  */
 @Injectable()
 export class BalanceService {
@@ -23,22 +28,29 @@ export class BalanceService {
    * 获取用户余额
    *
    * @param userId - 用户 ID
-   * @returns 余额信息（分）：amount, frozen, available
+   * @returns 余额信息（元）：amount, frozen, available
    */
   async getBalance(userId: string) {
-    return this.billingService.getBalance(userId);
+    const balance = await this.billingService.getBalance(userId);
+    return {
+      amount: balance.amount / 100, // 将分转换为元
+      frozen: balance.frozen / 100,
+      available: balance.available / 100,
+    };
   }
 
   /**
    * 充值余额（管理员操作）
    *
    * @param userId - 目标用户 ID
-   * @param amount - 充值金额（分），必须为正整数
+   * @param amount - 充值金额（元），必须为正数
    * @param remark - 备注
-   * @returns 充值后的余额
+   * @returns 充值后的余额（元）
    */
   async recharge(userId: string, amount: number, remark?: string) {
-    await this.billingService.recharge(userId, amount, remark);
+    // 将元转换为分（数据库存储单位）
+    const amountInFen = Math.round(amount * 100);
+    await this.billingService.recharge(userId, amountInFen, remark);
     return this.getBalance(userId);
   }
 
@@ -99,9 +111,13 @@ export class BalanceService {
     ]);
 
     return {
-      balance,
-      monthlySpend: Math.abs(monthlySpend._sum.amount || 0),
-      monthlyRecharge: monthlyRecharge._sum.amount || 0,
+      balance: {
+        amount: balance.amount / 100, // 将分转换为元
+        frozen: balance.frozen / 100,
+        available: balance.available / 100,
+      },
+      monthlySpend: Math.abs(monthlySpend._sum.amount || 0) / 100, // 将分转换为元
+      monthlyRecharge: (monthlyRecharge._sum.amount || 0) / 100, // 将分转换为元
       monthlyRequests: tokenStats._count,
       monthlyPromptTokens: tokenStats._sum.prompt_tokens || 0,
       monthlyCompletionTokens: tokenStats._sum.completion_tokens || 0,
@@ -161,7 +177,7 @@ export class BalanceService {
         cachedTokens: r.cached_tokens,
         reasoningTokens: r.reasoning_tokens,
         totalTokens: r.total_tokens,
-        cost: r.cost,
+        cost: r.cost / 100, // 将分转换为元
         statusCode: r.status_code,
         latencyMs: r.latency_ms,
         modelId: r.model_id,
@@ -212,7 +228,12 @@ export class BalanceService {
     while (current <= today) {
       const dateStr = current.toISOString().slice(0, 10);
       const data = dailyMap.get(dateStr) || { cost: 0, tokens: 0, requests: 0 };
-      result.push({ date: dateStr, ...data });
+      result.push({
+        date: dateStr,
+        cost: data.cost / 100, // 将分转换为元
+        tokens: data.tokens,
+        requests: data.requests,
+      });
       current.setDate(current.getDate() + 1);
     }
 

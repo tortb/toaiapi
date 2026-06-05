@@ -18,7 +18,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { IsInt, Min, IsString, IsNotEmpty, IsOptional, Max, IsEnum, IsDateString } from 'class-validator';
+import { IsNumber, Min, IsString, IsNotEmpty, IsOptional, Max, IsEnum, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TransactionType } from '@prisma/client';
 
@@ -51,10 +51,10 @@ class RechargeDto {
   @IsNotEmpty()
   readonly targetUserId!: string;
 
-  @ApiProperty({ description: '充值金额（分）', example: 10000 })
-  @IsInt()
-  @Min(1)
-  @Max(100000000) // 单次最多 100 万元
+  @ApiProperty({ description: '充值金额（元）', example: 100.00 })
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: '金额最多2位小数' })
+  @Min(0.01, { message: '充值金额最少0.01元' })
+  @Max(1000000, { message: '单次最多100万元' })
   readonly amount!: number;
 
   @ApiPropertyOptional({ description: '备注' })

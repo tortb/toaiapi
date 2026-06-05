@@ -56,7 +56,7 @@ const SEED_DATA: Record<string, Array<{ key: string; value: string; type?: strin
     { key: 'captcha_enabled', value: 'false', type: 'boolean' },
     { key: 'invite_code_required', value: 'false', type: 'boolean' },
     { key: 'whitelist_enabled', value: 'false', type: 'boolean' },
-    { key: 'default_balance', value: '500', type: 'number' },       // 5 元 = 500 分
+    { key: 'default_balance', value: '5', type: 'number' },         // 5 元
     { key: 'default_quota', value: '1000000', type: 'number' },     // 100 万 Token
     { key: 'default_group', value: 'default' },
     { key: 'default_role', value: 'USER' },
@@ -64,8 +64,8 @@ const SEED_DATA: Record<string, Array<{ key: string; value: string; type?: strin
 
   // ─── 财务设置 ───
   finance: [
-    { key: 'min_recharge', value: '100', type: 'number' },          // 1 元
-    { key: 'max_recharge', value: '10000000', type: 'number' },     // 10 万元
+    { key: 'min_recharge', value: '0.01', type: 'number' },         // 0.01 元
+    { key: 'max_recharge', value: '100000', type: 'number' },       // 10 万元
     { key: 'gift_ratio', value: '0', type: 'number' },              // 赠送比例（%）
     { key: 'refund_enabled', value: 'false', type: 'boolean' },
     { key: 'withdraw_enabled', value: 'false', type: 'boolean' },
@@ -119,7 +119,7 @@ const SEED_DATA: Record<string, Array<{ key: string; value: string; type?: strin
     { key: 'webhook_url', value: '' },
     { key: 'notify_recharge_success', value: 'true', type: 'boolean' },
     { key: 'notify_low_balance', value: 'true', type: 'boolean' },
-    { key: 'notify_low_balance_threshold', value: '1000', type: 'number' }, // 10 元
+    { key: 'notify_low_balance_threshold', value: '10', type: 'number' }, // 10 元
     { key: 'notify_provider_error', value: 'true', type: 'boolean' },
     { key: 'notify_system_error', value: 'true', type: 'boolean' },
     { key: 'notify_invoice_request', value: 'true', type: 'boolean' },

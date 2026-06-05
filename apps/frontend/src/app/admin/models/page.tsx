@@ -65,11 +65,10 @@ function ConfirmModal({ action, onClose }: { action: ConfirmAction; onClose: () 
 }
 
 /* ============== 格式化价格 ============== */
-function formatPrice(fenPerMillion: number): string {
-  const yuan = fenPerMillion / 100;
-  if (yuan === 0) return "免费";
-  if (yuan < 0.01) return "<0.01";
-  return yuan.toFixed(2);
+function formatPrice(yuanPerMillion: number): string {
+  if (yuanPerMillion === 0) return "免费";
+  if (yuanPerMillion < 0.01) return "<0.01";
+  return yuanPerMillion.toFixed(2);
 }
 
 /* ============== 能力标签 ============== */
@@ -307,7 +306,7 @@ function PricingFormModal({ model, onClose, onSaved }: PricingFormProps) {
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-medium text-gray-900">编辑定价 - {model.displayName}</h3>
-          <p className="text-xs text-gray-400 mt-1">价格单位：元/百万 Token（输入为分，自动转换）</p>
+          <p className="text-xs text-gray-400 mt-1">价格单位：元/百万 Token</p>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="px-6 py-4 space-y-4">
@@ -325,12 +324,13 @@ function PricingFormModal({ model, onClose, onSaved }: PricingFormProps) {
                     value={inputPrice}
                     onChange={(e) => setInputPrice(e.target.value)}
                     min={0}
+                    step={0.0001}
                     required
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">分/百万</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">元/百万</span>
                 </div>
-                <p className="mt-1 text-xs text-gray-400">≈ ¥{formatPrice(Number(inputPrice))}/百万</p>
+                <p className="mt-1 text-xs text-gray-400">¥{formatPrice(Number(inputPrice))}/百万 Token</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -342,12 +342,13 @@ function PricingFormModal({ model, onClose, onSaved }: PricingFormProps) {
                     value={outputPrice}
                     onChange={(e) => setOutputPrice(e.target.value)}
                     min={0}
+                    step={0.0001}
                     required
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">分/百万</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">元/百万</span>
                 </div>
-                <p className="mt-1 text-xs text-gray-400">≈ ¥{formatPrice(Number(outputPrice))}/百万</p>
+                <p className="mt-1 text-xs text-gray-400">¥{formatPrice(Number(outputPrice))}/百万 Token</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -359,10 +360,11 @@ function PricingFormModal({ model, onClose, onSaved }: PricingFormProps) {
                     value={cachedPrice}
                     onChange={(e) => setCachedPrice(e.target.value)}
                     min={0}
+                    step={0.0001}
                     placeholder="可选"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">分/百万</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">元/百万</span>
                 </div>
               </div>
               <div>
@@ -373,10 +375,11 @@ function PricingFormModal({ model, onClose, onSaved }: PricingFormProps) {
                     value={reasoningPrice}
                     onChange={(e) => setReasoningPrice(e.target.value)}
                     min={0}
+                    step={0.0001}
                     placeholder="可选"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">分/百万</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">元/百万</span>
                 </div>
               </div>
             </div>

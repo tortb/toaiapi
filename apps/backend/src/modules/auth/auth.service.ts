@@ -62,8 +62,9 @@ export class AuthService {
 
     const passwordHash = await hashPassword(dto.password);
 
-    // 读取默认赠送余额和额度
-    const defaultBalance = (await this.systemSettingService.getTypedByKey<number>('default_balance', 0)) ?? 0;
+    // 读取默认赠送余额（元）和额度，余额转换为分存储
+    const defaultBalanceYuan = (await this.systemSettingService.getTypedByKey<number>('default_balance', 0)) ?? 0;
+    const defaultBalanceFen = Math.round(defaultBalanceYuan * 100);
     const defaultQuota = (await this.systemSettingService.getTypedByKey<number>('default_quota', 0)) ?? 0;
 
     try {
@@ -73,7 +74,7 @@ export class AuthService {
           password_hash: passwordHash,
           display_name: dto.displayName,
           balance: {
-            create: { amount: defaultBalance, frozen: 0 },
+            create: { amount: defaultBalanceFen, frozen: 0 },
           },
         },
         include: { balance: true },
@@ -81,7 +82,7 @@ export class AuthService {
 
       const tokens = await this.generateTokens(user.id, user.email, user.role);
 
-      this.logger.log(`User registered: ${user.id} (balance: ${defaultBalance})`);
+      this.logger.log(`User registered: ${user.id} (balance: ${defaultBalanceYuan} yuan)`);
 
       return {
         user: {

@@ -11,11 +11,11 @@ import type { TokenUsage, ModelPricing, BillingResult } from './types';
  *   reasoningTokens * reasoningPrice / 1_000_000
  * ) * multiplier
  *
- * 所有费用单位：分（fen），使用 Math.ceil 向上取整
+ * 所有费用单位：元（CNY），使用 Math.ceil 向上取整
  * SECURITY: 使用 ?? 运算符处理可选价格字段，避免 0 值被错误替换
  *
  * @param usage - Token 使用统计
- * @param pricing - 模型定价（分/百万Token）
+ * @param pricing - 模型定价（元/百万Token）
  * @returns 计费结果（总费用 + 分项费用）
  * @throws 负数 token 数量或负数价格时行为未定义
  */
@@ -66,8 +66,8 @@ export function calculateCost(usage: TokenUsage, pricing: ModelPricing): Billing
  * 计算订阅配额使用费用
  *
  * @param tokenCount - Token 数量
- * @param pricePerMillionTokens - 每百万 Token 价格（分）
- * @returns 费用（分），向上取整
+ * @param pricePerMillionTokens - 每百万 Token 价格（元）
+ * @returns 费用（元），向上取整
  */
 export function calculateQuotaCost(
   tokenCount: number,
