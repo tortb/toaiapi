@@ -582,3 +582,22 @@ enum InvoiceStatus {
   ISSUED      // 已开具
   CANCELLED   // 已取消
 }
+
+// ──────────────────────────────────────────────
+// 系统参数配置（通用 KV 存储）
+// ──────────────────────────────────────────────
+
+/// 系统参数配置表
+/// 支持 15 个分类的系统设置，新增设置无需改表结构
+/// value 统一存储为字符串，type 字段标识原始类型
+model SystemSetting {
+  id         String   @id @default(cuid())
+  category   String              // 分类：basic/website/user/register/email/payment/finance/model/provider/rate_limit/security/api/notification/storage/developer
+  key        String   @unique    // 键名，如 site_name
+  value      String?             // 值（JSON 字符串或原始值）
+  type       String   @default("string") // string/number/boolean/json
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([category])
+}

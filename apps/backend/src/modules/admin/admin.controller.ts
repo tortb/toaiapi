@@ -46,6 +46,7 @@ import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto';
 import { CreateInvoiceDto, ReviewInvoiceDto, IssueInvoiceDto } from './dto/invoice.dto';
+import { BulkUpdateSettingsDto, UpdateSettingDto, SystemSettingResponseDto } from './dto/system-setting.dto';
 
 /**
  * Admin 管理控制器
@@ -659,5 +660,45 @@ export class AdminController {
   @ApiNoContentResponse()
   async deleteInvoice(@Param('id') id: string) {
     await this.adminService.deleteInvoice(id);
+  }
+
+  // ──────────────────────────────────────────────
+  // 系统设置管理
+  // ──────────────────────────────────────────────
+
+  @Get('system-settings')
+  @ApiOperation({ summary: '获取所有系统设置', description: '按分类分组返回所有系统参数' })
+  @ApiOkResponse()
+  async getSystemSettings() {
+    return this.adminService.getSystemSettings();
+  }
+
+  @Get('system-settings/:category')
+  @ApiOperation({ summary: '获取指定分类的系统设置' })
+  @ApiOkResponse({ type: [SystemSettingResponseDto] })
+  async getSystemSettingsByCategory(@Param('category') category: string) {
+    return this.adminService.getSystemSettingsByCategory(category);
+  }
+
+  @Put('system-settings/:category')
+  @ApiOperation({ summary: '批量更新分类设置', description: '批量更新指定分类下的多个设置项' })
+  @ApiOkResponse()
+  async updateSystemSettings(
+    @Param('category') category: string,
+    @Body() dto: BulkUpdateSettingsDto,
+  ) {
+    const settings = dto.settings.map((s) => ({ key: s.key, value: s.value ?? null }));
+    return this.adminService.updateSystemSettings(category, settings);
+  }
+
+  @Patch('system-settings/:category/:key')
+  @ApiOperation({ summary: '更新单个设置' })
+  @ApiOkResponse({ type: SystemSettingResponseDto })
+  async updateSystemSetting(
+    @Param('category') category: string,
+    @Param('key') key: string,
+    @Body() dto: UpdateSettingDto,
+  ) {
+    return this.adminService.updateSystemSetting(category, key, dto.value ?? null);
   }
 }

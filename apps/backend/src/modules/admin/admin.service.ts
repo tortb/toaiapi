@@ -32,6 +32,7 @@ import type { PaginatedResult } from '../../common/dto/pagination.dto';
 import { PaymentConfigService } from '../../common/services/payment-config.service';
 import { SmtpConfigService } from '../../common/services/smtp-config.service';
 import { EmailService } from '../../common/services/email.service';
+import { SystemSettingService } from '../../common/services/system-setting.service';
 
 /**
  * Admin 管理服务
@@ -49,6 +50,7 @@ export class AdminService {
     private readonly paymentConfigService: PaymentConfigService,
     private readonly smtpConfigService: SmtpConfigService,
     private readonly emailService: EmailService,
+    private readonly systemSettingService: SystemSettingService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -1620,5 +1622,38 @@ export class AdminService {
       createdAt: i.created_at,
       updatedAt: i.updated_at,
     };
+  }
+
+  // ──────────────────────────────────────────────
+  // 系统设置管理
+  // ──────────────────────────────────────────────
+
+  /**
+   * 获取所有系统设置（按分类分组）
+   */
+  async getSystemSettings() {
+    return this.systemSettingService.getAll();
+  }
+
+  /**
+   * 按分类获取系统设置
+   */
+  async getSystemSettingsByCategory(category: string) {
+    return this.systemSettingService.getByCategory(category);
+  }
+
+  /**
+   * 批量更新分类设置
+   */
+  async updateSystemSettings(category: string, settings: Array<{ key: string; value: string | null }>) {
+    await this.systemSettingService.bulkUpdate(category, settings);
+    return { success: true, message: `已更新 ${settings.length} 项设置` };
+  }
+
+  /**
+   * 更新单个设置
+   */
+  async updateSystemSetting(category: string, key: string, value: string | null) {
+    return this.systemSettingService.upsert(category, key, value);
   }
 }

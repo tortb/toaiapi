@@ -1197,6 +1197,51 @@ export function getInvoiceTypeLabel(type: string): string {
 }
 
 // ──────────────────────────────────────────────
+// System Settings API
+// ──────────────────────────────────────────────
+
+export interface SystemSettingData {
+  category: string;
+  key: string;
+  value: string | null;
+  type: string;
+}
+
+/**
+ * 获取所有系统设置（按分类分组）
+ */
+export async function getSystemSettings(): Promise<Record<string, SystemSettingData[]>> {
+  return adminFetch<Record<string, SystemSettingData[]>>(`${API_PREFIX}/admin/system-settings`);
+}
+
+/**
+ * 获取指定分类的系统设置
+ */
+export async function getSystemSettingsByCategory(category: string): Promise<SystemSettingData[]> {
+  return adminFetch<SystemSettingData[]>(`${API_PREFIX}/admin/system-settings/${category}`);
+}
+
+/**
+ * 批量更新分类设置
+ */
+export async function updateSystemSettings(category: string, settings: Array<{ key: string; value: string | null }>): Promise<void> {
+  return adminFetch<void>(`${API_PREFIX}/admin/system-settings/${category}`, {
+    method: "PUT",
+    body: JSON.stringify({ settings }),
+  });
+}
+
+/**
+ * 更新单个设置
+ */
+export async function updateSystemSetting(category: string, key: string, value: string | null): Promise<SystemSettingData> {
+  return adminFetch<SystemSettingData>(`${API_PREFIX}/admin/system-settings/${category}/${key}`, {
+    method: "PATCH",
+    body: JSON.stringify({ value }),
+  });
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 
