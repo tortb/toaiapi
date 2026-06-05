@@ -41,6 +41,7 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
 import { UpdateSmtpConfigDto, SendTestEmailDto } from './dto/smtp-config.dto';
+import { DashboardResponseDto } from './dto/dashboard-response.dto';
 
 /**
  * Admin 管理控制器
@@ -55,6 +56,20 @@ import { UpdateSmtpConfigDto, SendTestEmailDto } from './dto/smtp-config.dto';
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  // ──────────────────────────────────────────────
+  // Dashboard
+  // ──────────────────────────────────────────────
+
+  @Get('dashboard')
+  @ApiOperation({ summary: '获取 Dashboard 数据', description: '返回系统概览、调用统计、模型分布等' })
+  @ApiOkResponse({ type: DashboardResponseDto })
+  async getDashboard(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ): Promise<DashboardResponseDto> {
+    return this.adminService.getDashboard(startDate, endDate);
+  }
 
   // ──────────────────────────────────────────────
   // Provider 管理

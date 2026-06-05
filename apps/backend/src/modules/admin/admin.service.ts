@@ -23,6 +23,7 @@ import { UpdateSmtpConfigDto } from './dto/smtp-config.dto';
 import { ProviderResponseDto } from './dto/provider-response.dto';
 import { ChannelResponseDto } from './dto/channel-response.dto';
 import { ModelResponseDto } from './dto/model-response.dto';
+import { DashboardResponseDto } from './dto/dashboard-response.dto';
 import type { PaginatedResult } from '../../common/dto/pagination.dto';
 import { PaymentConfigService } from '../../common/services/payment-config.service';
 import { SmtpConfigService } from '../../common/services/smtp-config.service';
@@ -45,6 +46,68 @@ export class AdminService {
     private readonly smtpConfigService: SmtpConfigService,
     private readonly emailService: EmailService,
   ) {}
+
+  // ──────────────────────────────────────────────
+  // Dashboard
+  // ──────────────────────────────────────────────
+
+  /**
+   * 获取 Dashboard 数据
+   */
+  async getDashboard(startDate?: string, endDate?: string): Promise<DashboardResponseDto> {
+    // 默认最近 7 天
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate
+      ? new Date(startDate)
+      : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // 并行查询所有数据
+    const [
+      userStats,
+      rechargeStats,
+      consumptionStats,
+      requestStats,
+      totalBalance,
+      callStats,
+      modelDistribution,
+      recentOrders,
+      channelStatus,
+    ] = await Promise.all([
+      this.adminRepo.getUserStats(start, end),
+      this.adminRepo.getRechargeStats(start, end),
+      this.adminRepo.getConsumptionStats(start, end),
+      this.adminRepo.getRequestStats(start, end),
+      this.adminRepo.getTotalBalance(),
+      this.adminRepo.getCallStatsByDay(start, end),
+      this.adminRepo.getModelDistribution(start, end),
+      this.adminRepo.getRecentOrders(10),
+      this.adminRepo.getChannelStatus(),
+    ]);
+
+    // 计算增长率
+    const calcGrowth = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - previous) / previous) * 100 * 10) / 10;
+    };
+
+    return {
+      metrics: {
+        totalUsers: userStats.totalUsers,
+        totalUsersGrowth: calcGrowth(userStats.totalUsers, userStats.previousPeriodUsers),
+        totalRecharge: rechargeStats.totalRecharge,
+        totalRechargeGrowth: calcGrowth(rechargeStats.totalRecharge, rechargeStats.previousRecharge),
+        totalConsumption: consumptionStats.totalConsumption,
+        totalConsumptionGrowth: calcGrowth(consumptionStats.totalConsumption, consumptionStats.previousConsumption),
+        totalRequests: requestStats.totalRequests,
+        totalRequestsGrowth: calcGrowth(requestStats.totalRequests, requestStats.previousRequests),
+        totalBalance,
+      },
+      callStats,
+      modelDistribution,
+      recentOrders,
+      channelStatus,
+    };
+  }
 
   // ──────────────────────────────────────────────
   // Provider 管理
