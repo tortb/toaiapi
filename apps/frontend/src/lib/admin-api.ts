@@ -147,6 +147,108 @@ export async function getDashboard(startDate?: string, endDate?: string): Promis
 }
 
 // ──────────────────────────────────────────────
+// User API
+// ──────────────────────────────────────────────
+
+export interface UserData {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface UserListParams {
+  page?: number;
+  pageSize?: number;
+  role?: string;
+  status?: string;
+  search?: string;
+}
+
+/**
+ * 获取用户列表
+ */
+export async function getUsers(params: UserListParams = {}): Promise<PaginatedResponse<UserData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.role) searchParams.set("role", params.role);
+  if (params.status) searchParams.set("status", params.status);
+  if (params.search) searchParams.set("search", params.search);
+
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<UserData>>(`/admin/users${query ? `?${query}` : ""}`);
+}
+
+/**
+ * 修改用户状态
+ */
+export async function updateUserStatus(
+  userId: string,
+  status: "ACTIVE" | "SUSPENDED" | "BANNED",
+  reason?: string,
+): Promise<UserData> {
+  return adminFetch<UserData>(`/admin/users/${userId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, reason }),
+  });
+}
+
+/**
+ * 修改用户角色
+ */
+export async function updateUserRole(
+  userId: string,
+  role: string,
+): Promise<UserData> {
+  return adminFetch<UserData>(`/admin/users/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+}
+
+/**
+ * 角色映射
+ */
+export function getRoleLabel(role: string): { label: string; color: string } {
+  const map: Record<string, { label: string; color: string }> = {
+    SUPER_ADMIN: { label: "超级管理员", color: "text-red-600 bg-red-50" },
+    ADMIN: { label: "管理员", color: "text-primary bg-primary-50" },
+    OPERATOR: { label: "运营", color: "text-purple bg-purple/10" },
+    FINANCE: { label: "财务", color: "text-orange bg-orange/10" },
+    AUDITOR: { label: "审计", color: "text-info bg-info/10" },
+    USER: { label: "普通用户", color: "text-gray-600 bg-gray-100" },
+    VIP: { label: "VIP", color: "text-warning bg-warning/10" },
+    ENTERPRISE: { label: "企业", color: "text-success bg-success/10" },
+    AGENT: { label: "代理", color: "text-gray-600 bg-gray-100" },
+  };
+  return map[role] ?? { label: role, color: "text-gray-600 bg-gray-100" };
+}
+
+/**
+ * 用户状态映射
+ */
+export function getUserStatusLabel(status: string): { label: string; color: string; dotColor: string } {
+  const map: Record<string, { label: string; color: string; dotColor: string }> = {
+    ACTIVE: { label: "正常", color: "text-success", dotColor: "bg-success" },
+    SUSPENDED: { label: "已冻结", color: "text-warning", dotColor: "bg-warning" },
+    BANNED: { label: "已封禁", color: "text-red-500", dotColor: "bg-red-500" },
+  };
+  return map[status] ?? { label: status, color: "text-gray-500", dotColor: "bg-gray-400" };
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 

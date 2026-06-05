@@ -99,28 +99,6 @@ export class CreateUserDto {
 }
 ```
 
-### CORS
-
-```typescript
-// 仅允许指定域名
-app.enableCors({
-  origin: ['https://toaiapi.com', 'https://admin.toaiapi.com'],
-  credentials: true,
-});
-```
-
-### Rate Limiting
-
-```typescript
-// 全局限流
-ThrottlerModule.forRoot([{
-  ttl: 60000,  // 1 分钟
-  limit: 100,  // 100 请求
-}])
-
-// API Key 限流
-// Redis 计数器: ratelimit:{keyId}:{minute}
-```
 
 ### SQL 注入防护
 

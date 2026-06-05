@@ -508,17 +508,29 @@ export class AdminService {
    * @param pageSize - 每页数量
    * @param role - 角色筛选（UserRole 枚举值）
    * @param status - 状态筛选（UserStatus 枚举值）
+   * @param search - 搜索关键字（ID/用户名/邮箱）
    */
   async listUsers(
     page: number,
     pageSize: number,
     role?: UserRole,
     status?: UserStatus,
+    search?: string,
   ): Promise<PaginatedResult<Record<string, unknown>>> {
     const skip = (page - 1) * pageSize;
     const where: Prisma.UserWhereInput = { deleted_at: null };
     if (role) where['role'] = role;
     if (status) where['status'] = status;
+
+    // 搜索：ID / 用户名 / 邮箱
+    if (search && search.trim()) {
+      const keyword = search.trim();
+      where['OR'] = [
+        { id: { contains: keyword, mode: 'insensitive' } },
+        { display_name: { contains: keyword, mode: 'insensitive' } },
+        { email: { contains: keyword, mode: 'insensitive' } },
+      ];
+    }
 
     const { items, total } = await this.adminRepo.findUsers({ skip, take: pageSize, where });
 

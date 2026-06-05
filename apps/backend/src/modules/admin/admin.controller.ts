@@ -230,14 +230,15 @@ export class AdminController {
   // ──────────────────────────────────────────────
 
   @Get('users')
-  @ApiOperation({ summary: '获取用户列表', description: '分页查询，支持按角色/状态筛选' })
+  @ApiOperation({ summary: '获取用户列表', description: '分页查询，支持按角色/状态/关键字筛选' })
   @ApiOkResponse()
   async listUsers(
     @Query() pagination: PaginationDto,
     @Query('role') role?: UserRole,
     @Query('status') status?: UserStatus,
+    @Query('search') search?: string,
   ) {
-    return this.adminService.listUsers(pagination.page, pagination.pageSize, role, status);
+    return this.adminService.listUsers(pagination.page, pagination.pageSize, role, status, search);
   }
 
   @Get('users/:id')

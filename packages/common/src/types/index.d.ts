@@ -21,13 +21,15 @@ export interface Money {
     amount: number;
     currency: 'CNY' | 'USD';
 }
+export type UserRole = 'USER' | 'VIP' | 'ENTERPRISE' | 'AGENT' | 'ADMIN' | 'SUPER_ADMIN';
+export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'BANNED';
 export interface User {
     id: string;
     email: string;
     displayName?: string;
     avatarUrl?: string;
-    role: string;
-    status: string;
+    role: UserRole;
+    status: UserStatus;
     createdAt: string;
 }
 export interface ApiKey {
@@ -53,6 +55,7 @@ export interface Model {
     supportsVision: boolean;
     isActive: boolean;
 }
+export type ChannelStatus = 'ACTIVE' | 'RATE_LIMITED' | 'ERROR' | 'DISABLED';
 export interface Channel {
     id: string;
     providerId: string;
@@ -61,19 +64,21 @@ export interface Channel {
     weight: number;
     priority: number;
     isActive: boolean;
-    status: string;
+    status: ChannelStatus;
     totalRequests: number;
     failedRequests: number;
     avgLatencyMs: number;
 }
+export type OrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELLED';
+export type PaymentMethod = 'WECHAT_PAY' | 'ALIPAY';
 export interface Order {
     id: string;
     orderNo: string;
     userId: string;
     amount: number;
     paidAmount?: number;
-    paymentMethod?: string;
-    status: string;
+    paymentMethod?: PaymentMethod;
+    status: OrderStatus;
     productType: string;
     productId?: string;
     productName: string;

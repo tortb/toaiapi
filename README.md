@@ -154,13 +154,46 @@ pnpm install
 
 # 配置环境变量
 cp .env.example .env
+```
 
-# 数据库迁移
+### 数据库
+
+```bash
+# 生成 Prisma Client
+pnpm db:generate
+
+# 运行数据库迁移
 pnpm db:migrate
 
-# 启动开发服务
+# 初始化数据（创建管理员账号等）
+cd apps/backend && npx prisma db seed
+
+# 打开 Prisma Studio（可视化管理数据库）
+pnpm db:studio
+```
+
+### 启动服务
+
+```bash
+# 启动后端（默认端口 3001）
+cd apps/backend && npm run start:dev
+
+# 启动前端（默认端口 3000）
+cd apps/frontend && npm run dev
+
+# 或同时启动所有服务
 pnpm dev
 ```
+
+### 默认管理员账号
+
+| 字段 | 值 |
+|------|-----|
+| 邮箱 | `admin@toaiapi.com` |
+| 密码 | `Admin@123456` |
+| 后台地址 | `http://localhost:3000/admin` |
+
+> ⚠️ 首次登录后请立即修改默认密码。
 
 ### 常用命令
 
