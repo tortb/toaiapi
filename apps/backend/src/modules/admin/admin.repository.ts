@@ -891,4 +891,43 @@ export class AdminRepository {
       },
     });
   }
+
+  // ──────────────────────────────────────────────
+  // Transaction / Bill (Admin)
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询交易流水列表（分页）
+   */
+  async findTransactions(params: {
+    skip?: number;
+    take?: number;
+    where?: Prisma.UserTransactionWhereInput;
+    orderBy?: Prisma.UserTransactionOrderByWithRelationInput;
+  }) {
+    const [items, total] = await Promise.all([
+      this.prisma.userTransaction.findMany({
+        where: params.where,
+        skip: params.skip,
+        take: params.take,
+        orderBy: params.orderBy ?? { created_at: 'desc' },
+        include: {
+          user: {
+            select: { id: true, email: true, display_name: true },
+          },
+        },
+      }),
+      this.prisma.userTransaction.count({ where: params.where }),
+    ]);
+    return { items, total };
+  }
+
+  /**
+   * 获取用户余额
+   */
+  async getUserBalance(userId: string) {
+    return this.prisma.userBalance.findUnique({
+      where: { user_id: userId },
+    });
+  }
 }

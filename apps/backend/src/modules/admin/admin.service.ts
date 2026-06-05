@@ -618,6 +618,65 @@ export class AdminService {
   }
 
   // ──────────────────────────────────────────────
+  // Bill / Transaction 管理
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询账单/交易流水列表（分页）
+   */
+  async listBills(
+    page: number,
+    pageSize: number,
+    search?: string,
+    type?: string,
+    userId?: string,
+  ): Promise<PaginatedResult<Record<string, unknown>>> {
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.UserTransactionWhereInput = {};
+
+    if (userId) {
+      where.user_id = userId;
+    }
+    if (type) {
+      where.type = type as any;
+    }
+    if (search) {
+      where.OR = [
+        { remark: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const { items, total } = await this.adminRepo.findTransactions({ skip, take: pageSize, where });
+
+    return {
+      items: items.map((t) => this.toBillResponse(t)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  /**
+   * 转换账单响应
+   */
+  private toBillResponse(tx: any): Record<string, unknown> {
+    return {
+      id: tx.id,
+      userId: tx.user_id,
+      userEmail: tx.user?.email ?? 'Unknown',
+      userName: tx.user?.display_name ?? null,
+      type: tx.type,
+      amount: tx.amount,
+      balanceAfter: tx.balance_after,
+      orderId: tx.order_id,
+      remark: tx.remark,
+      createdAt: tx.created_at.toISOString(),
+    };
+  }
+
+  // ──────────────────────────────────────────────
   // Provider 管理
   // ──────────────────────────────────────────────
 

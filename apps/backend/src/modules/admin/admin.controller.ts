@@ -254,6 +254,22 @@ export class AdminController {
   }
 
   // ──────────────────────────────────────────────
+  // Bill / Transaction 管理
+  // ──────────────────────────────────────────────
+
+  @Get('bills')
+  @ApiOperation({ summary: '获取账单/交易流水列表', description: '分页查询，支持搜索和筛选' })
+  @ApiOkResponse()
+  async listBills(
+    @Query() pagination: PaginationDto,
+    @Query('search') search?: string,
+    @Query('type') type?: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.adminService.listBills(pagination.page, pagination.pageSize, search, type, userId);
+  }
+
+  // ──────────────────────────────────────────────
   // Provider 管理
   // ──────────────────────────────────────────────
 

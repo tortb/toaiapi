@@ -595,6 +595,292 @@ export function getChannelStatusLabel(status: string): { label: string; color: s
 }
 
 // ──────────────────────────────────────────────
+// Provider API
+// ──────────────────────────────────────────────
+
+export interface ProviderData {
+  id: string;
+  name: string;
+  displayName: string;
+  baseUrl: string;
+  isActive: boolean;
+  channelCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProviderPayload {
+  name: string;
+  displayName: string;
+  baseUrl: string;
+  isActive?: boolean;
+}
+
+export interface UpdateProviderPayload {
+  displayName?: string;
+  baseUrl?: string;
+  isActive?: boolean;
+}
+
+export interface ProviderListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+export async function getProviders(params: ProviderListParams = {}): Promise<PaginatedResponse<ProviderData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.search) searchParams.set("search", params.search);
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<ProviderData>>(`${API_PREFIX}/admin/providers${query ? `?${query}` : ""}`);
+}
+
+export async function createProvider(payload: CreateProviderPayload): Promise<ProviderData> {
+  return adminFetch<ProviderData>(`${API_PREFIX}/admin/providers`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProvider(id: string, payload: UpdateProviderPayload): Promise<ProviderData> {
+  return adminFetch<ProviderData>(`${API_PREFIX}/admin/providers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteProvider(id: string): Promise<void> {
+  return adminFetch<void>(`${API_PREFIX}/admin/providers/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ──────────────────────────────────────────────
+// Channel API
+// ──────────────────────────────────────────────
+
+export interface ChannelProvider {
+  id: string;
+  name: string;
+  displayName: string;
+}
+
+export interface ChannelData {
+  id: string;
+  providerId: string;
+  provider: ChannelProvider | null;
+  name: string;
+  baseUrl: string;
+  keyPrefix: string;
+  weight: number;
+  priority: number;
+  isActive: boolean;
+  status: string;
+  totalRequests: number;
+  failedRequests: number;
+  avgLatencyMs: number;
+  modelCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateChannelPayload {
+  providerId: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  weight?: number;
+  priority?: number;
+}
+
+export interface UpdateChannelPayload {
+  name?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  weight?: number;
+  priority?: number;
+}
+
+export interface ChannelListParams {
+  page?: number;
+  pageSize?: number;
+  providerId?: string;
+  search?: string;
+  status?: string;
+}
+
+export interface ChannelTestResult {
+  success: boolean;
+  latencyMs: number;
+  message: string;
+}
+
+export async function getChannels(params: ChannelListParams = {}): Promise<PaginatedResponse<ChannelData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.providerId) searchParams.set("providerId", params.providerId);
+  if (params.search) searchParams.set("search", params.search);
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<ChannelData>>(`${API_PREFIX}/admin/channels${query ? `?${query}` : ""}`);
+}
+
+export async function createChannel(payload: CreateChannelPayload): Promise<ChannelData> {
+  return adminFetch<ChannelData>(`${API_PREFIX}/admin/channels`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateChannel(id: string, payload: UpdateChannelPayload): Promise<ChannelData> {
+  return adminFetch<ChannelData>(`${API_PREFIX}/admin/channels/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function enableChannel(id: string): Promise<ChannelData> {
+  return adminFetch<ChannelData>(`${API_PREFIX}/admin/channels/${id}/enable`, {
+    method: "PATCH",
+  });
+}
+
+export async function disableChannel(id: string): Promise<ChannelData> {
+  return adminFetch<ChannelData>(`${API_PREFIX}/admin/channels/${id}/disable`, {
+    method: "PATCH",
+  });
+}
+
+export async function deleteChannel(id: string): Promise<void> {
+  return adminFetch<void>(`${API_PREFIX}/admin/channels/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function testChannel(id: string): Promise<ChannelTestResult> {
+  return adminFetch<ChannelTestResult>(`${API_PREFIX}/admin/channels/${id}/test`, {
+    method: "POST",
+  });
+}
+
+// ──────────────────────────────────────────────
+// Model API
+// ──────────────────────────────────────────────
+
+export interface ModelPricing {
+  id: string;
+  inputPrice: number;
+  outputPrice: number;
+  cachedPrice: number | null;
+  reasoningPrice: number | null;
+  multiplier: number;
+}
+
+export interface ModelData {
+  id: string;
+  name: string;
+  displayName: string;
+  providerId: string;
+  maxContext: number;
+  supportsStreaming: boolean;
+  supportsTools: boolean;
+  supportsVision: boolean;
+  isActive: boolean;
+  pricing: ModelPricing | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateModelPayload {
+  name: string;
+  displayName: string;
+  providerId: string;
+  maxContext: number;
+  supportsStreaming?: boolean;
+  supportsTools?: boolean;
+  supportsVision?: boolean;
+}
+
+export interface UpdateModelPayload {
+  displayName?: string;
+  maxContext?: number;
+  supportsStreaming?: boolean;
+  supportsTools?: boolean;
+  supportsVision?: boolean;
+  isActive?: boolean;
+}
+
+export interface UpsertPricingPayload {
+  inputPrice: number;
+  outputPrice: number;
+  cachedPrice?: number;
+  reasoningPrice?: number;
+  multiplier?: number;
+}
+
+export interface ModelListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+export async function getModels(params: ModelListParams = {}): Promise<PaginatedResponse<ModelData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.search) searchParams.set("search", params.search);
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<ModelData>>(`${API_PREFIX}/admin/models${query ? `?${query}` : ""}`);
+}
+
+export async function createModel(payload: CreateModelPayload): Promise<ModelData> {
+  return adminFetch<ModelData>(`${API_PREFIX}/admin/models`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateModel(id: string, payload: UpdateModelPayload): Promise<ModelData> {
+  return adminFetch<ModelData>(`${API_PREFIX}/admin/models/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteModel(id: string): Promise<void> {
+  return adminFetch<void>(`${API_PREFIX}/admin/models/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function upsertModelPricing(id: string, payload: UpsertPricingPayload): Promise<ModelData> {
+  return adminFetch<ModelData>(`${API_PREFIX}/admin/models/${id}/pricing`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 模型状态映射
+ */
+export function getModelStatusLabel(isActive: boolean): { label: string; color: string; dotColor: string } {
+  return isActive
+    ? { label: "上架中", color: "text-success", dotColor: "bg-success" }
+    : { label: "已下架", color: "text-gray-400", dotColor: "bg-gray-400" };
+}
+
+/**
+ * Provider 状态映射
+ */
+export function getProviderStatusLabel(isActive: boolean): { label: string; color: string; dotColor: string } {
+  return isActive
+    ? { label: "启用", color: "text-success", dotColor: "bg-success" }
+    : { label: "禁用", color: "text-gray-400", dotColor: "bg-gray-400" };
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 
