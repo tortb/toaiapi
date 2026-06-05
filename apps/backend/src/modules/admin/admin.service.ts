@@ -542,6 +542,82 @@ export class AdminService {
   }
 
   // ──────────────────────────────────────────────
+  // Order 管理
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询订单列表（分页）
+   */
+  async listOrders(
+    page: number,
+    pageSize: number,
+    search?: string,
+    status?: string,
+    userId?: string,
+  ): Promise<PaginatedResult<Record<string, unknown>>> {
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.OrderWhereInput = {};
+
+    if (userId) {
+      where.user_id = userId;
+    }
+    if (status) {
+      where.status = status as any;
+    }
+    if (search) {
+      where.OR = [
+        { order_no: { contains: search, mode: 'insensitive' } },
+        { product_name: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const { items, total } = await this.adminRepo.findOrders({ skip, take: pageSize, where });
+
+    return {
+      items: items.map((o) => this.toOrderResponse(o)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  /**
+   * 获取订单详情
+   */
+  async getOrder(id: string): Promise<Record<string, unknown>> {
+    const order = await this.adminRepo.findOrderById(id);
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    return this.toOrderResponse(order);
+  }
+
+  /**
+   * 转换订单响应
+   */
+  private toOrderResponse(order: any): Record<string, unknown> {
+    return {
+      id: order.id,
+      orderNo: order.order_no,
+      userId: order.user_id,
+      userEmail: order.user?.email ?? 'Unknown',
+      userName: order.user?.display_name ?? null,
+      amount: order.amount,
+      paidAmount: order.paid_amount,
+      paymentMethod: order.payment?.method ?? order.payment_method ?? null,
+      status: order.status,
+      productType: order.product_type,
+      productName: order.product_name,
+      paidAt: order.paid_at?.toISOString() ?? null,
+      remark: order.remark,
+      createdAt: order.created_at.toISOString(),
+      updatedAt: order.updated_at.toISOString(),
+    };
+  }
+
+  // ──────────────────────────────────────────────
   // Provider 管理
   // ──────────────────────────────────────────────
 

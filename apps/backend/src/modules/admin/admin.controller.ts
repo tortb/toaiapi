@@ -231,6 +231,29 @@ export class AdminController {
   }
 
   // ──────────────────────────────────────────────
+  // Order 管理
+  // ──────────────────────────────────────────────
+
+  @Get('orders')
+  @ApiOperation({ summary: '获取订单列表', description: '分页查询，支持搜索和筛选' })
+  @ApiOkResponse()
+  async listOrders(
+    @Query() pagination: PaginationDto,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.adminService.listOrders(pagination.page, pagination.pageSize, search, status, userId);
+  }
+
+  @Get('orders/:id')
+  @ApiOperation({ summary: '获取订单详情' })
+  @ApiOkResponse()
+  async getOrder(@Param('id') id: string) {
+    return this.adminService.getOrder(id);
+  }
+
+  // ──────────────────────────────────────────────
   // Provider 管理
   // ──────────────────────────────────────────────
 

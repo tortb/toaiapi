@@ -500,6 +500,101 @@ export async function deleteApiKey(id: string): Promise<void> {
 }
 
 // ──────────────────────────────────────────────
+// Order Admin API
+// ──────────────────────────────────────────────
+
+export interface OrderAdminData {
+  id: string;
+  orderNo: string;
+  userId: string;
+  userEmail: string;
+  userName: string | null;
+  amount: number;
+  paidAmount: number | null;
+  paymentMethod: string | null;
+  status: string;
+  productType: string;
+  productName: string;
+  paidAt: string | null;
+  remark: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  userId?: string;
+}
+
+/**
+ * 获取订单列表（Admin）
+ */
+export async function getOrders(params: OrderListParams = {}): Promise<PaginatedResponse<OrderAdminData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.search) searchParams.set("search", params.search);
+  if (params.status) searchParams.set("status", params.status);
+  if (params.userId) searchParams.set("userId", params.userId);
+
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<OrderAdminData>>(`${API_PREFIX}/admin/orders${query ? `?${query}` : ""}`);
+}
+
+/**
+ * 获取订单详情
+ */
+export async function getOrder(id: string): Promise<OrderAdminData> {
+  return adminFetch<OrderAdminData>(`${API_PREFIX}/admin/orders/${id}`);
+}
+
+/**
+ * 订单状态映射
+ */
+export function getOrderStatusLabel(status: string): { label: string; color: string; dotColor: string } {
+  const map: Record<string, { label: string; color: string; dotColor: string }> = {
+    PENDING: { label: "待支付", color: "text-warning", dotColor: "bg-warning" },
+    PAID: { label: "已支付", color: "text-success", dotColor: "bg-success" },
+    FAILED: { label: "支付失败", color: "text-red-500", dotColor: "bg-red-500" },
+    REFUNDED: { label: "已退款", color: "text-gray-500", dotColor: "bg-gray-500" },
+    CANCELLED: { label: "已取消", color: "text-gray-400", dotColor: "bg-gray-400" },
+  };
+  return map[status] ?? { label: status, color: "text-gray-500", dotColor: "bg-gray-400" };
+}
+
+/**
+ * 支付方式映射
+ */
+export function getPaymentMethodLabel(method: string | null): string {
+  if (!method) return "-";
+  const map: Record<string, string> = {
+    WECHAT_PAY: "微信支付",
+    ALIPAY: "支付宝",
+    EPAY_ALIPAY: "易支付-支付宝",
+    EPAY_WECHAT: "易支付-微信",
+    EPAY_QQ: "易支付-QQ",
+    BALANCE: "余额支付",
+  };
+  return map[method] ?? method;
+}
+
+/**
+ * 渠道状态映射
+ */
+export function getChannelStatusLabel(status: string): { label: string; color: string; dotColor: string } {
+  const map: Record<string, { label: string; color: string; dotColor: string }> = {
+    ACTIVE: { label: "正常", color: "text-success", dotColor: "bg-success" },
+    RATE_LIMITED: { label: "限流", color: "text-warning", dotColor: "bg-warning" },
+    ERROR: { label: "异常", color: "text-red-500", dotColor: "bg-red-500" },
+    DISABLED: { label: "已禁用", color: "text-gray-400", dotColor: "bg-gray-400" },
+  };
+  return map[status] ?? { label: status, color: "text-gray-500", dotColor: "bg-gray-400" };
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 
@@ -537,31 +632,4 @@ export function formatDate(dateStr: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-/**
- * 订单状态映射
- */
-export function getOrderStatusLabel(status: string): { label: string; color: string } {
-  const map: Record<string, { label: string; color: string }> = {
-    PENDING: { label: "待支付", color: "text-warning" },
-    PAID: { label: "已支付", color: "text-success" },
-    FAILED: { label: "支付失败", color: "text-red-500" },
-    REFUNDED: { label: "已退款", color: "text-gray-500" },
-    CANCELLED: { label: "已取消", color: "text-gray-400" },
-  };
-  return map[status] ?? { label: status, color: "text-gray-500" };
-}
-
-/**
- * 渠道状态映射
- */
-export function getChannelStatusLabel(status: string): { label: string; color: string } {
-  const map: Record<string, { label: string; color: string }> = {
-    ACTIVE: { label: "正常", color: "text-success" },
-    RATE_LIMITED: { label: "限流", color: "text-warning" },
-    ERROR: { label: "异常", color: "text-red-500" },
-    DISABLED: { label: "已禁用", color: "text-gray-400" },
-  };
-  return map[status] ?? { label: status, color: "text-gray-500" };
 }

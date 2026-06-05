@@ -828,4 +828,67 @@ export class AdminRepository {
       where: { user_id: userId },
     });
   }
+
+  // ──────────────────────────────────────────────
+  // Order (Admin)
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询订单列表（分页，含用户信息）
+   */
+  async findOrders(params: {
+    skip?: number;
+    take?: number;
+    where?: Prisma.OrderWhereInput;
+    orderBy?: Prisma.OrderOrderByWithRelationInput;
+  }) {
+    const [items, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where: params.where,
+        skip: params.skip,
+        take: params.take,
+        orderBy: params.orderBy ?? { created_at: 'desc' },
+        include: {
+          user: {
+            select: { id: true, email: true, display_name: true },
+          },
+          payment: {
+            select: { method: true, trade_no: true },
+          },
+        },
+      }),
+      this.prisma.order.count({ where: params.where }),
+    ]);
+    return { items, total };
+  }
+
+  /**
+   * 根据 ID 查询订单
+   */
+  async findOrderById(id: string) {
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { id: true, email: true, display_name: true },
+        },
+        payment: true,
+      },
+    });
+  }
+
+  /**
+   * 更新订单状态
+   */
+  async updateOrderStatus(id: string, status: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { status: status as any },
+      include: {
+        user: {
+          select: { id: true, email: true, display_name: true },
+        },
+      },
+    });
+  }
 }
