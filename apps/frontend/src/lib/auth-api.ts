@@ -104,9 +104,13 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getAccessToken();
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(init?.headers as Record<string, string>),
   };
+
+  // 仅有 body 时设置 Content-Type，避免 Fastify 报 "Body cannot be empty" 错误
+  if (init?.body) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
