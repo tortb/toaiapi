@@ -428,7 +428,7 @@ const USER_GROUPS: UserGroupData[] = [
     price_multiplier: 1.0,
     rpm_limit: 10,
     tpm_limit: 10000,
-    max_api_keys: 3,
+    max_api_keys: 1000,
     is_builtin: true,
   },
   {
@@ -438,7 +438,7 @@ const USER_GROUPS: UserGroupData[] = [
     price_multiplier: 0.8,
     rpm_limit: 60,
     tpm_limit: 60000,
-    max_api_keys: 10,
+    max_api_keys: 1000,
     is_builtin: true,
   },
   {
@@ -448,7 +448,7 @@ const USER_GROUPS: UserGroupData[] = [
     price_multiplier: 0.6,
     rpm_limit: 300,
     tpm_limit: 300000,
-    max_api_keys: 50,
+    max_api_keys: 1000,
     is_builtin: true,
   },
   {
@@ -458,7 +458,7 @@ const USER_GROUPS: UserGroupData[] = [
     price_multiplier: 0.5,
     rpm_limit: 600,
     tpm_limit: 600000,
-    max_api_keys: 100,
+    max_api_keys: 1000,
     is_builtin: true,
   },
   {
@@ -468,7 +468,7 @@ const USER_GROUPS: UserGroupData[] = [
     price_multiplier: 0,
     rpm_limit: 1000,
     tpm_limit: 1000000,
-    max_api_keys: 100,
+    max_api_keys: 1000,
     is_builtin: true,
   },
 ];
