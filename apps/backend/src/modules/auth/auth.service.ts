@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -11,6 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { hashPassword, verifyPassword, generateTokenPair, verifyToken, validatePasswordStrength } from '@toai/auth';
 import { EmailService } from '../../common/services/email.service';
+import { SystemSettingService } from '../../common/services/system-setting.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes, createHash } from 'crypto';
@@ -26,6 +28,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
+    private readonly systemSettingService: SystemSettingService,
   ) {}
 
   /**
@@ -39,6 +42,18 @@ export class AuthService {
    * @throws ConflictException 邮箱已注册
    */
   async register(dto: RegisterDto) {
+    // 功能开关：检查是否允许注册
+    const allowRegister = await this.systemSettingService.getTypedByKey<boolean>('allow_register', true);
+    if (!allowRegister) {
+      throw new ForbiddenException('注册功能已关闭');
+    }
+
+    // 邀请码检查
+    const inviteCodeRequired = await this.systemSettingService.getTypedByKey<boolean>('invite_code_required', false);
+    if (inviteCodeRequired && !dto.inviteCode) {
+      throw new BadRequestException('请填写邀请码');
+    }
+
     // SECURITY: 验证密码强度（大小写字母 + 数字 + 长度 8-128）
     const strength = validatePasswordStrength(dto.password);
     if (!strength.valid) {
@@ -47,6 +62,10 @@ export class AuthService {
 
     const passwordHash = await hashPassword(dto.password);
 
+    // 读取默认赠送余额和额度
+    const defaultBalance = (await this.systemSettingService.getTypedByKey<number>('default_balance', 0)) ?? 0;
+    const defaultQuota = (await this.systemSettingService.getTypedByKey<number>('default_quota', 0)) ?? 0;
+
     try {
       const user = await this.prisma.user.create({
         data: {
@@ -54,7 +73,7 @@ export class AuthService {
           password_hash: passwordHash,
           display_name: dto.displayName,
           balance: {
-            create: { amount: 0, frozen: 0 },
+            create: { amount: defaultBalance, frozen: 0 },
           },
         },
         include: { balance: true },
@@ -62,7 +81,7 @@ export class AuthService {
 
       const tokens = await this.generateTokens(user.id, user.email, user.role);
 
-      this.logger.log(`User registered: ${user.id}`);
+      this.logger.log(`User registered: ${user.id} (balance: ${defaultBalance})`);
 
       return {
         user: {

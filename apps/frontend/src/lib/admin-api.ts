@@ -1242,6 +1242,87 @@ export async function updateSystemSetting(category: string, key: string, value: 
 }
 
 // ──────────────────────────────────────────────
+// SMTP 配置 API
+// ──────────────────────────────────────────────
+
+export interface SmtpConfigData {
+  id: string;
+  name: string;
+  is_enabled: boolean;
+  host: string | null;
+  port: number;
+  secure: boolean;
+  username: string | null;
+  password: string | null;
+  from_name: string | null;
+  from_address: string | null;
+  extra_config: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateSmtpConfigPayload {
+  is_enabled?: boolean;
+  host?: string;
+  port?: number;
+  secure?: boolean;
+  username?: string;
+  password?: string;
+  from_name?: string;
+  from_address?: string;
+}
+
+export interface SmtpTestResult {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * 获取 SMTP 配置
+ */
+export async function getSmtpConfig(): Promise<SmtpConfigData | null> {
+  return adminFetch<SmtpConfigData | null>(`${API_PREFIX}/admin/smtp-config`);
+}
+
+/**
+ * 更新 SMTP 配置
+ */
+export async function updateSmtpConfig(payload: UpdateSmtpConfigPayload): Promise<SmtpConfigData> {
+  return adminFetch<SmtpConfigData>(`${API_PREFIX}/admin/smtp-config`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 切换 SMTP 启用状态
+ */
+export async function toggleSmtpConfig(): Promise<SmtpConfigData> {
+  return adminFetch<SmtpConfigData>(`${API_PREFIX}/admin/smtp-config/toggle`, {
+    method: "PATCH",
+  });
+}
+
+/**
+ * 测试 SMTP 连接
+ */
+export async function testSmtpConnection(): Promise<SmtpTestResult> {
+  return adminFetch<SmtpTestResult>(`${API_PREFIX}/admin/smtp-config/test-connection`, {
+    method: "POST",
+  });
+}
+
+/**
+ * 发送测试邮件
+ */
+export async function sendTestEmail(email: string): Promise<SmtpTestResult> {
+  return adminFetch<SmtpTestResult>(`${API_PREFIX}/admin/smtp-config/send-test`, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 

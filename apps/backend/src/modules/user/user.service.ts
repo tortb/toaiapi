@@ -3,6 +3,7 @@ import {
   ConflictException,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { User } from '@prisma/client';
@@ -13,6 +14,7 @@ import { UserEntity, userFromPrisma } from './entities/user.entity';
 import { hashPassword, validatePasswordStrength } from '@toai/auth';
 import { maskEmail } from '@toai/common';
 import { RedisService } from '../../redis/redis.service';
+import { SystemSettingService } from '../../common/services/system-setting.service';
 
 /**
  * 用户业务服务
@@ -29,6 +31,7 @@ export class UserService {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly redis: RedisService,
+    private readonly systemSettingService: SystemSettingService,
   ) {}
 
   /**
@@ -107,6 +110,14 @@ export class UserService {
    * @throws NotFoundException 用户不存在
    */
   async updateUser(id: string, dto: UpdateUserDto): Promise<UserEntity> {
+    // 功能开关：检查是否允许修改用户名
+    if (dto.displayName !== undefined) {
+      const allowChangeUsername = await this.systemSettingService.getTypedByKey<boolean>('allow_change_username', true);
+      if (!allowChangeUsername) {
+        throw new ForbiddenException('修改用户名功能已关闭');
+      }
+    }
+
     // 检查用户是否存在
     await this.findById(id);
 
@@ -127,6 +138,12 @@ export class UserService {
    * @throws NotFoundException 用户不存在
    */
   async deleteUser(id: string): Promise<void> {
+    // 功能开关：检查是否允许注销账号
+    const allowDeleteAccount = await this.systemSettingService.getTypedByKey<boolean>('allow_delete_account', false);
+    if (!allowDeleteAccount) {
+      throw new ForbiddenException('账号注销功能已关闭');
+    }
+
     await this.findById(id);
     await this.userRepo.softDelete(id);
     // SECURITY: 软删除后撤销所有 Refresh Token，强制下线

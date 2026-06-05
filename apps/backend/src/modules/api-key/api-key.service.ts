@@ -10,6 +10,7 @@ import { ApiKeyRepository } from './api-key.repository';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { ApiKeyResponseDto } from './dto/api-key-response.dto';
 import { RedisService } from '../../redis/redis.service';
+import { SystemSettingService } from '../../common/services/system-setting.service';
 
 /**
  * API Key 业务服务
@@ -31,6 +32,7 @@ export class ApiKeyService {
   constructor(
     private readonly apiKeyRepo: ApiKeyRepository,
     private readonly redis: RedisService,
+    private readonly systemSettingService: SystemSettingService,
   ) {}
 
   /**
@@ -45,6 +47,12 @@ export class ApiKeyService {
     userId: string,
     dto: CreateApiKeyDto,
   ): Promise<ApiKeyResponseDto> {
+    // 功能开关：检查是否允许创建 API Key
+    const allowCreate = await this.systemSettingService.getTypedByKey<boolean>('allow_create_api_key', true);
+    if (!allowCreate) {
+      throw new ForbiddenException('API Key 创建功能已关闭');
+    }
+
     // 检查数量限制
     const count = await this.apiKeyRepo.countByUserId(userId);
     if (count >= this.MAX_KEYS_PER_USER) {
@@ -121,6 +129,12 @@ export class ApiKeyService {
    * @throws {ForbiddenException} 无权删除
    */
   async deleteApiKey(userId: string, keyId: string): Promise<void> {
+    // 功能开关：检查是否允许删除 API Key
+    const allowDelete = await this.systemSettingService.getTypedByKey<boolean>('allow_delete_api_key', true);
+    if (!allowDelete) {
+      throw new ForbiddenException('API Key 删除功能已关闭');
+    }
+
     const apiKey = await this.apiKeyRepo.findById(keyId);
 
     if (!apiKey) {

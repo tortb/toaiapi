@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
@@ -14,6 +14,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { ConfigModule } from './common/services/config.module';
 import { EmailModule } from './common/services/email.module';
+import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -68,4 +69,11 @@ import { AppService } from './app.service';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // 维护模式中间件：对所有 API 路由生效
+    consumer
+      .apply(MaintenanceMiddleware)
+      .forRoutes('*');
+  }
+}

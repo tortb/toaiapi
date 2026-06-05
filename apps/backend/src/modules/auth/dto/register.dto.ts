@@ -25,4 +25,10 @@ export class RegisterDto {
   @IsString()
   @MaxLength(50)
   readonly displayName?: string;
+
+  @ApiPropertyOptional({ description: '邀请码', example: 'ABC123' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  readonly inviteCode?: string;
 }
