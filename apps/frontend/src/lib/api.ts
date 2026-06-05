@@ -18,29 +18,27 @@ const CONFIG_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_
 
 function buildUrl(path: string) {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  // If running in browser, relative path is fine
-  if (typeof window !== "undefined") {
-    return `${cleanPath}`;
-  }
 
-  // Server side: need absolute URL
+  // 优先使用环境变量配置的 API 地址
   if (CONFIG_BASE && CONFIG_BASE.length > 0) {
     return `${CONFIG_BASE.replace(/\/$/, "")}${cleanPath}`;
   }
 
-  // Try common platform env vars
+  // 浏览器环境：使用当前域名的不同端口（后端默认 3001）
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:3001${cleanPath}`;
+  }
+
+  // 服务端环境：尝试常见平台环境变量
   const host = process.env.NEXT_PUBLIC_VERCEL_URL ?? process.env.VERCEL_URL ?? process.env.NEXT_PUBLIC_HOST;
   if (host) {
     const prefix = host.startsWith("http") ? host.replace(/\/$/, "") : `https://${host.replace(/\/$/, "")}`;
     return `${prefix}${cleanPath}`;
   }
 
-  // Development fallback
-  if (process.env.NODE_ENV === "development") {
-    return `http://localhost:3001${cleanPath}`;
-  }
-
-  throw new Error("Cannot build absolute URL for API fetch: set NEXT_PUBLIC_API_BASE in environment.");
+  // 开发环境回退
+  return `http://localhost:3001${cleanPath}`;
 }
 
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {

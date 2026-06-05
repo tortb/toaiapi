@@ -70,12 +70,19 @@ export interface DashboardData {
 
 function buildUrl(path: string): string {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  if (typeof window !== "undefined") {
-    return cleanPath;
-  }
+
+  // 优先使用环境变量配置的 API 地址
   if (API_BASE && API_BASE.length > 0) {
     return `${API_BASE.replace(/\/$/, "")}${cleanPath}`;
   }
+
+  // 浏览器环境：使用当前域名的不同端口（后端默认 3001）
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:3001${cleanPath}`;
+  }
+
+  // 服务端环境
   return `http://localhost:3001${cleanPath}`;
 }
 
