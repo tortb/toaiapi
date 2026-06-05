@@ -65,7 +65,7 @@ async function bootstrap() {
     origin: process.env['ALLOWED_ORIGINS']?.split(',') || ['http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'captcha-verify-param'],
   });
 
   // SECURITY: Swagger 仅在非生产环境启用
