@@ -88,7 +88,7 @@ export class AdminController {
   }
 
   @Post('user-groups')
-  @Roles('super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: '创建用户组' })
   @ApiCreatedResponse()
   async createUserGroup(@Body() dto: CreateUserGroupDto) {
@@ -103,7 +103,7 @@ export class AdminController {
   }
 
   @Patch('user-groups/:id')
-  @Roles('super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: '更新用户组' })
   @ApiOkResponse()
   async updateUserGroup(@Param('id') id: string, @Body() dto: UpdateUserGroupDto) {
@@ -111,7 +111,7 @@ export class AdminController {
   }
 
   @Patch('user-groups/:id/toggle')
-  @Roles('super_admin')
+  @Roles('admin')
   @ApiOperation({ summary: '切换用户组状态' })
   @ApiOkResponse()
   async toggleUserGroup(@Param('id') id: string) {
@@ -119,7 +119,7 @@ export class AdminController {
   }
 
   @Delete('user-groups/:id')
-  @Roles('super_admin')
+  @Roles('admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: '删除用户组', description: '有关联用户时拒绝删除' })
   @ApiNoContentResponse()
