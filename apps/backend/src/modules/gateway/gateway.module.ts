@@ -1,6 +1,4 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
 import { GatewayController } from './gateway.controller';
 import { GatewayService } from './gateway.service';
 import { ChannelService } from './channel/channel.service';
@@ -14,23 +12,12 @@ import { RequestLogModule } from '../request-log/request-log.module';
     forwardRef(() => BillingModule),
     forwardRef(() => RequestLogModule),
     ApiKeyModule,
-    ThrottlerModule.forRoot([
-      {
-        name: 'gateway',
-        ttl: 60000,
-        limit: 60,
-      },
-    ]),
   ],
   controllers: [GatewayController],
   providers: [
     GatewayService,
     ChannelService,
     ChannelRepository,
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
   ],
   exports: [GatewayService, ChannelService],
 })
