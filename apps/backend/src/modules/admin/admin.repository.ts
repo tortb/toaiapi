@@ -238,7 +238,7 @@ export class AdminRepository {
   }
 
   /**
-   * 根据 ID 查询 User（含余额和统计）
+   * 根据 ID 查询 User（含余额、统计、关联数据）
    */
   async findUserById(id: string) {
     return this.prisma.user.findUnique({
@@ -247,14 +247,108 @@ export class AdminRepository {
         id: true,
         email: true,
         display_name: true,
+        phone: true,
+        avatar_url: true,
         role: true,
         status: true,
+        github_id: true,
+        google_id: true,
+        wechat_id: true,
         created_at: true,
         updated_at: true,
         balance: { select: { amount: true, frozen: true } },
         _count: { select: { apiKeys: true, requestLogs: true } },
+        // 最近 5 笔订单
+        orders: {
+          select: {
+            id: true,
+            order_no: true,
+            amount: true,
+            status: true,
+            payment_method: true,
+            created_at: true,
+            paid_at: true,
+          },
+          orderBy: { created_at: 'desc' as const },
+          take: 5,
+        },
+        // 最近 5 笔交易
+        transactions: {
+          select: {
+            id: true,
+            type: true,
+            amount: true,
+            balance_after: true,
+            remark: true,
+            created_at: true,
+          },
+          orderBy: { created_at: 'desc' as const },
+          take: 5,
+        },
+        // 最近 5 个 API Key
+        apiKeys: {
+          select: {
+            id: true,
+            name: true,
+            key_prefix: true,
+            is_active: true,
+            total_requests: true,
+            last_used_at: true,
+            created_at: true,
+          },
+          orderBy: { created_at: 'desc' as const },
+          take: 5,
+        },
       },
     });
+  }
+
+  /**
+   * 获取单个用户的消费和充值统计
+   */
+  async getUserSpendingStats(userId: string) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [monthlySpend, monthlyRecharge, totalSpend, totalRecharge, tokenStats] = await Promise.all([
+      // 本月消费
+      this.prisma.userTransaction.aggregate({
+        where: { user_id: userId, type: 'DEDUCT', created_at: { gte: monthStart } },
+        _sum: { amount: true },
+      }),
+      // 本月充值
+      this.prisma.userTransaction.aggregate({
+        where: { user_id: userId, type: 'RECHARGE', created_at: { gte: monthStart } },
+        _sum: { amount: true },
+      }),
+      // 总消费
+      this.prisma.userTransaction.aggregate({
+        where: { user_id: userId, type: 'DEDUCT' },
+        _sum: { amount: true },
+      }),
+      // 总充值
+      this.prisma.userTransaction.aggregate({
+        where: { user_id: userId, type: 'RECHARGE' },
+        _sum: { amount: true },
+      }),
+      // Token 统计
+      this.prisma.requestLog.aggregate({
+        where: { user_id: userId, created_at: { gte: monthStart } },
+        _sum: { prompt_tokens: true, completion_tokens: true, total_tokens: true },
+        _count: true,
+      }),
+    ]);
+
+    return {
+      monthlySpend: Math.abs(monthlySpend._sum.amount || 0),
+      monthlyRecharge: monthlyRecharge._sum.amount || 0,
+      totalSpend: Math.abs(totalSpend._sum.amount || 0),
+      totalRecharge: totalRecharge._sum.amount || 0,
+      monthlyRequests: tokenStats._count,
+      monthlyPromptTokens: tokenStats._sum.prompt_tokens || 0,
+      monthlyCompletionTokens: tokenStats._sum.completion_tokens || 0,
+      monthlyTotalTokens: tokenStats._sum.total_tokens || 0,
+    };
   }
 
   /**
@@ -928,6 +1022,59 @@ export class AdminRepository {
   async getUserBalance(userId: string) {
     return this.prisma.userBalance.findUnique({
       where: { user_id: userId },
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // RechargePromotion 充值赠送活动
+  // ──────────────────────────────────────────────
+
+  async findPromotions(params: {
+    skip?: number;
+    take?: number;
+    where?: Prisma.RechargePromotionWhereInput;
+  }) {
+    const [items, total] = await Promise.all([
+      this.prisma.rechargePromotion.findMany({
+        where: params.where,
+        skip: params.skip,
+        take: params.take,
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.rechargePromotion.count({ where: params.where }),
+    ]);
+    return { items, total };
+  }
+
+  async findPromotionById(id: string) {
+    return this.prisma.rechargePromotion.findUnique({ where: { id } });
+  }
+
+  async createPromotion(data: Prisma.RechargePromotionCreateInput) {
+    return this.prisma.rechargePromotion.create({ data });
+  }
+
+  async updatePromotion(id: string, data: Prisma.RechargePromotionUpdateInput) {
+    return this.prisma.rechargePromotion.update({ where: { id }, data });
+  }
+
+  async deletePromotion(id: string) {
+    return this.prisma.rechargePromotion.delete({ where: { id } });
+  }
+
+  /**
+   * 获取当前有效的充值赠送活动
+   */
+  async findActivePromotions(amount: number) {
+    const now = new Date();
+    return this.prisma.rechargePromotion.findMany({
+      where: {
+        is_active: true,
+        start_at: { lte: now },
+        OR: [{ end_at: null }, { end_at: { gte: now } }],
+        min_amount: { lte: amount },
+      },
+      orderBy: { min_amount: 'desc' },
     });
   }
 }

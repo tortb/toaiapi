@@ -146,4 +146,47 @@ export class BalanceController {
       pagination.pageSize,
     );
   }
+
+  /**
+   * 获取余额和消费统计
+   */
+  @Get('stats')
+  @ApiOperation({ summary: '获取余额和消费统计' })
+  @ApiOkResponse()
+  async getStats(@CurrentUser() user: CurrentUserInfo) {
+    return this.balanceService.getStats(user.id);
+  }
+
+  /**
+   * 获取消费明细（账单）
+   */
+  @Get('bills')
+  @ApiOperation({ summary: '获取消费明细' })
+  @ApiOkResponse()
+  async getBills(
+    @CurrentUser() user: CurrentUserInfo,
+    @Query() pagination: PaginationDto,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.balanceService.getBills(
+      user.id,
+      pagination.page,
+      pagination.pageSize,
+      { startDate, endDate },
+    );
+  }
+
+  /**
+   * 获取按天聚合的消费统计
+   */
+  @Get('bills/daily')
+  @ApiOperation({ summary: '获取按天聚合的消费统计' })
+  @ApiOkResponse()
+  async getDailyBills(
+    @CurrentUser() user: CurrentUserInfo,
+    @Query('days') days?: string,
+  ) {
+    return this.balanceService.getDailyBills(user.id, days ? parseInt(days, 10) : 30);
+  }
 }

@@ -508,3 +508,29 @@ enum SubscriptionStatus {
   CANCELLED
   SUSPENDED
 }
+
+// ──────────────────────────────────────────────
+// 充值赠送活动
+// ──────────────────────────────────────────────
+
+model RechargePromotion {
+  id          String    @id @default(cuid())
+  name        String                                  // 活动名称
+  description String?                                 // 活动描述
+  min_amount  Int                                     // 最低充值金额（分）
+  bonus_type  BonusType                               // FIXED=固定金额, PERCENTAGE=百分比
+  bonus_value Int                                     // 赠送值（分或百分比×100，如10%存1000）
+  max_bonus   Int?                                    // 百分比模式上限（分）
+  start_at    DateTime                                // 生效时间
+  end_at      DateTime?                               // 结束时间（null=永久）
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@index([is_active, start_at, end_at])
+}
+
+enum BonusType {
+  FIXED       // 固定金额赠送（如充100送10）
+  PERCENTAGE  // 百分比赠送（如充100送10%）
+}

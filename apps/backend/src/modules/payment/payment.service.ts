@@ -387,14 +387,14 @@ export class PaymentService implements OnModuleInit {
           },
         });
 
-        // 增加用户余额
+        // 增加用户余额（充值金额）
         await tx.userBalance.upsert({
           where: { user_id: order.user_id },
           update: { amount: { increment: order.amount } },
           create: { user_id: order.user_id, amount: order.amount },
         });
 
-        // 记录交易流水
+        // 记录充值交易流水
         const balance = await tx.userBalance.findUnique({
           where: { user_id: order.user_id },
         });
@@ -409,6 +409,50 @@ export class PaymentService implements OnModuleInit {
             remark: `充值 - ${order.product_name}`,
           },
         });
+
+        // 查询匹配的赠送活动
+        const now = new Date();
+        const promos = await tx.rechargePromotion.findMany({
+          where: {
+            is_active: true,
+            start_at: { lte: now },
+            OR: [{ end_at: null }, { end_at: { gte: now } }],
+            min_amount: { lte: order.amount },
+          },
+          orderBy: { min_amount: 'desc' },
+          take: 1,
+        });
+
+        // 应用赠送活动（取最高档位）
+        if (promos.length > 0) {
+          const promo = promos[0]!;
+          const bonus = this.calculateBonus(promo, order.amount);
+          if (bonus > 0) {
+            // 增加赠送余额
+            await tx.userBalance.update({
+              where: { user_id: order.user_id },
+              data: { amount: { increment: bonus } },
+            });
+
+            // 记录赠送交易流水
+            const updatedBalance = await tx.userBalance.findUnique({
+              where: { user_id: order.user_id },
+            });
+
+            await tx.userTransaction.create({
+              data: {
+                user_id: order.user_id,
+                type: 'GIFT',
+                amount: bonus,
+                balance_after: updatedBalance?.amount || 0,
+                order_id: order.id,
+                remark: `充值赠送 - ${promo.name}`,
+              },
+            });
+
+            this.logger.log(`Applied promotion "${promo.name}" bonus ${bonus} fen for order ${result.orderNo}`);
+          }
+        }
       });
 
       this.logger.log(`Payment successful for order: ${result.orderNo}`);
@@ -468,5 +512,52 @@ export class PaymentService implements OnModuleInit {
       name: m.name,
       displayName: m.display_name,
     }));
+  }
+
+  /**
+   * 获取当前有效的充值赠送活动
+   */
+  async getActivePromotions(amount: number) {
+    const now = new Date();
+    const where: Prisma.RechargePromotionWhereInput = {
+      is_active: true,
+      start_at: { lte: now },
+      OR: [{ end_at: null }, { end_at: { gte: now } }],
+    };
+    if (amount > 0) {
+      where.min_amount = { lte: amount };
+    }
+
+    const promos = await this.prisma.rechargePromotion.findMany({
+      where,
+      orderBy: { min_amount: 'desc' },
+    });
+
+    return promos.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      minAmount: p.min_amount,
+      bonusType: p.bonus_type,
+      bonusValue: p.bonus_value,
+      maxBonus: p.max_bonus,
+      startAt: p.start_at,
+      endAt: p.end_at,
+    }));
+  }
+
+  /**
+   * 计算赠送金额
+   */
+  private calculateBonus(promo: any, rechargeAmount: number): number {
+    if (promo.bonus_type === 'FIXED') {
+      return promo.bonus_value;
+    }
+    // PERCENTAGE: bonus_value 存的是百分比×100（如10%存1000）
+    let bonus = Math.floor(rechargeAmount * promo.bonus_value / 10000);
+    if (promo.max_bonus && bonus > promo.max_bonus) {
+      bonus = promo.max_bonus;
+    }
+    return bonus;
   }
 }

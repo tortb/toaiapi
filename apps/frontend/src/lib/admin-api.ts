@@ -210,6 +210,63 @@ export async function getUsers(params: UserListParams = {}): Promise<PaginatedRe
 }
 
 /**
+ * 用户详情数据
+ */
+export interface UserDetailData extends UserData {
+  phone: string | null;
+  avatarUrl: string | null;
+  githubId: string | null;
+  googleId: string | null;
+  wechatId: string | null;
+  balance: { amount: number; frozen: number; available: number } | null;
+  stats: {
+    apiKeyCount: number;
+    requestCount: number;
+    monthlySpend: number;
+    monthlyRecharge: number;
+    totalSpend: number;
+    totalRecharge: number;
+    monthlyRequests: number;
+    monthlyPromptTokens: number;
+    monthlyCompletionTokens: number;
+    monthlyTotalTokens: number;
+  };
+  recentOrders: Array<{
+    id: string;
+    orderNo: string;
+    amount: number;
+    status: string;
+    paymentMethod: string | null;
+    createdAt: string;
+    paidAt: string | null;
+  }>;
+  recentTransactions: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    balanceAfter: number;
+    remark: string | null;
+    createdAt: string;
+  }>;
+  recentApiKeys: Array<{
+    id: string;
+    name: string | null;
+    keyPrefix: string;
+    isActive: boolean;
+    totalRequests: number;
+    lastUsedAt: string | null;
+    createdAt: string;
+  }>;
+}
+
+/**
+ * 获取用户详情
+ */
+export async function getUser(id: string): Promise<UserDetailData> {
+  return adminFetch<UserDetailData>(`${API_PREFIX}/admin/users/${id}`);
+}
+
+/**
  * 修改用户状态
  */
 export async function updateUserStatus(
@@ -595,6 +652,55 @@ export function getChannelStatusLabel(status: string): { label: string; color: s
 }
 
 // ──────────────────────────────────────────────
+// Bill (交易流水) Admin API
+// ──────────────────────────────────────────────
+
+export interface BillAdminData {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string | null;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  remark: string | null;
+  createdAt: string;
+}
+
+export interface BillListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  type?: string;
+  userId?: string;
+}
+
+export async function getBills(params: BillListParams = {}): Promise<PaginatedResponse<BillAdminData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.search) searchParams.set("search", params.search);
+  if (params.type) searchParams.set("type", params.type);
+  if (params.userId) searchParams.set("userId", params.userId);
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<BillAdminData>>(`${API_PREFIX}/admin/bills${query ? `?${query}` : ""}`);
+}
+
+/**
+ * 交易类型映射
+ */
+export function getTransactionTypeLabel(type: string): { label: string; color: string } {
+  const map: Record<string, { label: string; color: string }> = {
+    RECHARGE: { label: "充值", color: "text-success bg-success/10" },
+    DEDUCT: { label: "消费", color: "text-red-600 bg-red-50" },
+    GIFT: { label: "赠送", color: "text-orange bg-orange/10" },
+    REFUND: { label: "退款", color: "text-info bg-info/10" },
+    REWARD: { label: "奖励", color: "text-purple bg-purple/10" },
+  };
+  return map[type] ?? { label: type, color: "text-gray-600 bg-gray-100" };
+}
+
+// ──────────────────────────────────────────────
 // Provider API
 // ──────────────────────────────────────────────
 
@@ -878,6 +984,91 @@ export function getProviderStatusLabel(isActive: boolean): { label: string; colo
   return isActive
     ? { label: "启用", color: "text-success", dotColor: "bg-success" }
     : { label: "禁用", color: "text-gray-400", dotColor: "bg-gray-400" };
+}
+
+// ──────────────────────────────────────────────
+// RechargePromotion API
+// ──────────────────────────────────────────────
+
+export interface PromotionData {
+  id: string;
+  name: string;
+  description: string | null;
+  minAmount: number;
+  bonusType: "FIXED" | "PERCENTAGE";
+  bonusValue: number;
+  maxBonus: number | null;
+  startAt: string;
+  endAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePromotionPayload {
+  name: string;
+  description?: string;
+  min_amount: number;
+  bonus_type: "FIXED" | "PERCENTAGE";
+  bonus_value: number;
+  max_bonus?: number;
+  start_at: string;
+  end_at?: string;
+  is_active?: boolean;
+}
+
+export interface UpdatePromotionPayload {
+  name?: string;
+  description?: string;
+  min_amount?: number;
+  bonus_type?: "FIXED" | "PERCENTAGE";
+  bonus_value?: number;
+  max_bonus?: number;
+  start_at?: string;
+  end_at?: string;
+  is_active?: boolean;
+}
+
+export async function getPromotions(params: { page?: number; pageSize?: number; isActive?: boolean } = {}): Promise<PaginatedResponse<PromotionData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.isActive !== undefined) searchParams.set("isActive", String(params.isActive));
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<PromotionData>>(`${API_PREFIX}/admin/promotions${query ? `?${query}` : ""}`);
+}
+
+export async function createPromotion(payload: CreatePromotionPayload): Promise<PromotionData> {
+  return adminFetch<PromotionData>(`${API_PREFIX}/admin/promotions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updatePromotion(id: string, payload: UpdatePromotionPayload): Promise<PromotionData> {
+  return adminFetch<PromotionData>(`${API_PREFIX}/admin/promotions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function togglePromotion(id: string): Promise<PromotionData> {
+  return adminFetch<PromotionData>(`${API_PREFIX}/admin/promotions/${id}/toggle`, {
+    method: "PATCH",
+  });
+}
+
+export async function deletePromotion(id: string): Promise<void> {
+  return adminFetch<void>(`${API_PREFIX}/admin/promotions/${id}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * 赠送类型映射
+ */
+export function getBonusTypeLabel(type: string): string {
+  return type === "FIXED" ? "固定金额" : "百分比";
 }
 
 // ──────────────────────────────────────────────

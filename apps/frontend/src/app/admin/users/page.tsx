@@ -476,6 +476,12 @@ export default function UsersPage() {
                             </td>
                             <td className="px-4 py-3 text-right">
                               <div className="flex items-center justify-end gap-2">
+                                <a
+                                  href={`/admin/users/${u.id}`}
+                                  className="px-2 py-1 text-[11px] text-primary hover:bg-primary-50 rounded"
+                                >
+                                  详情
+                                </a>
                                 {u.status === "ACTIVE" ? (
                                   <button
                                     onClick={() => handleStatusChange(u.id, "SUSPENDED", u.displayName || u.email)}

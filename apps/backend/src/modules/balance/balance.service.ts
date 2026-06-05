@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 import { BillingService } from '../billing/billing.service';
 import { RequestLogService } from '../request-log/request-log.service';
 
@@ -13,6 +14,7 @@ export class BalanceService {
   private readonly logger = new Logger(BalanceService.name);
 
   constructor(
+    private readonly prisma: PrismaService,
     private readonly billingService: BillingService,
     private readonly requestLogService: RequestLogService,
   ) {}
@@ -70,5 +72,150 @@ export class BalanceService {
    */
   async getRequestLogs(userId: string, page: number, pageSize: number) {
     return this.requestLogService.getUserLogs(userId, page, pageSize);
+  }
+
+  /**
+   * 获取余额和消费统计
+   */
+  async getStats(userId: string) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [balance, monthlySpend, monthlyRecharge, tokenStats] = await Promise.all([
+      this.billingService.getBalance(userId),
+      this.prisma.userTransaction.aggregate({
+        where: { user_id: userId, type: 'DEDUCT', created_at: { gte: monthStart } },
+        _sum: { amount: true },
+      }),
+      this.prisma.userTransaction.aggregate({
+        where: { user_id: userId, type: 'RECHARGE', created_at: { gte: monthStart } },
+        _sum: { amount: true },
+      }),
+      this.prisma.requestLog.aggregate({
+        where: { user_id: userId, created_at: { gte: monthStart } },
+        _sum: { prompt_tokens: true, completion_tokens: true, total_tokens: true },
+        _count: true,
+      }),
+    ]);
+
+    return {
+      balance,
+      monthlySpend: Math.abs(monthlySpend._sum.amount || 0),
+      monthlyRecharge: monthlyRecharge._sum.amount || 0,
+      monthlyRequests: tokenStats._count,
+      monthlyPromptTokens: tokenStats._sum.prompt_tokens || 0,
+      monthlyCompletionTokens: tokenStats._sum.completion_tokens || 0,
+      monthlyTotalTokens: tokenStats._sum.total_tokens || 0,
+    };
+  }
+
+  /**
+   * 获取消费明细（账单）
+   */
+  async getBills(
+    userId: string,
+    page: number,
+    pageSize: number,
+    filters?: { startDate?: string; endDate?: string },
+  ) {
+    const skip = (page - 1) * pageSize;
+    const where: any = { user_id: userId };
+    if (filters?.startDate || filters?.endDate) {
+      where.created_at = {};
+      if (filters.startDate) where.created_at.gte = new Date(filters.startDate);
+      if (filters.endDate) where.created_at.lte = new Date(filters.endDate);
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.requestLog.findMany({
+        where,
+        select: {
+          id: true,
+          created_at: true,
+          request_path: true,
+          prompt_tokens: true,
+          completion_tokens: true,
+          cached_tokens: true,
+          reasoning_tokens: true,
+          total_tokens: true,
+          cost: true,
+          status_code: true,
+          latency_ms: true,
+          model_id: true,
+          channel_id: true,
+        },
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.requestLog.count({ where }),
+    ]);
+
+    return {
+      items: items.map((r) => ({
+        id: r.id,
+        createdAt: r.created_at,
+        endpoint: r.request_path,
+        promptTokens: r.prompt_tokens,
+        completionTokens: r.completion_tokens,
+        cachedTokens: r.cached_tokens,
+        reasoningTokens: r.reasoning_tokens,
+        totalTokens: r.total_tokens,
+        cost: r.cost,
+        statusCode: r.status_code,
+        latencyMs: r.latency_ms,
+        modelId: r.model_id,
+        channelId: r.channel_id,
+      })),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  /**
+   * 获取按天聚合的消费统计
+   */
+  async getDailyBills(userId: string, days: number = 30) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    const logs = await this.prisma.requestLog.findMany({
+      where: {
+        user_id: userId,
+        created_at: { gte: startDate },
+      },
+      select: {
+        created_at: true,
+        cost: true,
+        total_tokens: true,
+      },
+    });
+
+    // 按天聚合
+    const dailyMap = new Map<string, { cost: number; tokens: number; requests: number }>();
+    for (const log of logs) {
+      const dateStr = log.created_at.toISOString().slice(0, 10);
+      const existing = dailyMap.get(dateStr) || { cost: 0, tokens: 0, requests: 0 };
+      existing.cost += log.cost;
+      existing.tokens += log.total_tokens;
+      existing.requests += 1;
+      dailyMap.set(dateStr, existing);
+    }
+
+    // 填充空日期
+    const result: Array<{ date: string; cost: number; tokens: number; requests: number }> = [];
+    const current = new Date(startDate);
+    const today = new Date();
+    while (current <= today) {
+      const dateStr = current.toISOString().slice(0, 10);
+      const data = dailyMap.get(dateStr) || { cost: 0, tokens: 0, requests: 0 };
+      result.push({ date: dateStr, ...data });
+      current.setDate(current.getDate() + 1);
+    }
+
+    return result;
   }
 }

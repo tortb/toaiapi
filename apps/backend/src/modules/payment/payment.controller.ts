@@ -100,6 +100,14 @@ export class PaymentController {
     return this.paymentService.getAvailableMethods();
   }
 
+  @Get('promotions')
+  @ApiOperation({ summary: '获取当前有效的充值赠送活动' })
+  @ApiOkResponse()
+  async getActivePromotions(@Query('amount') amount?: string) {
+    const amountNum = amount ? parseInt(amount, 10) : 0;
+    return this.paymentService.getActivePromotions(amountNum);
+  }
+
   // ──────────────────────────────────────────────
   // 支付回调 API（无需认证）
   // ──────────────────────────────────────────────

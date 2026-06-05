@@ -19,6 +19,7 @@ import { UpsertPricingDto } from './dto/upsert-pricing.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
+import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto';
 import { UpdateSmtpConfigDto } from './dto/smtp-config.dto';
 import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
@@ -1119,7 +1120,7 @@ export class AdminService {
   }
 
   /**
-   * 获取用户详情（含余额和统计）
+   * 获取用户详情（含余额、统计、关联数据）
    */
   async getUser(id: string): Promise<Record<string, unknown>> {
     const user = await this.adminRepo.findUserById(id);
@@ -1127,12 +1128,19 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
+    const stats = await this.adminRepo.getUserSpendingStats(id);
+
     return {
       id: user.id,
       email: user.email,
       displayName: user.display_name,
+      phone: user.phone,
+      avatarUrl: user.avatar_url,
       role: user.role,
       status: user.status,
+      githubId: user.github_id,
+      googleId: user.google_id,
+      wechatId: user.wechat_id,
       createdAt: user.created_at,
       updatedAt: user.updated_at,
       balance: user.balance ? {
@@ -1143,7 +1151,34 @@ export class AdminService {
       stats: {
         apiKeyCount: user._count.apiKeys,
         requestCount: user._count.requestLogs,
+        ...stats,
       },
+      recentOrders: user.orders.map((o) => ({
+        id: o.id,
+        orderNo: o.order_no,
+        amount: o.amount,
+        status: o.status,
+        paymentMethod: o.payment_method,
+        createdAt: o.created_at,
+        paidAt: o.paid_at,
+      })),
+      recentTransactions: user.transactions.map((t) => ({
+        id: t.id,
+        type: t.type,
+        amount: t.amount,
+        balanceAfter: t.balance_after,
+        remark: t.remark,
+        createdAt: t.created_at,
+      })),
+      recentApiKeys: user.apiKeys.map((k) => ({
+        id: k.id,
+        name: k.name,
+        keyPrefix: k.key_prefix,
+        isActive: k.is_active,
+        totalRequests: k.total_requests,
+        lastUsedAt: k.last_used_at,
+        createdAt: k.created_at,
+      })),
     };
   }
 
@@ -1374,5 +1409,97 @@ export class AdminService {
    */
   async sendTestEmail(email: string) {
     return this.emailService.sendTestEmail(email);
+  }
+
+  // ──────────────────────────────────────────────
+  // RechargePromotion 充值赠送活动
+  // ──────────────────────────────────────────────
+
+  async listPromotions(page: number, pageSize: number, isActive?: boolean) {
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.RechargePromotionWhereInput = {};
+    if (isActive !== undefined) where.is_active = isActive;
+
+    const { items, total } = await this.adminRepo.findPromotions({ skip, take: pageSize, where });
+    return {
+      items: items.map((p) => this.toPromotionResponse(p)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  async getPromotion(id: string) {
+    const promo = await this.adminRepo.findPromotionById(id);
+    if (!promo) throw new NotFoundException('活动不存在');
+    return this.toPromotionResponse(promo);
+  }
+
+  async createPromotion(dto: CreatePromotionDto) {
+    if (dto.bonus_type === 'PERCENTAGE' && dto.bonus_value > 10000) {
+      throw new BadRequestException('百分比不能超过100%');
+    }
+    const promo = await this.adminRepo.createPromotion({
+      name: dto.name,
+      description: dto.description,
+      min_amount: dto.min_amount,
+      bonus_type: dto.bonus_type,
+      bonus_value: dto.bonus_value,
+      max_bonus: dto.max_bonus,
+      start_at: new Date(dto.start_at),
+      end_at: dto.end_at ? new Date(dto.end_at) : null,
+      is_active: dto.is_active ?? true,
+    });
+    return this.toPromotionResponse(promo);
+  }
+
+  async updatePromotion(id: string, dto: UpdatePromotionDto) {
+    const existing = await this.adminRepo.findPromotionById(id);
+    if (!existing) throw new NotFoundException('活动不存在');
+
+    const data: Prisma.RechargePromotionUpdateInput = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.min_amount !== undefined) data.min_amount = dto.min_amount;
+    if (dto.bonus_type !== undefined) data.bonus_type = dto.bonus_type;
+    if (dto.bonus_value !== undefined) data.bonus_value = dto.bonus_value;
+    if (dto.max_bonus !== undefined) data.max_bonus = dto.max_bonus;
+    if (dto.start_at !== undefined) data.start_at = new Date(dto.start_at);
+    if (dto.end_at !== undefined) data.end_at = dto.end_at ? new Date(dto.end_at) : null;
+    if (dto.is_active !== undefined) data.is_active = dto.is_active;
+
+    const promo = await this.adminRepo.updatePromotion(id, data);
+    return this.toPromotionResponse(promo);
+  }
+
+  async deletePromotion(id: string) {
+    const existing = await this.adminRepo.findPromotionById(id);
+    if (!existing) throw new NotFoundException('活动不存在');
+    await this.adminRepo.deletePromotion(id);
+  }
+
+  async togglePromotion(id: string) {
+    const existing = await this.adminRepo.findPromotionById(id);
+    if (!existing) throw new NotFoundException('活动不存在');
+    const promo = await this.adminRepo.updatePromotion(id, { is_active: !existing.is_active });
+    return this.toPromotionResponse(promo);
+  }
+
+  private toPromotionResponse(p: any) {
+    return {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      minAmount: p.min_amount,
+      bonusType: p.bonus_type,
+      bonusValue: p.bonus_value,
+      maxBonus: p.max_bonus,
+      startAt: p.start_at,
+      endAt: p.end_at,
+      isActive: p.is_active,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    };
   }
 }

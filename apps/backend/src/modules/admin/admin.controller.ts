@@ -44,6 +44,7 @@ import { UpdateSmtpConfigDto, SendTestEmailDto } from './dto/smtp-config.dto';
 import { DashboardResponseDto } from './dto/dashboard-response.dto';
 import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
+import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto';
 
 /**
  * Admin 管理控制器
@@ -541,5 +542,59 @@ export class AdminController {
   @ApiOkResponse()
   async sendTestEmail(@Body() dto: SendTestEmailDto) {
     return this.adminService.sendTestEmail(dto.email);
+  }
+
+  // ──────────────────────────────────────────────
+  // RechargePromotion 充值赠送活动
+  // ──────────────────────────────────────────────
+
+  @Get('promotions')
+  @ApiOperation({ summary: '获取充值赠送活动列表' })
+  @ApiOkResponse()
+  async listPromotions(
+    @Query() pagination: PaginationDto,
+    @Query('isActive') isActive?: boolean,
+  ) {
+    return this.adminService.listPromotions(pagination.page, pagination.pageSize, isActive);
+  }
+
+  @Post('promotions')
+  @Roles('admin')
+  @ApiOperation({ summary: '创建充值赠送活动' })
+  @ApiCreatedResponse()
+  async createPromotion(@Body() dto: CreatePromotionDto) {
+    return this.adminService.createPromotion(dto);
+  }
+
+  @Get('promotions/:id')
+  @ApiOperation({ summary: '获取充值赠送活动详情' })
+  @ApiOkResponse()
+  async getPromotion(@Param('id') id: string) {
+    return this.adminService.getPromotion(id);
+  }
+
+  @Patch('promotions/:id')
+  @Roles('admin')
+  @ApiOperation({ summary: '更新充值赠送活动' })
+  @ApiOkResponse()
+  async updatePromotion(@Param('id') id: string, @Body() dto: UpdatePromotionDto) {
+    return this.adminService.updatePromotion(id, dto);
+  }
+
+  @Patch('promotions/:id/toggle')
+  @Roles('admin')
+  @ApiOperation({ summary: '切换充值赠送活动状态' })
+  @ApiOkResponse()
+  async togglePromotion(@Param('id') id: string) {
+    return this.adminService.togglePromotion(id);
+  }
+
+  @Delete('promotions/:id')
+  @Roles('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: '删除充值赠送活动' })
+  @ApiNoContentResponse()
+  async deletePromotion(@Param('id') id: string) {
+    await this.adminService.deletePromotion(id);
   }
 }
