@@ -9,6 +9,7 @@ build/
 .next/
 out/
 *.d.ts
+*.map
 # Compiled JS in src (source is .ts/.tsx)
 apps/*/src/**/*.js
 packages/*/src/**/*.js
