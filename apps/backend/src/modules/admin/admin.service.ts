@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { UserRole, UserStatus, Prisma } from '@prisma/client';
 import { AdminRepository } from './admin.repository';
+import { toJsonArray, parseJsonArray } from '../../common/utils/json-array.util';
 import { encrypt, decrypt, maskApiKey } from '../../common/utils/crypto.util';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
@@ -133,8 +134,8 @@ export class AdminService {
 
     if (search) {
       where['OR'] = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { display_name: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search } },
+        { display_name: { contains: search } },
       ];
     }
     if (isActive !== undefined) {
@@ -180,8 +181,8 @@ export class AdminService {
       rpm_limit: dto.rpmLimit,
       tpm_limit: dto.tpmLimit,
       max_api_keys: dto.maxApiKeys,
-      allowed_models: dto.allowedModels ?? [],
-      allowed_channels: dto.allowedChannels ?? [],
+      allowed_models: toJsonArray(dto.allowedModels),
+      allowed_channels: toJsonArray(dto.allowedChannels),
       allow_proxy: dto.allowProxy ?? true,
       allow_share: dto.allowShare ?? false,
     });
@@ -206,8 +207,8 @@ export class AdminService {
       ...(dto.rpmLimit !== undefined && { rpm_limit: dto.rpmLimit }),
       ...(dto.tpmLimit !== undefined && { tpm_limit: dto.tpmLimit }),
       ...(dto.maxApiKeys !== undefined && { max_api_keys: dto.maxApiKeys }),
-      ...(dto.allowedModels !== undefined && { allowed_models: dto.allowedModels }),
-      ...(dto.allowedChannels !== undefined && { allowed_channels: dto.allowedChannels }),
+      ...(dto.allowedModels !== undefined && { allowed_models: toJsonArray(dto.allowedModels) }),
+      ...(dto.allowedChannels !== undefined && { allowed_channels: toJsonArray(dto.allowedChannels) }),
       ...(dto.allowProxy !== undefined && { allow_proxy: dto.allowProxy }),
       ...(dto.allowShare !== undefined && { allow_share: dto.allowShare }),
     });
@@ -270,8 +271,8 @@ export class AdminService {
       rpmLimit: group.rpm_limit,
       tpmLimit: group.tpm_limit,
       maxApiKeys: group.max_api_keys,
-      allowedModels: group.allowed_models,
-      allowedChannels: group.allowed_channels,
+      allowedModels: parseJsonArray(group.allowed_models),
+      allowedChannels: parseJsonArray(group.allowed_channels),
       allowProxy: group.allow_proxy,
       allowShare: group.allow_share,
       isActive: group.is_active,
@@ -463,9 +464,9 @@ export class AdminService {
     }
     if (search) {
       where.OR = [
-        { key_prefix: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { key_prefix: { contains: search } },
+        { name: { contains: search } },
+        { user: { email: { contains: search } } },
       ];
     }
 
@@ -536,8 +537,8 @@ export class AdminService {
       expiresAt: key.expires_at?.toISOString() ?? null,
       rateLimit: key.rate_limit,
       tokenLimit: key.token_limit,
-      modelLimit: key.model_limit,
-      ipWhitelist: key.ip_whitelist,
+      modelLimit: parseJsonArray(key.model_limit),
+      ipWhitelist: parseJsonArray(key.ip_whitelist),
       lastUsedAt: key.last_used_at?.toISOString() ?? null,
       totalRequests: key.total_requests,
       createdAt: key.created_at.toISOString(),
@@ -570,9 +571,9 @@ export class AdminService {
     }
     if (search) {
       where.OR = [
-        { order_no: { contains: search, mode: 'insensitive' } },
-        { product_name: { contains: search, mode: 'insensitive' } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { order_no: { contains: search } },
+        { product_name: { contains: search } },
+        { user: { email: { contains: search } } },
       ];
     }
 
@@ -646,8 +647,8 @@ export class AdminService {
     }
     if (search) {
       where.OR = [
-        { remark: { contains: search, mode: 'insensitive' } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { remark: { contains: search } },
+        { user: { email: { contains: search } } },
       ];
     }
 
@@ -1097,9 +1098,9 @@ export class AdminService {
     if (search && search.trim()) {
       const keyword = search.trim();
       where['OR'] = [
-        { id: { contains: keyword, mode: 'insensitive' } },
-        { display_name: { contains: keyword, mode: 'insensitive' } },
-        { email: { contains: keyword, mode: 'insensitive' } },
+        { id: { contains: keyword } },
+        { display_name: { contains: keyword } },
+        { email: { contains: keyword } },
       ];
     }
 
@@ -1516,10 +1517,10 @@ export class AdminService {
     if (status) where.status = status as any;
     if (search) {
       where.OR = [
-        { invoice_no: { contains: search, mode: 'insensitive' } },
-        { company_name: { contains: search, mode: 'insensitive' } },
-        { tax_id: { contains: search, mode: 'insensitive' } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { invoice_no: { contains: search } },
+        { company_name: { contains: search } },
+        { tax_id: { contains: search } },
+        { user: { email: { contains: search } } },
       ];
     }
 

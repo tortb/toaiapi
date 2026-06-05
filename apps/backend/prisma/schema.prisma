@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -64,12 +64,12 @@ model UserGroup {
   name             String   @unique
   display_name     String
   description      String?
-  price_multiplier Decimal  @default(1.0) @db.Decimal(4, 2)
+  price_multiplier Decimal  @default(1.0)
   rpm_limit        Int      @default(60)
   tpm_limit        Int      @default(60000)
   max_api_keys     Int      @default(10)
-  allowed_models   String[] @default([])
-  allowed_channels String[] @default([])
+  allowed_models   String   @default("[]")  // JSON array
+  allowed_channels String   @default("[]")  // JSON array
   allow_proxy      Boolean  @default(true)
   allow_share      Boolean  @default(false)
   is_active        Boolean  @default(true)
@@ -189,8 +189,8 @@ model ApiKey {
   expires_at     DateTime?
   rate_limit     Int?
   token_limit    Int?
-  model_limit    String[]
-  ip_whitelist   String[]
+  model_limit    String   @default("[]")  // JSON array
+  ip_whitelist   String   @default("[]")  // JSON array
   last_used_at   DateTime?
   total_requests Int       @default(0)
   created_at     DateTime  @default(now())

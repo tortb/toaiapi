@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
+import { parseJsonArray } from '../utils/json-array.util';
 import * as argon2 from 'argon2';
 import { isIPv4 } from 'net';
 
@@ -123,6 +124,10 @@ export class ApiKeyAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid API key');
     }
 
+    // 解析 JSON 数组字段
+    const modelLimit = parseJsonArray(keyRecord.model_limit);
+    const ipWhitelist = parseJsonArray(keyRecord.ip_whitelist);
+
     // 缓存验证结果（不含 key_hash），5 分钟过期
     const cacheData = JSON.stringify({
       id: keyRecord.id,
@@ -130,15 +135,15 @@ export class ApiKeyAuthGuard implements CanActivate {
       name: keyRecord.name,
       rate_limit: keyRecord.rate_limit,
       token_limit: keyRecord.token_limit,
-      model_limit: keyRecord.model_limit,
-      ip_whitelist: keyRecord.ip_whitelist,
+      model_limit: modelLimit,
+      ip_whitelist: ipWhitelist,
     });
     await this.redis.set(cacheKey, cacheData, 300);
 
     // SECURITY: 检查 IP 白名单
-    if (keyRecord.ip_whitelist && keyRecord.ip_whitelist.length > 0) {
+    if (ipWhitelist.length > 0) {
       const clientIp = this.extractClientIp(request);
-      if (!this.isIpWhitelisted(clientIp, keyRecord.ip_whitelist)) {
+      if (!this.isIpWhitelisted(clientIp, ipWhitelist)) {
         throw new ForbiddenException(`IP ${clientIp} is not allowed by this API key's whitelist`);
       }
     }

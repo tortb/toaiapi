@@ -11,6 +11,7 @@ import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { ApiKeyResponseDto } from './dto/api-key-response.dto';
 import { RedisService } from '../../redis/redis.service';
 import { SystemSettingService } from '../../common/services/system-setting.service';
+import { toJsonArray, parseJsonArray } from '../../common/utils/json-array.util';
 
 /**
  * API Key 业务服务
@@ -77,8 +78,8 @@ export class ApiKeyService {
       expires_at: dto.expiresAt ? new Date(dto.expiresAt) : null,
       rate_limit: dto.rateLimit,
       token_limit: dto.tokenLimit,
-      model_limit: dto.modelLimit || [],
-      ip_whitelist: dto.ipWhitelist || [],
+      model_limit: toJsonArray(dto.modelLimit),
+      ip_whitelist: toJsonArray(dto.ipWhitelist),
     });
 
     this.logger.log(`API Key created: ${apiKey.id} for user ${userId}`);
@@ -92,8 +93,8 @@ export class ApiKeyService {
       expiresAt: apiKey.expires_at,
       rateLimit: apiKey.rate_limit,
       tokenLimit: apiKey.token_limit,
-      modelLimit: apiKey.model_limit,
-      ipWhitelist: apiKey.ip_whitelist,
+      modelLimit: parseJsonArray(apiKey.model_limit),
+      ipWhitelist: parseJsonArray(apiKey.ip_whitelist),
       createdAt: apiKey.created_at,
     };
   }
@@ -112,8 +113,8 @@ export class ApiKeyService {
       expiresAt: key.expires_at,
       rateLimit: key.rate_limit,
       tokenLimit: key.token_limit,
-      modelLimit: key.model_limit,
-      ipWhitelist: key.ip_whitelist,
+      modelLimit: parseJsonArray(key.model_limit),
+      ipWhitelist: parseJsonArray(key.ip_whitelist),
       lastUsedAt: key.last_used_at,
       totalRequests: key.total_requests,
       createdAt: key.created_at,
@@ -182,8 +183,8 @@ export class ApiKeyService {
       expires_at: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
       rate_limit: dto.rateLimit,
       token_limit: dto.tokenLimit,
-      model_limit: dto.modelLimit,
-      ip_whitelist: dto.ipWhitelist,
+      model_limit: dto.modelLimit ? toJsonArray(dto.modelLimit) : undefined,
+      ip_whitelist: dto.ipWhitelist ? toJsonArray(dto.ipWhitelist) : undefined,
     });
 
     // 清除缓存
@@ -197,8 +198,8 @@ export class ApiKeyService {
       expiresAt: updated.expires_at,
       rateLimit: updated.rate_limit,
       tokenLimit: updated.token_limit,
-      modelLimit: updated.model_limit,
-      ipWhitelist: updated.ip_whitelist,
+      modelLimit: parseJsonArray(updated.model_limit),
+      ipWhitelist: parseJsonArray(updated.ip_whitelist),
       createdAt: updated.created_at,
     };
   }
@@ -238,8 +239,8 @@ export class ApiKeyService {
       expiresAt: updated.expires_at,
       rateLimit: updated.rate_limit,
       tokenLimit: updated.token_limit,
-      modelLimit: updated.model_limit,
-      ipWhitelist: updated.ip_whitelist,
+      modelLimit: parseJsonArray(updated.model_limit),
+      ipWhitelist: parseJsonArray(updated.ip_whitelist),
       createdAt: updated.created_at,
     };
   }
@@ -291,8 +292,8 @@ export class ApiKeyService {
       expiresAt: updated.expires_at,
       rateLimit: updated.rate_limit,
       tokenLimit: updated.token_limit,
-      modelLimit: updated.model_limit,
-      ipWhitelist: updated.ip_whitelist,
+      modelLimit: parseJsonArray(updated.model_limit),
+      ipWhitelist: parseJsonArray(updated.ip_whitelist),
       createdAt: updated.created_at,
     };
   }

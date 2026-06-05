@@ -8,6 +8,7 @@ import { SystemSettingService } from '../services/system-setting.service';
  * 检查 maintenance_mode 系统设置：
  * - 开启时：非管理员请求返回 503，携带维护公告
  * - 关闭时：正常放行
+ * - 数据库不可用时：放行（不阻断请求）
  *
  * 管理员通过 JWT payload 中的 role 判断（仅解码不验证，正式鉴权由 JwtAuthGuard 负责）。
  * 白名单路径（如登录、健康检查、管理后台）不受限制。
@@ -23,19 +24,20 @@ export class MaintenanceMiddleware implements NestMiddleware {
     '/api/v1/health',
     '/api/docs',
     '/api/v1/maintenance-status',
+    '/api/v1/public-config',
   ];
 
   constructor(private readonly systemSettingService: SystemSettingService) {}
 
   async use(req: FastifyRequest, res: FastifyReply, next: (err?: Error) => void) {
+    const path = req.url?.split('?')[0] ?? '';
+
+    // 白名单路径直接放行
+    if (this.WHITELIST_PREFIXES.some((prefix) => path.startsWith(prefix))) {
+      return next();
+    }
+
     try {
-      const path = req.url?.split('?')[0] ?? '';
-
-      // 白名单路径直接放行
-      if (this.WHITELIST_PREFIXES.some((prefix) => path.startsWith(prefix))) {
-        return next();
-      }
-
       // 检查维护模式是否开启
       const maintenanceMode = await this.systemSettingService.getTypedByKey<boolean>(
         'maintenance_mode',
@@ -53,19 +55,26 @@ export class MaintenanceMiddleware implements NestMiddleware {
       }
 
       // 非管理员，返回 503
-      const notice = await this.systemSettingService.getByKey('maintenance_notice');
+      let notice = '系统维护中，请稍后再试';
+      try {
+        const savedNotice = await this.systemSettingService.getByKey('maintenance_notice');
+        if (savedNotice) notice = savedNotice;
+      } catch {
+        // 忽略读取公告失败
+      }
 
       this.logger.warn(`Maintenance mode blocked: ${req.method} ${path}`);
 
       res.status(503).send({
         code: 503,
-        message: notice || '系统维护中，请稍后再试',
+        message: notice,
         maintenance: true,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      // 中间件异常不应阻断请求
-      this.logger.error(`Maintenance middleware error: ${error}`);
+      // 数据库连接失败等异常：放行请求，不阻断
+      // 这样即使数据库未配置/不可用，系统仍能正常启动
+      this.logger.warn(`Maintenance middleware skip (DB may be unavailable): ${error instanceof Error ? error.message : error}`);
       return next();
     }
   }
