@@ -384,6 +384,58 @@ export async function deleteUserGroup(id: string): Promise<void> {
 }
 
 // ──────────────────────────────────────────────
+// Role API
+// ──────────────────────────────────────────────
+
+export interface RoleData {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  level: number;
+  isSystem: boolean;
+  isActive: boolean;
+  dataScope: string;
+  permissionCount: number;
+  userCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoleDetailData extends RoleData {
+  permissions: PermissionData[];
+}
+
+export interface PermissionData {
+  id: string;
+  code: string;
+  name: string;
+  resource: string;
+  action: string;
+}
+
+/**
+ * 获取角色列表
+ */
+export async function getRoles(): Promise<RoleData[]> {
+  return adminFetch<RoleData[]>(`${API_PREFIX}/admin/roles`);
+}
+
+/**
+ * 获取角色详情
+ */
+export async function getRole(id: string): Promise<RoleDetailData> {
+  return adminFetch<RoleDetailData>(`${API_PREFIX}/admin/roles/${id}`);
+}
+
+/**
+ * 获取所有权限点
+ */
+export async function getPermissions(): Promise<PermissionData[]> {
+  return adminFetch<PermissionData[]>(`${API_PREFIX}/admin/permissions`);
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 

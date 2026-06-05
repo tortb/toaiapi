@@ -43,6 +43,7 @@ import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
 import { UpdateSmtpConfigDto, SendTestEmailDto } from './dto/smtp-config.dto';
 import { DashboardResponseDto } from './dto/dashboard-response.dto';
 import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
+import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
 
 /**
  * Admin 管理控制器
@@ -125,6 +126,68 @@ export class AdminController {
   @ApiNoContentResponse()
   async deleteUserGroup(@Param('id') id: string) {
     await this.adminService.deleteUserGroup(id);
+  }
+
+  // ──────────────────────────────────────────────
+  // Role 管理
+  // ──────────────────────────────────────────────
+
+  @Get('roles')
+  @ApiOperation({ summary: '获取角色列表' })
+  @ApiOkResponse()
+  async listRoles() {
+    return this.adminService.listRoles();
+  }
+
+  @Post('roles')
+  @Roles('super_admin')
+  @ApiOperation({ summary: '创建角色' })
+  @ApiCreatedResponse()
+  async createRole(@Body() dto: CreateRoleDto) {
+    return this.adminService.createRole(dto);
+  }
+
+  @Get('roles/:id')
+  @ApiOperation({ summary: '获取角色详情' })
+  @ApiOkResponse()
+  async getRole(@Param('id') id: string) {
+    return this.adminService.getRole(id);
+  }
+
+  @Patch('roles/:id')
+  @Roles('super_admin')
+  @ApiOperation({ summary: '更新角色' })
+  @ApiOkResponse()
+  async updateRole(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
+    return this.adminService.updateRole(id, dto);
+  }
+
+  @Delete('roles/:id')
+  @Roles('super_admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: '删除角色', description: '系统角色不可删除' })
+  @ApiNoContentResponse()
+  async deleteRole(@Param('id') id: string) {
+    await this.adminService.deleteRole(id);
+  }
+
+  @Put('roles/:id/permissions')
+  @Roles('super_admin')
+  @ApiOperation({ summary: '设置角色权限' })
+  @ApiOkResponse()
+  async setRolePermissions(@Param('id') id: string, @Body() dto: AssignPermissionsDto) {
+    return this.adminService.setRolePermissions(id, dto);
+  }
+
+  // ──────────────────────────────────────────────
+  // Permission 管理
+  // ──────────────────────────────────────────────
+
+  @Get('permissions')
+  @ApiOperation({ summary: '获取所有权限点' })
+  @ApiOkResponse()
+  async listPermissions() {
+    return this.adminService.listPermissions();
   }
 
   // ──────────────────────────────────────────────

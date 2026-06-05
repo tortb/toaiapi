@@ -21,6 +21,7 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
 import { UpdateSmtpConfigDto } from './dto/smtp-config.dto';
 import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
+import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
 import { ProviderResponseDto } from './dto/provider-response.dto';
 import { ChannelResponseDto } from './dto/channel-response.dto';
 import { ModelResponseDto } from './dto/model-response.dto';
@@ -274,6 +275,162 @@ export class AdminService {
       userCount: group._count?.users ?? 0,
       createdAt: group.created_at,
       updatedAt: group.updated_at,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Role 管理
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询角色列表
+   */
+  async listRoles(): Promise<Record<string, unknown>[]> {
+    const roles = await this.adminRepo.findRoles({});
+    return roles.map((r) => this.toRoleResponse(r));
+  }
+
+  /**
+   * 获取角色详情
+   */
+  async getRole(id: string): Promise<Record<string, unknown>> {
+    const role = await this.adminRepo.findRoleById(id);
+    if (!role) {
+      throw new NotFoundException('Role not found');
+    }
+    return this.toRoleDetailResponse(role);
+  }
+
+  /**
+   * 创建角色
+   */
+  async createRole(dto: CreateRoleDto): Promise<Record<string, unknown>> {
+    const existing = await this.adminRepo.findRoleByCode(dto.code);
+    if (existing) {
+      throw new ConflictException(`Role '${dto.code}' already exists`);
+    }
+
+    const role = await this.adminRepo.createRole({
+      code: dto.code,
+      name: dto.name,
+      description: dto.description,
+      level: dto.level,
+      data_scope: dto.dataScope ?? 'SELF',
+    });
+
+    this.logger.log(`Role created: ${role.id} (${role.code})`);
+    return this.toRoleResponse(role);
+  }
+
+  /**
+   * 更新角色
+   */
+  async updateRole(id: string, dto: UpdateRoleDto): Promise<Record<string, unknown>> {
+    const existing = await this.adminRepo.findRoleById(id);
+    if (!existing) {
+      throw new NotFoundException('Role not found');
+    }
+
+    if (existing.is_system) {
+      throw new ForbiddenException('Cannot modify system role');
+    }
+
+    const role = await this.adminRepo.updateRole(id, {
+      ...(dto.name !== undefined && { name: dto.name }),
+      ...(dto.description !== undefined && { description: dto.description }),
+      ...(dto.level !== undefined && { level: dto.level }),
+      ...(dto.dataScope !== undefined && { data_scope: dto.dataScope }),
+      ...(dto.isActive !== undefined && { is_active: dto.isActive }),
+    });
+
+    this.logger.log(`Role updated: ${id}`);
+    return this.toRoleResponse(role);
+  }
+
+  /**
+   * 删除角色
+   */
+  async deleteRole(id: string): Promise<void> {
+    const existing = await this.adminRepo.findRoleById(id);
+    if (!existing) {
+      throw new NotFoundException('Role not found');
+    }
+
+    if (existing.is_system) {
+      throw new ForbiddenException('Cannot delete system role');
+    }
+
+    if (existing._count.user_roles > 0) {
+      throw new ConflictException('Cannot delete role with assigned users');
+    }
+
+    await this.adminRepo.deleteRole(id);
+    this.logger.log(`Role deleted: ${id} (${existing.code})`);
+  }
+
+  /**
+   * 设置角色权限
+   */
+  async setRolePermissions(id: string, dto: AssignPermissionsDto): Promise<Record<string, unknown>> {
+    const role = await this.adminRepo.findRoleById(id);
+    if (!role) {
+      throw new NotFoundException('Role not found');
+    }
+
+    await this.adminRepo.setRolePermissions(id, dto.permissionIds);
+
+    const updated = await this.adminRepo.findRoleById(id);
+    this.logger.log(`Role permissions updated: ${id}`);
+    return this.toRoleDetailResponse(updated!);
+  }
+
+  /**
+   * 获取所有权限
+   */
+  async listPermissions(): Promise<Record<string, unknown>[]> {
+    const permissions = await this.adminRepo.findPermissions();
+    return permissions.map((p) => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      resource: p.resource,
+      action: p.action,
+    }));
+  }
+
+  /**
+   * 转换角色响应
+   */
+  private toRoleResponse(role: any): Record<string, unknown> {
+    return {
+      id: role.id,
+      code: role.code,
+      name: role.name,
+      description: role.description,
+      level: role.level,
+      isSystem: role.is_system,
+      isActive: role.is_active,
+      dataScope: role.data_scope,
+      permissionCount: role._count?.permissions ?? 0,
+      userCount: role._count?.user_roles ?? 0,
+      createdAt: role.created_at,
+      updatedAt: role.updated_at,
+    };
+  }
+
+  /**
+   * 转换角色详情响应
+   */
+  private toRoleDetailResponse(role: any): Record<string, unknown> {
+    return {
+      ...this.toRoleResponse(role),
+      permissions: role.permissions?.map((rp: any) => ({
+        id: rp.permission.id,
+        code: rp.permission.code,
+        name: rp.permission.name,
+        resource: rp.permission.resource,
+        action: rp.permission.action,
+      })) ?? [],
     };
   }
 

@@ -36,6 +36,7 @@ model User {
   balance         UserBalance?
   subscriptions   UserSubscription?
   transactions    UserTransaction[]
+  userRoles       UserRoleMapping[]
 
   @@index([created_at])
   @@index([role])
@@ -79,6 +80,82 @@ model UserGroup {
 
   @@index([is_active])
   @@index([deleted_at])
+}
+
+// ============================================================
+// RBAC 权限系统
+// ============================================================
+
+/// 角色表
+model Role {
+  id          String    @id @default(cuid())
+  code        String    @unique  // 角色编码（super_admin / admin / finance 等）
+  name        String             // 显示名
+  description String?
+  level       Int       @default(0)  // 角色等级（super_admin=100 / admin=80 / user=10）
+  is_system   Boolean   @default(false)  // 系统内置角色不可删除
+  is_active   Boolean   @default(true)
+  data_scope  String    @default("SELF")  // 数据范围：ALL / ORGANIZATION / SELF
+
+  user_roles  UserRoleMapping[]
+  permissions RolePermission[]
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  deleted_at  DateTime?
+
+  @@index([is_active])
+  @@index([level])
+  @@index([deleted_at])
+}
+
+/// 权限点表
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique  // 权限编码（user:create / order:refund 等）
+  name        String            // 显示名
+  resource    String            // 资源域（user / order / model / system）
+  action      String            // 操作（create / read / update / delete）
+  description String?
+
+  roles       RolePermission[]
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([resource])
+  @@index([action])
+}
+
+/// 角色-权限关联表
+model RolePermission {
+  id            String     @id @default(cuid())
+  role_id       String
+  role          Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission_id String
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  created_at    DateTime   @default(now())
+
+  @@unique([role_id, permission_id])
+  @@index([role_id])
+  @@index([permission_id])
+}
+
+/// 用户-角色关联表
+model UserRoleMapping {
+  id         String    @id @default(cuid())
+  user_id    String
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role_id    String
+  role       Role      @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  granted_by String?
+  granted_at DateTime  @default(now())
+  expires_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  @@unique([user_id, role_id])
+  @@index([user_id])
+  @@index([role_id])
+  @@index([expires_at])
 }
 
 /// 交易流水表

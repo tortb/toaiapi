@@ -642,4 +642,115 @@ export class AdminRepository {
       where: { group_id: groupId, deleted_at: null },
     });
   }
+
+  // ──────────────────────────────────────────────
+  // Role
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询角色列表
+   */
+  async findRoles(params: { where?: Prisma.RoleWhereInput; orderBy?: Prisma.RoleOrderByWithRelationInput }) {
+    return this.prisma.role.findMany({
+      where: params.where,
+      orderBy: params.orderBy ?? { level: 'desc' },
+      include: {
+        _count: {
+          select: {
+            permissions: true,
+            user_roles: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * 根据 ID 查询角色
+   */
+  async findRoleById(id: string) {
+    return this.prisma.role.findUnique({
+      where: { id },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+        _count: {
+          select: {
+            user_roles: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * 根据编码查询角色
+   */
+  async findRoleByCode(code: string) {
+    return this.prisma.role.findUnique({ where: { code } });
+  }
+
+  /**
+   * 创建角色
+   */
+  async createRole(data: Prisma.RoleCreateInput) {
+    return this.prisma.role.create({ data });
+  }
+
+  /**
+   * 更新角色
+   */
+  async updateRole(id: string, data: Prisma.RoleUpdateInput) {
+    return this.prisma.role.update({ where: { id }, data });
+  }
+
+  /**
+   * 删除角色
+   */
+  async deleteRole(id: string) {
+    return this.prisma.role.delete({ where: { id } });
+  }
+
+  /**
+   * 设置角色权限
+   */
+  async setRolePermissions(roleId: string, permissionIds: string[]) {
+    // 先删除旧权限
+    await this.prisma.rolePermission.deleteMany({ where: { role_id: roleId } });
+
+    // 添加新权限
+    if (permissionIds.length > 0) {
+      await this.prisma.rolePermission.createMany({
+        data: permissionIds.map((pid) => ({
+          role_id: roleId,
+          permission_id: pid,
+        })),
+      });
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Permission
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询所有权限
+   */
+  async findPermissions() {
+    return this.prisma.permission.findMany({
+      orderBy: [{ resource: 'asc' }, { action: 'asc' }],
+    });
+  }
+
+  /**
+   * 根据 ID 列表查询权限
+   */
+  async findPermissionsByIds(ids: string[]) {
+    return this.prisma.permission.findMany({
+      where: { id: { in: ids } },
+    });
+  }
 }
