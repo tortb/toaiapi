@@ -16,7 +16,6 @@ import {
   ApiSecurity,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { GatewayService } from './gateway.service';
 import { ChannelService } from './channel/channel.service';
 import { ChatCompletionDto, ChatCompletionResponseDto, ModelListResponseDto } from './dto/chat-completion.dto';
@@ -72,8 +71,7 @@ export class GatewayController {
    * SECURITY: 流式模式下捕获所有错误，确保发送 [DONE] 标记
    */
   @Post('chat/completions')
-  @UseGuards(ThrottlerGuard, ApiKeyAuthGuard)
-  @Throttle({ gateway: { limit: 60, ttl: 60000 } })
+  @UseGuards(ApiKeyAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiSecurity('api-key')
   @ApiOperation({
@@ -198,8 +196,7 @@ export class GatewayController {
    * GET /v1/models
    */
   @Get('models')
-  @UseGuards(ThrottlerGuard, ApiKeyAuthGuard)
-  @Throttle({ gateway: { limit: 60, ttl: 60000 } })
+  @UseGuards(ApiKeyAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: '获取模型列表',

@@ -7,6 +7,7 @@ import {
   ChatChunk,
 } from './provider-adapter.interface';
 import { ProviderError } from './provider-error';
+import { fetchWithPool } from '../../../common/http/http-agent';
 
 /**
  * Google Gemini 适配器
@@ -37,7 +38,7 @@ export class GeminiAdapter implements ProviderAdapter {
     // Google API 使用 API Key 作为查询参数（这是官方要求的方式）
     const url = `${this.config.baseUrl}/v1beta/models/${request.model}:generateContent`;
 
-    const response = await fetch(url, {
+    const response = await fetchWithPool(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -71,7 +72,7 @@ export class GeminiAdapter implements ProviderAdapter {
 
     const url = `${this.config.baseUrl}/v1beta/models/${request.model}:streamGenerateContent?alt=sse`;
 
-    const response = await fetch(url, {
+    const response = await fetchWithPool(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

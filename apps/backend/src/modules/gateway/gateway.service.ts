@@ -102,8 +102,8 @@ export class GatewayService {
           response.usage,
         );
 
-        // 记录请求日志
-        await this.requestLogService.logRequest({
+        // 记录请求日志（fire-and-forget，不阻塞响应）
+        this.requestLogService.logRequest({
           userId: apiKey.userId,
           apiKeyId: apiKey.id,
           modelId: request.model,
@@ -116,7 +116,7 @@ export class GatewayService {
           cost,
           statusCode: 200,
           latencyMs,
-        });
+        }).catch(() => {});
 
         // 记录 API Key 使用统计（异步，不阻塞响应）
         this.apiKeyRepository.recordUsage(apiKey.id).catch(() => {});
@@ -128,16 +128,16 @@ export class GatewayService {
           `Channel ${channel.channelId} failed: ${lastError.message}`,
         );
 
-        // 更新渠道统计（失败）
-        await this.channelService.updateChannelStats(
+        // 更新渠道统计（失败，fire-and-forget）
+        this.channelService.updateChannelStats(
           channel.channelId,
           Date.now() - startTime,
           false,
-        );
+        ).catch(() => {});
 
-        // 如果是限流错误，标记渠道为 RATE_LIMITED
+        // 如果是限流错误，标记渠道为 RATE_LIMITED（fire-and-forget）
         if (error instanceof ProviderError && error.isRateLimited) {
-          await this.channelService.markChannelRateLimited(channel.channelId);
+          this.channelService.markChannelRateLimited(channel.channelId).catch(() => {});
         }
 
         // 如果是最后一个渠道，抛出错误

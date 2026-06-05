@@ -7,6 +7,7 @@ import {
   ChatChunk,
 } from './provider-adapter.interface';
 import { ProviderError } from './provider-error';
+import { fetchWithPool } from '../../../common/http/http-agent';
 
 /**
  * OpenAI 兼容适配器
@@ -52,7 +53,7 @@ export class OpenAIAdapter implements ProviderAdapter {
 
     const startTime = Date.now();
 
-    const response = await fetch(url, {
+    const response = await fetchWithPool(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -105,7 +106,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       stream_options: { include_usage: true },
     };
 
-    const response = await fetch(url, {
+    const response = await fetchWithPool(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

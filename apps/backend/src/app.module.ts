@@ -1,6 +1,5 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { UserModule } from './modules/user/user.module';
@@ -31,25 +30,6 @@ import { AppService } from './app.service';
 
     // Cache
     RedisModule,
-
-    // Rate limiting
-    ThrottlerModule.forRoot([
-      {
-        name: 'short',
-        ttl: 1000,
-        limit: 10,
-      },
-      {
-        name: 'medium',
-        ttl: 10000,
-        limit: 50,
-      },
-      {
-        name: 'long',
-        ttl: 60000,
-        limit: 200,
-      },
-    ]),
 
     // Common modules
     ConfigModule,

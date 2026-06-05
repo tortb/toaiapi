@@ -7,6 +7,7 @@ import {
   ChatChunk,
 } from './provider-adapter.interface';
 import { ProviderError } from './provider-error';
+import { fetchWithPool } from '../../../common/http/http-agent';
 
 /**
  * Anthropic 适配器
@@ -34,7 +35,7 @@ export class AnthropicAdapter implements ProviderAdapter {
   async chat(request: ChatRequest): Promise<ChatResponse> {
     const anthropicRequest = this.convertRequest(request);
 
-    const response = await fetch(`${this.config.baseUrl}/v1/messages`, {
+    const response = await fetchWithPool(`${this.config.baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -67,7 +68,7 @@ export class AnthropicAdapter implements ProviderAdapter {
   async *chatStream(request: ChatRequest): AsyncGenerator<ChatChunk> {
     const anthropicRequest = this.convertRequest(request);
 
-    const response = await fetch(`${this.config.baseUrl}/v1/messages`, {
+    const response = await fetchWithPool(`${this.config.baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
