@@ -42,6 +42,7 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
 import { UpdateSmtpConfigDto, SendTestEmailDto } from './dto/smtp-config.dto';
 import { DashboardResponseDto } from './dto/dashboard-response.dto';
+import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 
 /**
  * Admin 管理控制器
@@ -69,6 +70,61 @@ export class AdminController {
     @Query('endDate') endDate?: string,
   ): Promise<DashboardResponseDto> {
     return this.adminService.getDashboard(startDate, endDate);
+  }
+
+  // ──────────────────────────────────────────────
+  // UserGroup 管理
+  // ──────────────────────────────────────────────
+
+  @Get('user-groups')
+  @ApiOperation({ summary: '获取用户组列表', description: '分页查询，支持搜索和状态筛选' })
+  @ApiOkResponse()
+  async listUserGroups(
+    @Query() pagination: PaginationDto,
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: boolean,
+  ) {
+    return this.adminService.listUserGroups(pagination.page, pagination.pageSize, search, isActive);
+  }
+
+  @Post('user-groups')
+  @Roles('super_admin')
+  @ApiOperation({ summary: '创建用户组' })
+  @ApiCreatedResponse()
+  async createUserGroup(@Body() dto: CreateUserGroupDto) {
+    return this.adminService.createUserGroup(dto);
+  }
+
+  @Get('user-groups/:id')
+  @ApiOperation({ summary: '获取用户组详情' })
+  @ApiOkResponse()
+  async getUserGroup(@Param('id') id: string) {
+    return this.adminService.getUserGroup(id);
+  }
+
+  @Patch('user-groups/:id')
+  @Roles('super_admin')
+  @ApiOperation({ summary: '更新用户组' })
+  @ApiOkResponse()
+  async updateUserGroup(@Param('id') id: string, @Body() dto: UpdateUserGroupDto) {
+    return this.adminService.updateUserGroup(id, dto);
+  }
+
+  @Patch('user-groups/:id/toggle')
+  @Roles('super_admin')
+  @ApiOperation({ summary: '切换用户组状态' })
+  @ApiOkResponse()
+  async toggleUserGroup(@Param('id') id: string) {
+    return this.adminService.toggleUserGroup(id);
+  }
+
+  @Delete('user-groups/:id')
+  @Roles('super_admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: '删除用户组', description: '有关联用户时拒绝删除' })
+  @ApiNoContentResponse()
+  async deleteUserGroup(@Param('id') id: string) {
+    await this.adminService.deleteUserGroup(id);
   }
 
   // ──────────────────────────────────────────────

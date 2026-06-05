@@ -48,9 +48,19 @@ async function fetchJSON(path, init) {
     return json;
 }
 export async function getPublicModels() {
-    return fetchJSON("/v1/models/public");
+    const result = await fetchJSON("/models/public");
+    // API 返回 { data: [...] } 格式
+    if (result && typeof result === "object" && "data" in result) {
+        return result.data;
+    }
+    return result;
 }
 export async function getStatus() {
-    return fetchJSON("/v1/status");
+    const result = await fetchJSON("/status");
+    // API 返回 { data: [...] } 格式
+    if (result && typeof result === "object" && "data" in result) {
+        return result.data;
+    }
+    return result;
 }
 //# sourceMappingURL=api.js.map

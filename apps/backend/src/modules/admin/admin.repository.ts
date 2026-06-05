@@ -552,4 +552,94 @@ export class AdminRepository {
     }
     return `${local.slice(0, 3)}***@${domain}`;
   }
+
+  // ──────────────────────────────────────────────
+  // UserGroup
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询用户组列表（分页）
+   */
+  async findUserGroups(params: {
+    skip?: number;
+    take?: number;
+    where?: Prisma.UserGroupWhereInput;
+    orderBy?: Prisma.UserGroupOrderByWithRelationInput;
+  }) {
+    const [items, total] = await Promise.all([
+      this.prisma.userGroup.findMany({
+        where: params.where,
+        skip: params.skip,
+        take: params.take,
+        orderBy: params.orderBy ?? { price_multiplier: 'asc' },
+        include: {
+          _count: { select: { users: true } },
+        },
+      }),
+      this.prisma.userGroup.count({ where: params.where }),
+    ]);
+    return { items, total };
+  }
+
+  /**
+   * 根据 ID 查询用户组
+   */
+  async findUserGroupById(id: string) {
+    return this.prisma.userGroup.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { users: true } },
+      },
+    });
+  }
+
+  /**
+   * 根据名称查询用户组
+   */
+  async findUserGroupByName(name: string) {
+    return this.prisma.userGroup.findUnique({
+      where: { name },
+    });
+  }
+
+  /**
+   * 创建用户组
+   */
+  async createUserGroup(data: Prisma.UserGroupCreateInput) {
+    return this.prisma.userGroup.create({
+      data,
+      include: {
+        _count: { select: { users: true } },
+      },
+    });
+  }
+
+  /**
+   * 更新用户组
+   */
+  async updateUserGroup(id: string, data: Prisma.UserGroupUpdateInput) {
+    return this.prisma.userGroup.update({
+      where: { id },
+      data,
+      include: {
+        _count: { select: { users: true } },
+      },
+    });
+  }
+
+  /**
+   * 删除用户组
+   */
+  async deleteUserGroup(id: string) {
+    return this.prisma.userGroup.delete({ where: { id } });
+  }
+
+  /**
+   * 检查用户组是否有关联用户
+   */
+  async countUsersInGroup(groupId: string): Promise<number> {
+    return this.prisma.user.count({
+      where: { group_id: groupId, deleted_at: null },
+    });
+  }
 }

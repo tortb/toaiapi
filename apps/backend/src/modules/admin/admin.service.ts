@@ -20,6 +20,7 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
 import { UpdateSmtpConfigDto } from './dto/smtp-config.dto';
+import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 import { ProviderResponseDto } from './dto/provider-response.dto';
 import { ChannelResponseDto } from './dto/channel-response.dto';
 import { ModelResponseDto } from './dto/model-response.dto';
@@ -106,6 +107,173 @@ export class AdminService {
       modelDistribution,
       recentOrders,
       channelStatus,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // UserGroup 管理
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询用户组列表（分页）
+   */
+  async listUserGroups(
+    page: number,
+    pageSize: number,
+    search?: string,
+    isActive?: boolean,
+  ): Promise<PaginatedResult<Record<string, unknown>>> {
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.UserGroupWhereInput = { deleted_at: null };
+
+    if (search) {
+      where['OR'] = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { display_name: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (isActive !== undefined) {
+      where['is_active'] = isActive;
+    }
+
+    const { items, total } = await this.adminRepo.findUserGroups({ skip, take: pageSize, where });
+
+    return {
+      items: items.map((g) => this.toUserGroupResponse(g)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  /**
+   * 获取用户组详情
+   */
+  async getUserGroup(id: string): Promise<Record<string, unknown>> {
+    const group = await this.adminRepo.findUserGroupById(id);
+    if (!group) {
+      throw new NotFoundException('User group not found');
+    }
+    return this.toUserGroupResponse(group);
+  }
+
+  /**
+   * 创建用户组
+   */
+  async createUserGroup(dto: CreateUserGroupDto): Promise<Record<string, unknown>> {
+    const existing = await this.adminRepo.findUserGroupByName(dto.name);
+    if (existing) {
+      throw new ConflictException(`User group '${dto.name}' already exists`);
+    }
+
+    const group = await this.adminRepo.createUserGroup({
+      name: dto.name,
+      display_name: dto.displayName,
+      description: dto.description,
+      price_multiplier: dto.priceMultiplier,
+      rpm_limit: dto.rpmLimit,
+      tpm_limit: dto.tpmLimit,
+      max_api_keys: dto.maxApiKeys,
+      allowed_models: dto.allowedModels ?? [],
+      allowed_channels: dto.allowedChannels ?? [],
+      allow_proxy: dto.allowProxy ?? true,
+      allow_share: dto.allowShare ?? false,
+    });
+
+    this.logger.log(`User group created: ${group.id} (${group.name})`);
+    return this.toUserGroupResponse(group);
+  }
+
+  /**
+   * 更新用户组
+   */
+  async updateUserGroup(id: string, dto: UpdateUserGroupDto): Promise<Record<string, unknown>> {
+    const existing = await this.adminRepo.findUserGroupById(id);
+    if (!existing) {
+      throw new NotFoundException('User group not found');
+    }
+
+    const group = await this.adminRepo.updateUserGroup(id, {
+      ...(dto.displayName !== undefined && { display_name: dto.displayName }),
+      ...(dto.description !== undefined && { description: dto.description }),
+      ...(dto.priceMultiplier !== undefined && { price_multiplier: dto.priceMultiplier }),
+      ...(dto.rpmLimit !== undefined && { rpm_limit: dto.rpmLimit }),
+      ...(dto.tpmLimit !== undefined && { tpm_limit: dto.tpmLimit }),
+      ...(dto.maxApiKeys !== undefined && { max_api_keys: dto.maxApiKeys }),
+      ...(dto.allowedModels !== undefined && { allowed_models: dto.allowedModels }),
+      ...(dto.allowedChannels !== undefined && { allowed_channels: dto.allowedChannels }),
+      ...(dto.allowProxy !== undefined && { allow_proxy: dto.allowProxy }),
+      ...(dto.allowShare !== undefined && { allow_share: dto.allowShare }),
+    });
+
+    this.logger.log(`User group updated: ${id}`);
+    return this.toUserGroupResponse(group);
+  }
+
+  /**
+   * 切换用户组状态
+   */
+  async toggleUserGroup(id: string): Promise<Record<string, unknown>> {
+    const existing = await this.adminRepo.findUserGroupById(id);
+    if (!existing) {
+      throw new NotFoundException('User group not found');
+    }
+
+    const group = await this.adminRepo.updateUserGroup(id, {
+      is_active: !existing.is_active,
+    });
+
+    this.logger.log(`User group ${group.is_active ? 'enabled' : 'disabled'}: ${id}`);
+    return this.toUserGroupResponse(group);
+  }
+
+  /**
+   * 删除用户组
+   */
+  async deleteUserGroup(id: string): Promise<void> {
+    const existing = await this.adminRepo.findUserGroupById(id);
+    if (!existing) {
+      throw new NotFoundException('User group not found');
+    }
+
+    if (existing.is_builtin) {
+      throw new ForbiddenException('Cannot delete built-in user group');
+    }
+
+    const userCount = await this.adminRepo.countUsersInGroup(id);
+    if (userCount > 0) {
+      throw new ConflictException(
+        `Cannot delete user group '${existing.name}': ${userCount} user(s) still assigned. Reassign users first.`,
+      );
+    }
+
+    await this.adminRepo.deleteUserGroup(id);
+    this.logger.log(`User group deleted: ${id} (${existing.name})`);
+  }
+
+  /**
+   * 转换用户组响应
+   */
+  private toUserGroupResponse(group: any): Record<string, unknown> {
+    return {
+      id: group.id,
+      name: group.name,
+      displayName: group.display_name,
+      description: group.description,
+      priceMultiplier: Number(group.price_multiplier),
+      rpmLimit: group.rpm_limit,
+      tpmLimit: group.tpm_limit,
+      maxApiKeys: group.max_api_keys,
+      allowedModels: group.allowed_models,
+      allowedChannels: group.allowed_channels,
+      allowProxy: group.allow_proxy,
+      allowShare: group.allow_share,
+      isActive: group.is_active,
+      isBuiltin: group.is_builtin,
+      userCount: group._count?.users ?? 0,
+      createdAt: group.created_at,
+      updatedAt: group.updated_at,
     };
   }
 

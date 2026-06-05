@@ -267,6 +267,123 @@ export function getUserStatusLabel(status: string): { label: string; color: stri
 }
 
 // ──────────────────────────────────────────────
+// UserGroup API
+// ──────────────────────────────────────────────
+
+export interface UserGroupData {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  priceMultiplier: number;
+  rpmLimit: number;
+  tpmLimit: number;
+  maxApiKeys: number;
+  allowedModels: string[];
+  allowedChannels: string[];
+  allowProxy: boolean;
+  allowShare: boolean;
+  isActive: boolean;
+  isBuiltin: boolean;
+  userCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserGroupListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  isActive?: boolean;
+}
+
+export interface CreateUserGroupPayload {
+  name: string;
+  displayName: string;
+  description?: string;
+  priceMultiplier: number;
+  rpmLimit: number;
+  tpmLimit: number;
+  maxApiKeys: number;
+  allowedModels?: string[];
+  allowedChannels?: string[];
+  allowProxy?: boolean;
+  allowShare?: boolean;
+}
+
+export interface UpdateUserGroupPayload {
+  displayName?: string;
+  description?: string;
+  priceMultiplier?: number;
+  rpmLimit?: number;
+  tpmLimit?: number;
+  maxApiKeys?: number;
+  allowedModels?: string[];
+  allowedChannels?: string[];
+  allowProxy?: boolean;
+  allowShare?: boolean;
+}
+
+/**
+ * 获取用户组列表
+ */
+export async function getUserGroups(params: UserGroupListParams = {}): Promise<PaginatedResponse<UserGroupData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.search) searchParams.set("search", params.search);
+  if (params.isActive !== undefined) searchParams.set("isActive", String(params.isActive));
+
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<UserGroupData>>(`${API_PREFIX}/admin/user-groups${query ? `?${query}` : ""}`);
+}
+
+/**
+ * 获取用户组详情
+ */
+export async function getUserGroup(id: string): Promise<UserGroupData> {
+  return adminFetch<UserGroupData>(`${API_PREFIX}/admin/user-groups/${id}`);
+}
+
+/**
+ * 创建用户组
+ */
+export async function createUserGroup(payload: CreateUserGroupPayload): Promise<UserGroupData> {
+  return adminFetch<UserGroupData>(`${API_PREFIX}/admin/user-groups`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 更新用户组
+ */
+export async function updateUserGroup(id: string, payload: UpdateUserGroupPayload): Promise<UserGroupData> {
+  return adminFetch<UserGroupData>(`${API_PREFIX}/admin/user-groups/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 切换用户组状态
+ */
+export async function toggleUserGroup(id: string): Promise<UserGroupData> {
+  return adminFetch<UserGroupData>(`${API_PREFIX}/admin/user-groups/${id}/toggle`, {
+    method: "PATCH",
+  });
+}
+
+/**
+ * 删除用户组
+ */
+export async function deleteUserGroup(id: string): Promise<void> {
+  return adminFetch<void>(`${API_PREFIX}/admin/user-groups/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 

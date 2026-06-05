@@ -298,6 +298,11 @@ async function seedAdmin(): Promise<void> {
   const adminEmail = process.env['ADMIN_EMAIL'] || 'admin@toaiapi.com';
   const adminPassword = process.env['ADMIN_PASSWORD'] || 'Admin@123456';
 
+  // 获取管理员用户组
+  const adminGroup = await prisma.userGroup.findUnique({
+    where: { name: 'admin' },
+  });
+
   // 使用 Argon2id 哈希密码
   const passwordHash = await argon2.hash(adminPassword, {
     type: argon2.argon2id,
@@ -313,6 +318,7 @@ async function seedAdmin(): Promise<void> {
       password_hash: passwordHash,
       role: 'ADMIN',
       status: 'ACTIVE',
+      group_id: adminGroup?.id,
     },
     create: {
       email: adminEmail,
@@ -320,6 +326,7 @@ async function seedAdmin(): Promise<void> {
       display_name: 'Admin',
       role: 'ADMIN',
       status: 'ACTIVE',
+      group_id: adminGroup?.id,
     },
   });
 
@@ -398,6 +405,104 @@ async function seedSmtpConfig(): Promise<void> {
 // Main
 // ============================================================
 
+// ============================================================
+// 用户组数据
+// ============================================================
+
+interface UserGroupData {
+  name: string;
+  display_name: string;
+  description: string;
+  price_multiplier: number;
+  rpm_limit: number;
+  tpm_limit: number;
+  max_api_keys: number;
+  is_builtin: boolean;
+}
+
+const USER_GROUPS: UserGroupData[] = [
+  {
+    name: 'free',
+    display_name: '免费用户',
+    description: '默认免费用户组',
+    price_multiplier: 1.0,
+    rpm_limit: 10,
+    tpm_limit: 10000,
+    max_api_keys: 3,
+    is_builtin: true,
+  },
+  {
+    name: 'vip',
+    display_name: 'VIP 用户',
+    description: 'VIP 用户，更高限额',
+    price_multiplier: 0.8,
+    rpm_limit: 60,
+    tpm_limit: 60000,
+    max_api_keys: 10,
+    is_builtin: true,
+  },
+  {
+    name: 'enterprise',
+    display_name: '企业用户',
+    description: '企业用户，最高限额',
+    price_multiplier: 0.6,
+    rpm_limit: 300,
+    tpm_limit: 300000,
+    max_api_keys: 50,
+    is_builtin: true,
+  },
+  {
+    name: 'agent',
+    display_name: '代理商',
+    description: '代理商用户组',
+    price_multiplier: 0.5,
+    rpm_limit: 600,
+    tpm_limit: 600000,
+    max_api_keys: 100,
+    is_builtin: true,
+  },
+  {
+    name: 'admin',
+    display_name: '管理员',
+    description: '系统管理员',
+    price_multiplier: 0,
+    rpm_limit: 1000,
+    tpm_limit: 1000000,
+    max_api_keys: 100,
+    is_builtin: true,
+  },
+];
+
+async function seedUserGroups(): Promise<void> {
+  console.log('\n👥 Seeding User Groups...');
+
+  for (const group of USER_GROUPS) {
+    await prisma.userGroup.upsert({
+      where: { name: group.name },
+      update: {
+        display_name: group.display_name,
+        description: group.description,
+        price_multiplier: group.price_multiplier,
+        rpm_limit: group.rpm_limit,
+        tpm_limit: group.tpm_limit,
+        max_api_keys: group.max_api_keys,
+      },
+      create: {
+        name: group.name,
+        display_name: group.display_name,
+        description: group.description,
+        price_multiplier: group.price_multiplier,
+        rpm_limit: group.rpm_limit,
+        tpm_limit: group.tpm_limit,
+        max_api_keys: group.max_api_keys,
+        is_builtin: group.is_builtin,
+        is_active: true,
+      },
+    });
+    console.log(`   ✓ UserGroup: ${group.name} (${group.display_name})`);
+  }
+}
+
 async function main(): Promise<void> {
   console.log('🌱 ToAIAPI Database Seeding');
   console.log('=' .repeat(50));
@@ -410,13 +515,16 @@ async function main(): Promise<void> {
     // 2. Models（依赖 Provider）
     await seedModels();
 
-    // 3. Admin（无依赖）
+    // 3. UserGroups（无依赖）
+    await seedUserGroups();
+
+    // 4. Admin（依赖 UserGroup）
     await seedAdmin();
 
-    // 4. Payment Configs（无依赖）
+    // 5. Payment Configs（无依赖）
     await seedPaymentConfigs();
 
-    // 5. SMTP Config（无依赖）
+    // 6. SMTP Config（无依赖）
     await seedSmtpConfig();
 
     console.log('\n' + '='.repeat(50));

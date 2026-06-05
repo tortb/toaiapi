@@ -59,19 +59,19 @@ let GatewayController = (() => {
         static { _classThis = this; }
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(null) : void 0;
-            _chatCompletions_decorators = [Post('v1/chat/completions'), UseGuards(ThrottlerGuard, ApiKeyAuthGuard), Throttle({ gateway: { limit: 60, ttl: 60000 } }), HttpCode(HttpStatus.OK), ApiSecurity('api-key'), ApiOperation({
+            _chatCompletions_decorators = [Post('chat/completions'), UseGuards(ThrottlerGuard, ApiKeyAuthGuard), Throttle({ gateway: { limit: 60, ttl: 60000 } }), HttpCode(HttpStatus.OK), ApiSecurity('api-key'), ApiOperation({
                     summary: '聊天补全',
                     description: 'OpenAI 兼容的聊天补全接口，支持同步和流式输出',
                 }), ApiOkResponse({ type: ChatCompletionResponseDto })];
-            _listModels_decorators = [Get('v1/models'), UseGuards(ThrottlerGuard, ApiKeyAuthGuard), Throttle({ gateway: { limit: 60, ttl: 60000 } }), ApiSecurity('api-key'), ApiOperation({
+            _listModels_decorators = [Get('models'), UseGuards(ThrottlerGuard, ApiKeyAuthGuard), Throttle({ gateway: { limit: 60, ttl: 60000 } }), ApiSecurity('api-key'), ApiOperation({
                     summary: '获取模型列表',
                     description: '获取当前 API Key 可用的模型列表',
                 }), ApiOkResponse({ type: ModelListResponseDto })];
-            _listPublicModels_decorators = [Get('v1/models/public'), ApiOperation({
+            _listPublicModels_decorators = [Get('models/public'), ApiOperation({
                     summary: '公开模型列表',
                     description: '获取所有可用模型的公开信息（含定价和能力），无需认证',
                 }), ApiOkResponse()];
-            _getServiceStatus_decorators = [Get('v1/status'), ApiOperation({
+            _getServiceStatus_decorators = [Get('status'), ApiOperation({
                     summary: '服务状态',
                     description: '获取所有活跃渠道的运行状态，无需认证',
                 }), ApiOkResponse()];

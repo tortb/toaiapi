@@ -1,6 +1,3 @@
-// ToAIAPI Database Schema
-// 所有数据库变更必须通过 Prisma Migration
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,46 +7,361 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================
-// 用户系统
-// ============================================================
-
 /// 用户表
 /// 存储所有用户信息，支持邮箱/密码登录和 OAuth（GitHub/Google/微信）
 /// SECURITY: password_hash 使用 Argon2id 算法
 /// 支持软删除（deleted_at 字段）
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  phone         String?   @unique
-  password_hash String
-  display_name  String?
-  avatar_url    String?
-  role          UserRole  @default(USER)
-  status        UserStatus @default(ACTIVE)
-
-  // OAuth
-  github_id     String?   @unique
-  google_id     String?   @unique
-  wechat_id     String?   @unique
-
-  // 关联
-  balance       UserBalance?
-  apiKeys       ApiKey[]
-  subscriptions UserSubscription[]
-  orders        Order[]
-  transactions  UserTransaction[]
-  requestLogs   RequestLog[]
-  organization  Organization? @relation(fields: [organization_id], references: [id])
+  id              String            @id @default(cuid())
+  email           String            @unique
+  phone           String?           @unique
+  password_hash   String
+  display_name    String?
+  avatar_url      String?
+  role            UserRole          @default(USER)
+  status          UserStatus        @default(ACTIVE)
+  github_id       String?           @unique
+  google_id       String?           @unique
+  wechat_id       String?           @unique
   organization_id String?
-
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  deleted_at    DateTime?
+  group_id        String?
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+  deleted_at      DateTime?
+  apiKeys         ApiKey[]
+  orders          Order[]
+  requestLogs     RequestLog[]
+  organization    Organization?     @relation(fields: [organization_id], references: [id])
+  group           UserGroup?        @relation(fields: [group_id], references: [id])
+  balance         UserBalance?
+  subscriptions   UserSubscription?
+  transactions    UserTransaction[]
 
   @@index([created_at])
   @@index([role])
   @@index([status])
+  @@index([group_id])
+}
+
+/// 用户余额表（一对一）
+/// 所有金额单位：分（fen），1 元 = 100 分
+model UserBalance {
+  id         String   @id @default(cuid())
+  user_id    String   @unique
+  amount     Int      @default(0)
+  frozen     Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+/// 用户组表
+/// 用于控制用户的价格倍率、限额、可访问模型等策略
+model UserGroup {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  display_name     String
+  description      String?
+  price_multiplier Decimal  @default(1.0) @db.Decimal(4, 2)
+  rpm_limit        Int      @default(60)
+  tpm_limit        Int      @default(60000)
+  max_api_keys     Int      @default(10)
+  allowed_models   String[] @default([])
+  allowed_channels String[] @default([])
+  allow_proxy      Boolean  @default(true)
+  allow_share      Boolean  @default(false)
+  is_active        Boolean  @default(true)
+  is_builtin       Boolean  @default(false)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  deleted_at       DateTime?
+  users            User[]
+
+  @@index([is_active])
+  @@index([deleted_at])
+}
+
+/// 交易流水表
+/// 记录所有余额变动，支持审计和对账
+model UserTransaction {
+  id            String          @id @default(cuid())
+  user_id       String
+  type          TransactionType
+  amount        Int
+  balance_after Int
+  order_id      String?
+  remark        String?
+  created_at    DateTime        @default(now())
+  user          User            @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@index([order_id])
+}
+
+/// API Key 表
+/// SECURITY: key_hash 使用 Argon2id 哈希，不存储明文
+/// key_prefix 存储前 16 字符用于列表展示
+model ApiKey {
+  id             String    @id @default(cuid())
+  user_id        String
+  key_hash       String    @unique
+  key_prefix     String
+  name           String?
+  is_active      Boolean   @default(true)
+  expires_at     DateTime?
+  rate_limit     Int?
+  token_limit    Int?
+  model_limit    String[]
+  ip_whitelist   String[]
+  last_used_at   DateTime?
+  total_requests Int       @default(0)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  user           User      @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([key_prefix])
+}
+
+/// AI 模型定义表
+/// 存储支持的 AI 模型及其能力（流式/工具/视觉）
+model Model {
+  id                 String         @id @default(cuid())
+  name               String         @unique
+  display_name       String
+  provider_id        String
+  max_context        Int
+  supports_streaming Boolean        @default(true)
+  supports_tools     Boolean        @default(false)
+  supports_vision    Boolean        @default(false)
+  is_active          Boolean        @default(true)
+  created_at         DateTime       @default(now())
+  updated_at         DateTime       @updatedAt
+  channels           ChannelModel[]
+  pricing            ModelPricing?
+}
+
+/// 模型定价表（一对一）
+/// 价格单位：分/百万 Token
+model ModelPricing {
+  id              String   @id @default(cuid())
+  model_id        String   @unique
+  input_price     Int
+  output_price    Int
+  cached_price    Int?
+  reasoning_price Int?
+  multiplier      Decimal  @default(1.0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  model           Model    @relation(fields: [model_id], references: [id])
+}
+
+/// AI 服务商表（如 OpenAI、Anthropic、Google）
+model Provider {
+  id           String    @id @default(cuid())
+  name         String    @unique
+  display_name String
+  base_url     String
+  is_active    Boolean   @default(true)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  channels     Channel[]
+}
+
+/// 渠道表
+/// 每个渠道对应一个 Provider 的一个 API 端点/凭证
+/// SECURITY: api_key 使用 AES-256-GCM 加密存储
+model Channel {
+  id              String         @id @default(cuid())
+  provider_id     String
+  name            String
+  base_url        String
+  api_key         String
+  weight          Int            @default(1)
+  priority        Int            @default(0)
+  is_active       Boolean        @default(true)
+  status          ChannelStatus  @default(ACTIVE)
+  total_requests  Int            @default(0)
+  failed_requests Int            @default(0)
+  avg_latency_ms  Int            @default(0)
+  rate_limit      Int?
+  token_limit     Int?
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
+  provider        Provider       @relation(fields: [provider_id], references: [id])
+  models          ChannelModel[]
+
+  @@index([provider_id, is_active])
+}
+
+/// 渠道-模型关联表（多对多）
+/// 一个渠道可以支持多个模型，一个模型可以有多个渠道
+model ChannelModel {
+  id         String  @id @default(cuid())
+  channel_id String
+  model_id   String
+  alias      String?
+  is_active  Boolean @default(true)
+  channel    Channel @relation(fields: [channel_id], references: [id])
+  model      Model   @relation(fields: [model_id], references: [id])
+
+  @@unique([channel_id, model_id])
+}
+
+/// 订单表
+/// 金额单位：分（fen）
+model Order {
+  id             String         @id @default(cuid())
+  order_no       String         @unique
+  user_id        String
+  amount         Int
+  paid_amount    Int?
+  payment_method PaymentMethod?
+  status         OrderStatus    @default(PENDING)
+  product_type   String
+  product_id     String?
+  product_name   String
+  paid_at        DateTime?
+  expired_at     DateTime?
+  remark         String?
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+  user           User           @relation(fields: [user_id], references: [id])
+  payment        Payment?
+
+  @@index([user_id, created_at])
+  @@index([status])
+}
+
+/// 支付记录表（一对一关联 Order）
+model Payment {
+  id            String        @id @default(cuid())
+  order_id      String        @unique
+  method        PaymentMethod
+  amount        Int
+  trade_no      String?
+  buyer_id      String?
+  status        PaymentStatus @default(PENDING)
+  paid_at       DateTime?
+  refunded_at   DateTime?
+  refund_amount Int?
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+  order         Order         @relation(fields: [order_id], references: [id])
+}
+
+/// 订阅计划表
+/// 定义可用的订阅套餐及其配额和限制
+model SubscriptionPlan {
+  id            String             @id @default(cuid())
+  name          String             @unique
+  display_name  String
+  monthly_price Int
+  yearly_price  Int
+  monthly_quota Int
+  rate_limit    Int
+  token_limit   Int
+  features      Json
+  is_active     Boolean            @default(true)
+  created_at    DateTime           @default(now())
+  updated_at    DateTime           @updatedAt
+  subscriptions UserSubscription[]
+}
+
+/// 用户订阅表（一对一）
+model UserSubscription {
+  id         String             @id @default(cuid())
+  user_id    String             @unique
+  plan_id    String
+  type       SubscriptionType
+  period     String
+  start_date DateTime
+  end_date   DateTime
+  used_quota Int                @default(0)
+  auto_renew Boolean            @default(true)
+  status     SubscriptionStatus @default(ACTIVE)
+  created_at DateTime           @default(now())
+  updated_at DateTime           @updatedAt
+  plan       SubscriptionPlan   @relation(fields: [plan_id], references: [id])
+  user       User               @relation(fields: [user_id], references: [id])
+}
+
+/// 企业组织表
+/// 支持多租户，一个组织有多个成员
+model Organization {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  balance    Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  members    User[]
+}
+
+/// API 请求日志表
+/// 记录每次 API 调用的详细信息，用于计费审计和使用统计
+/// 注意：不设外键约束，避免高频写入时的锁竞争
+model RequestLog {
+  id                String   @id @default(cuid())
+  user_id           String
+  api_key_id        String
+  model_id          String
+  channel_id        String
+  request_path      String
+  request_method    String
+  prompt_tokens     Int
+  completion_tokens Int
+  cached_tokens     Int      @default(0)
+  reasoning_tokens  Int      @default(0)
+  total_tokens      Int
+  cost              Int
+  status_code       Int
+  latency_ms        Int
+  created_at        DateTime @default(now())
+  user              User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@index([model_id, created_at])
+  @@index([channel_id, created_at])
+  @@index([created_at])
+}
+
+/// 支付渠道配置表
+/// 存储各支付渠道的商户配置信息
+/// SECURITY: 敏感字段使用 AES-256-GCM 加密存储
+model PaymentConfig {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  display_name    String
+  is_enabled      Boolean  @default(false)
+  merchant_id     String?
+  merchant_key    String?
+  merchant_secret String?
+  api_endpoint    String?
+  notify_url      String?
+  return_url      String?
+  extra_config    Json?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+}
+
+/// SMTP邮件配置表
+/// 存储邮件服务器配置
+/// SECURITY: 密码使用 AES-256-GCM 加密存储
+model SmtpConfig {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  is_enabled   Boolean  @default(false)
+  host         String?
+  port         Int      @default(587)
+  secure       Boolean  @default(false)
+  username     String?
+  password     String?
+  from_name    String?
+  from_address String?
+  extra_config Json?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 }
 
 enum UserRole {
@@ -67,46 +379,6 @@ enum UserStatus {
   BANNED
 }
 
-// ============================================================
-// 余额系统
-// ============================================================
-
-/// 用户余额表（一对一）
-/// 所有金额单位：分（fen），1 元 = 100 分
-model UserBalance {
-  id         String   @id @default(cuid())
-  user_id    String   @unique
-  user       User     @relation(fields: [user_id], references: [id])
-
-  // 余额单位：分
-  amount     Int      @default(0)
-  // 冻结金额
-  frozen     Int      @default(0)
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-}
-
-/// 交易流水表
-/// 记录所有余额变动，支持审计和对账
-model UserTransaction {
-  id            String          @id @default(cuid())
-  user_id       String
-  user          User            @relation(fields: [user_id], references: [id])
-
-  type          TransactionType
-  amount        Int
-  balance_after Int
-
-  order_id      String?
-  remark        String?
-
-  created_at    DateTime        @default(now())
-
-  @@index([user_id, created_at])
-  @@index([order_id])
-}
-
 enum TransactionType {
   RECHARGE
   DEDUCT
@@ -117,193 +389,11 @@ enum TransactionType {
   UNFREEZE
 }
 
-// ============================================================
-// API Key 系统
-// ============================================================
-
-/// API Key 表
-/// SECURITY: key_hash 使用 Argon2id 哈希，不存储明文
-/// key_prefix 存储前 16 字符用于列表展示
-model ApiKey {
-  id          String    @id @default(cuid())
-  user_id     String
-  user        User      @relation(fields: [user_id], references: [id])
-
-  key_hash    String    @unique
-  key_prefix  String    // sk-toai-xxxxxx (前16位，用于展示)
-  name        String?
-
-  is_active   Boolean   @default(true)
-  expires_at  DateTime?
-
-  // 限制
-  rate_limit  Int?      // 请求/分钟
-  token_limit Int?      // token/分钟
-  model_limit String[]  // 允许的模型列表
-
-  // IP 白名单
-  ip_whitelist String[]
-
-  // 使用统计
-  last_used_at DateTime?  // 最后使用时间
-  total_requests Int      @default(0) // 累计请求数
-
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-
-  @@index([user_id])
-  @@index([key_prefix])
-}
-
-// ============================================================
-// 模型系统
-// ============================================================
-
-/// AI 模型定义表
-/// 存储支持的 AI 模型及其能力（流式/工具/视觉）
-model Model {
-  id              String    @id @default(cuid())
-  name            String    @unique  // 'claude-sonnet-4', 'gpt-4o'
-  display_name    String
-  provider_id     String
-
-  max_context     Int
-  supports_streaming Boolean @default(true)
-  supports_tools     Boolean @default(false)
-  supports_vision    Boolean @default(false)
-
-  is_active       Boolean   @default(true)
-
-  pricing         ModelPricing?
-  channels        ChannelModel[]
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
-}
-
-/// 模型定价表（一对一）
-/// 价格单位：分/百万 Token
-model ModelPricing {
-  id              String   @id @default(cuid())
-  model_id        String   @unique
-  model           Model    @relation(fields: [model_id], references: [id])
-
-  // 价格单位：分/百万 token
-  input_price     Int
-  output_price    Int
-  cached_price    Int?
-  reasoning_price Int?
-
-  multiplier      Decimal  @default(1.0)
-
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-}
-
-// ============================================================
-// 渠道系统
-// ============================================================
-
-/// AI 服务商表（如 OpenAI、Anthropic、Google）
-model Provider {
-  id          String    @id @default(cuid())
-  name        String    @unique  // 'openai', 'anthropic', 'google'
-  display_name String
-  base_url    String
-
-  is_active   Boolean   @default(true)
-  channels    Channel[]
-
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-}
-
-/// 渠道表
-/// 每个渠道对应一个 Provider 的一个 API 端点/凭证
-/// SECURITY: api_key 使用 AES-256-GCM 加密存储
-model Channel {
-  id           String    @id @default(cuid())
-  provider_id  String
-  provider     Provider  @relation(fields: [provider_id], references: [id])
-  name         String
-  base_url     String
-  api_key      String    // 加密存储
-
-  weight       Int       @default(1)
-  priority     Int       @default(0)
-
-  is_active    Boolean   @default(true)
-  status       ChannelStatus @default(ACTIVE)
-
-  total_requests Int     @default(0)
-  failed_requests Int    @default(0)
-  avg_latency_ms Int     @default(0)
-
-  rate_limit   Int?
-  token_limit  Int?
-
-  models       ChannelModel[]
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
-
-  @@index([provider_id, is_active])
-}
-
-/// 渠道-模型关联表（多对多）
-/// 一个渠道可以支持多个模型，一个模型可以有多个渠道
-model ChannelModel {
-  id          String  @id @default(cuid())
-  channel_id  String
-  channel     Channel @relation(fields: [channel_id], references: [id])
-  model_id    String
-  model       Model   @relation(fields: [model_id], references: [id])
-
-  alias       String?
-  is_active   Boolean @default(true)
-
-  @@unique([channel_id, model_id])
-}
-
 enum ChannelStatus {
   ACTIVE
   RATE_LIMITED
   ERROR
   DISABLED
-}
-
-// ============================================================
-// 订单系统
-// ============================================================
-
-/// 订单表
-/// 金额单位：分（fen）
-model Order {
-  id           String      @id @default(cuid())
-  order_no     String      @unique
-  user_id      String
-  user         User        @relation(fields: [user_id], references: [id])
-
-  amount       Int
-  paid_amount  Int?
-
-  payment_method PaymentMethod?
-
-  status       OrderStatus @default(PENDING)
-
-  product_type String
-  product_id   String?
-  product_name String
-
-  paid_at      DateTime?
-  expired_at   DateTime?
-  remark       String?
-
-  payment      Payment?
-
-  created_at   DateTime    @default(now())
-  updated_at   DateTime    @updatedAt
-
-  @@index([user_id, created_at])
-  @@index([status])
 }
 
 enum OrderStatus {
@@ -322,90 +412,11 @@ enum PaymentMethod {
   EPAY_QQ
 }
 
-// ============================================================
-// 支付系统
-// ============================================================
-
-/// 支付记录表（一对一关联 Order）
-model Payment {
-  id              String        @id @default(cuid())
-  order_id        String        @unique
-  order           Order         @relation(fields: [order_id], references: [id])
-
-  method          PaymentMethod
-  amount          Int
-
-  // 第三方支付信息
-  trade_no        String?
-  buyer_id        String?
-
-  status          PaymentStatus @default(PENDING)
-
-  paid_at         DateTime?
-  refunded_at     DateTime?
-  refund_amount   Int?
-
-  created_at      DateTime      @default(now())
-  updated_at      DateTime      @updatedAt
-}
-
 enum PaymentStatus {
   PENDING
   SUCCESS
   FAILED
   REFUNDED
-}
-
-// ============================================================
-// 套餐系统
-// ============================================================
-
-/// 订阅计划表
-/// 定义可用的订阅套餐及其配额和限制
-model SubscriptionPlan {
-  id              String   @id @default(cuid())
-  name            String   @unique
-  display_name    String
-
-  monthly_price   Int
-  yearly_price    Int
-
-  monthly_quota   Int
-
-  rate_limit      Int
-  token_limit     Int
-
-  features        Json
-
-  is_active       Boolean  @default(true)
-
-  subscriptions   UserSubscription[]
-
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-}
-
-/// 用户订阅表（一对一）
-model UserSubscription {
-  id              String           @id @default(cuid())
-  user_id         String           @unique
-  user            User             @relation(fields: [user_id], references: [id])
-  plan_id         String
-  plan            SubscriptionPlan @relation(fields: [plan_id], references: [id])
-
-  type            SubscriptionType
-
-  period          String
-  start_date      DateTime
-  end_date        DateTime
-
-  used_quota      Int              @default(0)
-
-  auto_renew      Boolean          @default(true)
-
-  status          SubscriptionStatus @default(ACTIVE)
-  created_at      DateTime         @default(now())
-  updated_at      DateTime         @updatedAt
 }
 
 enum SubscriptionType {
@@ -419,124 +430,4 @@ enum SubscriptionStatus {
   EXPIRED
   CANCELLED
   SUSPENDED
-}
-
-// ============================================================
-// 企业系统
-// ============================================================
-
-/// 企业组织表
-/// 支持多租户，一个组织有多个成员
-model Organization {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-
-  // 企业余额
-  balance     Int      @default(0)
-
-  members     User[]
-
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-}
-
-// ============================================================
-// 请求日志
-// ============================================================
-
-/// API 请求日志表
-/// 记录每次 API 调用的详细信息，用于计费审计和使用统计
-/// 注意：不设外键约束，避免高频写入时的锁竞争
-model RequestLog {
-  id                String   @id @default(cuid())
-  user_id           String
-  user              User     @relation(fields: [user_id], references: [id])
-  api_key_id        String
-  model_id          String
-  channel_id        String
-
-  request_path      String
-  request_method    String
-
-  prompt_tokens     Int
-  completion_tokens Int
-  cached_tokens     Int      @default(0)
-  reasoning_tokens  Int      @default(0)
-  total_tokens      Int
-
-  cost              Int
-
-  status_code       Int
-  latency_ms        Int
-
-  created_at        DateTime @default(now())
-
-  @@index([user_id, created_at])
-  @@index([model_id, created_at])
-  @@index([channel_id, created_at])
-  @@index([created_at])
-}
-
-// ============================================================
-// 支付配置系统
-// ============================================================
-
-/// 支付渠道配置表
-/// 存储各支付渠道的商户配置信息
-/// SECURITY: 敏感字段使用 AES-256-GCM 加密存储
-model PaymentConfig {
-  id              String   @id @default(cuid())
-  name            String   @unique  // 'epay', 'alipay', 'wechatpay'
-  display_name    String
-  is_enabled      Boolean  @default(false)
-
-  // 商户配置（AES-256-GCM加密存储）
-  merchant_id     String?  // 商户ID/pid
-  merchant_key    String?  // 商户密钥（加密）
-  merchant_secret String?  // 商户秘钥/私钥（加密）
-
-  // API端点
-  api_endpoint    String?  // 支付网关地址
-
-  // 回调配置
-  notify_url      String?  // 异步通知地址
-  return_url      String?  // 同步跳转地址
-
-  // 额外配置（JSON，存储支付宝证书路径等）
-  extra_config    Json?
-
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-}
-
-// ============================================================
-// SMTP配置系统
-// ============================================================
-
-/// SMTP邮件配置表
-/// 存储邮件服务器配置
-/// SECURITY: 密码使用 AES-256-GCM 加密存储
-model SmtpConfig {
-  id              String   @id @default(cuid())
-  name            String   @unique  // 'default'
-  is_enabled      Boolean  @default(false)
-
-  host            String?
-  port            Int      @default(587)
-  secure          Boolean  @default(false)
-
-  // 认证信息（AES-256-GCM加密存储）
-  username        String?
-  password        String?
-
-  // 发件人配置
-  from_name       String?
-  from_address    String?
-
-  // 额外配置
-  extra_config    Json?
-
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
 }
