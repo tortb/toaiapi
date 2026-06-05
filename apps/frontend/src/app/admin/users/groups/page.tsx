@@ -158,15 +158,19 @@ function GroupFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      name: name.trim(),
+    const data: Record<string, any> = {
       displayName: displayName.trim(),
       description: description.trim() || undefined,
       priceMultiplier: parseFloat(priceMultiplier),
       rpmLimit: parseInt(rpmLimit),
       tpmLimit: parseInt(tpmLimit),
       maxApiKeys: parseInt(maxApiKeys),
-    });
+    };
+    // 创建时才发送 name
+    if (!isEdit) {
+      data.name = name.trim();
+    }
+    onSave(data);
   };
 
   return (
