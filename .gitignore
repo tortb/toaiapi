@@ -9,6 +9,9 @@ build/
 .next/
 out/
 *.d.ts
+# Compiled JS in src (source is .ts/.tsx)
+apps/*/src/**/*.js
+packages/*/src/**/*.js
 
 # Testing
 coverage/
