@@ -23,12 +23,7 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isAdmin, isLoading, restoreSession } = useAuthStore();
-
-  // 初始化时恢复会话
-  useEffect(() => {
-    restoreSession();
-  }, [restoreSession]);
+  const { isAuthenticated, isAdmin, isLoading } = useAuthStore();
 
   // 认证检查
   useEffect(() => {
