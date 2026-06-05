@@ -52,10 +52,10 @@ export class BillingRepository {
     remark?: string,
   ): Promise<UserTransaction> {
     return this.prisma.$transaction(async (tx) => {
-      // 1. 检查余额
-      const balance = await tx.userBalance.findUnique({
-        where: { user_id: userId },
-      });
+      // 1. 检查余额（SELECT ... FOR UPDATE 防止并发超扣）
+      const [balance] = await tx.$queryRaw<
+        Array<{ user_id: string; amount: number; frozen: number }>
+      >`SELECT user_id, amount, frozen FROM user_balances WHERE user_id = ${userId} FOR UPDATE`;
 
       if (!balance) {
         throw new NotFoundException('User balance not found');
@@ -135,10 +135,14 @@ export class BillingRepository {
       skip?: number;
       take?: number;
       orderBy?: Prisma.UserTransactionOrderByWithRelationInput;
+      where?: Prisma.UserTransactionWhereInput;
     },
   ): Promise<UserTransaction[]> {
     return this.prisma.userTransaction.findMany({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+        ...params.where,
+      },
       skip: params.skip,
       take: params.take,
       orderBy: params.orderBy || { created_at: 'desc' },
@@ -148,9 +152,15 @@ export class BillingRepository {
   /**
    * 统计用户交易数量
    */
-  async countTransactions(userId: string): Promise<number> {
+  async countTransactions(
+    userId: string,
+    where?: Prisma.UserTransactionWhereInput,
+  ): Promise<number> {
     return this.prisma.userTransaction.count({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+        ...where,
+      },
     });
   }
 

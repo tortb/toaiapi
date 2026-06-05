@@ -33,25 +33,37 @@ var __runInitializers = (this && this.__runInitializers) || function (thisArg, i
     return useValue ? value : void 0;
 };
 import { Module, forwardRef } from '@nestjs/common';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { GatewayController } from './gateway.controller';
 import { GatewayService } from './gateway.service';
 import { ChannelService } from './channel/channel.service';
 import { ChannelRepository } from './channel/channel.repository';
 import { BillingModule } from '../billing/billing.module';
 import { RequestLogModule } from '../request-log/request-log.module';
-/**
- * 网关模块
- *
- * 提供 OpenAI 兼容的 API 端点，负责请求路由、故障转移、计费等。
- */
 let GatewayModule = (() => {
     let _classDecorators = [Module({
             imports: [
                 forwardRef(() => BillingModule),
                 forwardRef(() => RequestLogModule),
+                ThrottlerModule.forRoot([
+                    {
+                        name: 'gateway',
+                        ttl: 60000,
+                        limit: 60,
+                    },
+                ]),
             ],
             controllers: [GatewayController],
-            providers: [GatewayService, ChannelService, ChannelRepository],
+            providers: [
+                GatewayService,
+                ChannelService,
+                ChannelRepository,
+                {
+                    provide: APP_GUARD,
+                    useClass: ThrottlerGuard,
+                },
+            ],
             exports: [GatewayService, ChannelService],
         })];
     let _classDescriptor;

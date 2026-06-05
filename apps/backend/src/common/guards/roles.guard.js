@@ -91,9 +91,10 @@ let RolesGuard = (() => {
             if (!user) {
                 throw new ForbiddenException('Authentication required');
             }
-            const userLevel = this.roleHierarchy[user.role] ?? -1;
+            // Prisma enum 返回大写（ADMIN），装饰器用小写（admin），统一转小写比较
+            const userLevel = this.roleHierarchy[user.role.toLowerCase()] ?? -1;
             const hasRole = requiredRoles.some((role) => {
-                const requiredLevel = this.roleHierarchy[role] ?? 0;
+                const requiredLevel = this.roleHierarchy[role.toLowerCase()] ?? 0;
                 return userLevel >= requiredLevel;
             });
             if (!hasRole) {

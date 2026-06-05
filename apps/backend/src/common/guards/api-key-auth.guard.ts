@@ -44,56 +44,64 @@ export class ApiKeyAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid API key format');
     }
 
-    // 从缓存中查找（按 prefix）
-    const prefix = apiKey.substring(0, 16);
-    const cacheKey = `apikey:prefix:${prefix}`;
+    // 从缓存中查找（按完整 key 的 SHA-256 哈希作为缓存 key）
+    const keyHash = this.hashApiKey(apiKey);
+    const cacheKey = `apikey:verified:${keyHash}`;
 
-    // 尝试从 Redis 获取 key ID
-    const cachedKeyId = await this.redis.get(cacheKey);
+    // 尝试从 Redis 获取已验证的 key 信息（缓存 5 分钟）
+    const cached = await this.redis.get(cacheKey);
 
-    let keyRecord: { id: string; key_hash: string; user_id: string; name: string | null; is_active: boolean; expires_at: Date | null; rate_limit: number | null; token_limit: number | null; model_limit: string[]; ip_whitelist: string[] } | null = null;
-
-    if (cachedKeyId) {
-      keyRecord = await this.prisma.apiKey.findUnique({
-        where: { id: cachedKeyId },
-        select: {
-          id: true,
-          key_hash: true,
-          user_id: true,
-          name: true,
-          is_active: true,
-          expires_at: true,
-          rate_limit: true,
-          token_limit: true,
-          model_limit: true,
-          ip_whitelist: true,
-        },
-      });
-    }
-
-    // 缓存未命中，从数据库查找
-    if (!keyRecord) {
-      keyRecord = await this.prisma.apiKey.findFirst({
-        where: { key_prefix: prefix },
-        select: {
-          id: true,
-          key_hash: true,
-          user_id: true,
-          name: true,
-          is_active: true,
-          expires_at: true,
-          rate_limit: true,
-          token_limit: true,
-          model_limit: true,
-          ip_whitelist: true,
-        },
-      });
-
-      if (keyRecord) {
-        // 缓存 key ID，5 分钟过期
-        await this.redis.set(cacheKey, keyRecord.id, 300);
+    if (cached) {
+      try {
+        const cachedInfo = JSON.parse(cached) as {
+          id: string;
+          user_id: string;
+          name: string | null;
+          rate_limit: number | null;
+          token_limit: number | null;
+          model_limit: string[];
+          ip_whitelist: string[];
+        };
+        // 检查 IP 白名单
+        if (cachedInfo.ip_whitelist && cachedInfo.ip_whitelist.length > 0) {
+          const clientIp = this.extractClientIp(request);
+          if (!this.isIpWhitelisted(clientIp, cachedInfo.ip_whitelist)) {
+            throw new ForbiddenException(`IP ${clientIp} is not allowed by this API key's whitelist`);
+          }
+        }
+        request['apiKey'] = {
+          id: cachedInfo.id,
+          userId: cachedInfo.user_id,
+          name: cachedInfo.name,
+          rateLimit: cachedInfo.rate_limit,
+          tokenLimit: cachedInfo.token_limit,
+          modelLimit: cachedInfo.model_limit,
+          ipWhitelist: cachedInfo.ip_whitelist,
+        };
+        return true;
+      } catch (e) {
+        if (e instanceof ForbiddenException) throw e;
+        // 缓存解析失败，继续走数据库验证
       }
     }
+
+    // 缓存未命中，从数据库查找（按 prefix）
+    const prefix = apiKey.substring(0, 16);
+    const keyRecord = await this.prisma.apiKey.findFirst({
+      where: { key_prefix: prefix },
+      select: {
+        id: true,
+        key_hash: true,
+        user_id: true,
+        name: true,
+        is_active: true,
+        expires_at: true,
+        rate_limit: true,
+        token_limit: true,
+        model_limit: true,
+        ip_whitelist: true,
+      },
+    });
 
     if (!keyRecord) {
       throw new UnauthorizedException('Invalid API key');
@@ -109,11 +117,23 @@ export class ApiKeyAuthGuard implements CanActivate {
       throw new UnauthorizedException('API key has expired');
     }
 
-    // 验证 key hash
+    // 验证 key hash（Argon2 是 CPU 密集型，只在缓存未命中时执行）
     const isValid = await argon2.verify(keyRecord.key_hash, apiKey);
     if (!isValid) {
       throw new UnauthorizedException('Invalid API key');
     }
+
+    // 缓存验证结果（不含 key_hash），5 分钟过期
+    const cacheData = JSON.stringify({
+      id: keyRecord.id,
+      user_id: keyRecord.user_id,
+      name: keyRecord.name,
+      rate_limit: keyRecord.rate_limit,
+      token_limit: keyRecord.token_limit,
+      model_limit: keyRecord.model_limit,
+      ip_whitelist: keyRecord.ip_whitelist,
+    });
+    await this.redis.set(cacheKey, cacheData, 300);
 
     // SECURITY: 检查 IP 白名单
     if (keyRecord.ip_whitelist && keyRecord.ip_whitelist.length > 0) {
@@ -135,6 +155,14 @@ export class ApiKeyAuthGuard implements CanActivate {
     };
 
     return true;
+  }
+
+  /**
+   * 计算 API Key 的 SHA-256 哈希（用于 Redis 缓存 key）
+   */
+  private hashApiKey(apiKey: string): string {
+    const { createHash } = require('crypto');
+    return createHash('sha256').update(apiKey).digest('hex');
   }
 
   /**

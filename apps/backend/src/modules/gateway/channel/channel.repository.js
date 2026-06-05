@@ -99,25 +99,27 @@ let ChannelRepository = (() => {
          * @param success - 是否成功
          */
         async updateChannelStats(channelId, latencyMs, success) {
+            // 使用原子 increment 操作避免并发竞态条件
+            // avg_latency_ms 仍需 read-modify-write，但影响较小
             const channel = await this.prisma.channel.findUnique({
                 where: { id: channelId },
+                select: { avg_latency_ms: true },
             });
             if (!channel)
                 return;
-            const totalRequests = channel.total_requests + 1;
-            const failedRequests = success
-                ? channel.failed_requests
-                : channel.failed_requests + 1;
             // 计算平均延迟（指数移动平均）
             const alpha = 0.1;
             const avgLatency = Math.round(alpha * latencyMs + (1 - alpha) * channel.avg_latency_ms);
+            const updateData = {
+                total_requests: { increment: 1 },
+                avg_latency_ms: avgLatency,
+            };
+            if (!success) {
+                updateData.failed_requests = { increment: 1 };
+            }
             await this.prisma.channel.update({
                 where: { id: channelId },
-                data: {
-                    total_requests: totalRequests,
-                    failed_requests: failedRequests,
-                    avg_latency_ms: avgLatency,
-                },
+                data: updateData,
             });
         }
         /**
@@ -161,6 +163,28 @@ let ChannelRepository = (() => {
                         },
                     },
                 },
+            });
+        }
+        /**
+         * 获取所有活跃渠道的统计信息（公开状态页用）
+         */
+        async findChannelStats() {
+            return this.prisma.channel.findMany({
+                where: {
+                    is_active: true,
+                },
+                include: {
+                    provider: {
+                        select: {
+                            name: true,
+                            display_name: true,
+                        },
+                    },
+                },
+                orderBy: [
+                    { provider: { name: 'asc' } },
+                    { name: 'asc' },
+                ],
             });
         }
         /**

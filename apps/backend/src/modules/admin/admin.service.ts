@@ -265,6 +265,60 @@ export class AdminService {
     this.logger.log(`Channel deleted: ${id} (${existing.name})`);
   }
 
+  /**
+   * 测试渠道连通性
+   *
+   * 向渠道发送一个简单的 models 列表请求，验证配置是否正确。
+   */
+  async testChannel(id: string): Promise<{ success: boolean; latencyMs: number; message: string }> {
+    const channel = await this.adminRepo.findChannelById(id);
+    if (!channel) {
+      throw new NotFoundException('Channel not found');
+    }
+
+    const startTime = Date.now();
+
+    try {
+      // 解密 API Key
+      const apiKey = decrypt(channel.api_key);
+
+      // 发送简单的 models 列表请求
+      const response = await fetch(`${channel.base_url}/v1/models`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      const latencyMs = Date.now() - startTime;
+
+      if (response.ok) {
+        return {
+          success: true,
+          latencyMs,
+          message: `连接成功 (HTTP ${response.status})`,
+        };
+      } else {
+        const errorText = await response.text().catch(() => '');
+        return {
+          success: false,
+          latencyMs,
+          message: `HTTP ${response.status}: ${errorText.substring(0, 200)}`,
+        };
+      }
+    } catch (error) {
+      const latencyMs = Date.now() - startTime;
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        success: false,
+        latencyMs,
+        message: `连接失败: ${message}`,
+      };
+    }
+  }
+
   // ──────────────────────────────────────────────
   // Model 管理
   // ──────────────────────────────────────────────
@@ -399,7 +453,7 @@ export class AdminService {
     status?: UserStatus,
   ): Promise<PaginatedResult<Record<string, unknown>>> {
     const skip = (page - 1) * pageSize;
-    const where: Prisma.UserWhereInput = {};
+    const where: Prisma.UserWhereInput = { deleted_at: null };
     if (role) where['role'] = role;
     if (status) where['status'] = status;
 
@@ -546,7 +600,10 @@ export class AdminService {
    */
   private toChannelResponse(channel: Record<string, unknown>, plainApiKey?: string): ChannelResponseDto {
     // 用于脱敏显示的 API Key
-    const displayKey = plainApiKey || (channel['api_key'] as string) || '';
+    // 仅创建/更新时传入明文，查询时不显示加密密文
+    const displayKey = plainApiKey
+      ? maskApiKey(plainApiKey)
+      : 'sk-****';
 
     return {
       id: channel['id'] as string,
@@ -558,7 +615,7 @@ export class AdminService {
       } : undefined,
       name: channel['name'] as string,
       baseUrl: channel['base_url'] as string,
-      keyPrefix: maskApiKey(displayKey),
+      keyPrefix: displayKey,
       weight: channel['weight'] as number,
       priority: channel['priority'] as number,
       isActive: channel['is_active'] as boolean,

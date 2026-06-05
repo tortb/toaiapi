@@ -33,7 +33,7 @@ var __runInitializers = (this && this.__runInitializers) || function (thisArg, i
     return useValue ? value : void 0;
 };
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule as NestConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
@@ -44,13 +44,17 @@ import { GatewayModule } from './modules/gateway/gateway.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { BalanceModule } from './modules/balance/balance.module';
 import { RequestLogModule } from './modules/request-log/request-log.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { ConfigModule } from './common/services/config.module';
+import { EmailModule } from './common/services/email.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 let AppModule = (() => {
     let _classDecorators = [Module({
             imports: [
                 // Configuration
-                ConfigModule.forRoot({
+                NestConfigModule.forRoot({
                     isGlobal: true,
                     envFilePath: ['.env.local', '.env'],
                 }),
@@ -76,6 +80,9 @@ let AppModule = (() => {
                         limit: 100,
                     },
                 ]),
+                // Common modules
+                ConfigModule,
+                EmailModule,
                 // Business modules
                 UserModule,
                 AuthModule,
@@ -84,6 +91,8 @@ let AppModule = (() => {
                 BillingModule,
                 BalanceModule,
                 RequestLogModule,
+                AdminModule,
+                PaymentModule,
             ],
             controllers: [AppController],
             providers: [AppService],

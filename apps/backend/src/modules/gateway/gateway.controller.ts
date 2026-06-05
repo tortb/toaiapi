@@ -23,13 +23,15 @@ import { ChatCompletionDto, ChatCompletionResponseDto, ModelListResponseDto } fr
 import { ApiKeyAuthGuard } from '../../common/guards/api-key-auth.guard';
 import { ApiKey } from '../../common/decorators/api-key.decorator';
 import type { ApiKeyInfo } from '../../common/decorators/api-key.decorator';
-import { ChatRequest } from './providers/provider-adapter.interface';
+import { ChatRequest, ChatChunk } from './providers/provider-adapter.interface';
+import { RedisService } from '../../redis/redis.service';
 
 /**
  * Fastify 请求/响应接口
  */
 interface FastifyRequest {
   url: string;
+  requestId?: string;
 }
 
 interface FastifyReply {
@@ -58,6 +60,7 @@ export class GatewayController {
   constructor(
     private readonly gatewayService: GatewayService,
     private readonly channelService: ChannelService,
+    private readonly redis: RedisService,
   ) {}
 
   /**
@@ -89,7 +92,7 @@ export class GatewayController {
       model: dto.model,
       messages: dto.messages.map((m) => ({
         role: m.role,
-        content: m.content,
+        content: m.content ?? '',
         tool_call_id: m.tool_call_id,
       })),
       temperature: dto.temperature,
@@ -117,8 +120,10 @@ export class GatewayController {
         clientDisconnected = true;
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let stream: AsyncGenerator<ChatChunk, void, unknown> | null = null;
       try {
-        const stream = this.gatewayService.handleChatCompletionStream(
+        stream = this.gatewayService.handleChatCompletionStream(
           chatRequest,
           apiKey,
           request.url,
@@ -128,6 +133,9 @@ export class GatewayController {
           // SECURITY: 客户端已断开则停止写入
           if (clientDisconnected) {
             this.logger.warn('Client disconnected during stream, stopping');
+            // SECURITY: 必须调用 .return() 触发 generator 的 finally 块执行计费
+            await stream.return(undefined as never);
+            stream = null;
             break;
           }
 
@@ -135,6 +143,9 @@ export class GatewayController {
             reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
           } catch (writeError) {
             this.logger.warn(`SSE write error: ${writeError}`);
+            // 写入失败，触发 generator cleanup
+            await stream.return(undefined as never);
+            stream = null;
             break;
           }
         }
@@ -196,9 +207,14 @@ export class GatewayController {
   })
   @ApiOkResponse({ type: ModelListResponseDto })
   async listModels(): Promise<ModelListResponseDto> {
+    // 缓存模型列表 30 秒，减少数据库压力
+    const cacheKey = 'gateway:models:list';
+    const cached = await this.redis.getJson<ModelListResponseDto>(cacheKey);
+    if (cached) return cached;
+
     const models = await this.channelService.getAvailableModels();
 
-    return {
+    const result: ModelListResponseDto = {
       object: 'list',
       data: models.map((model) => ({
         id: model.name,
@@ -207,6 +223,9 @@ export class GatewayController {
         owned_by: model.provider_id,
       })),
     };
+
+    await this.redis.setJson(cacheKey, result, 30);
+    return result;
   }
 
   /**
@@ -222,9 +241,14 @@ export class GatewayController {
   })
   @ApiOkResponse()
   async listPublicModels() {
+    // 缓存公开模型列表 60 秒
+    const cacheKey = 'gateway:models:public';
+    const cached = await this.redis.getJson(cacheKey);
+    if (cached) return cached;
+
     const models = await this.channelService.getAvailableModels();
 
-    return {
+    const result = {
       data: models.map((model) => ({
         id: model.name,
         displayName: model.display_name,
@@ -244,6 +268,9 @@ export class GatewayController {
           : null,
       })),
     };
+
+    await this.redis.setJson(cacheKey, result, 60);
+    return result;
   }
 
   /**

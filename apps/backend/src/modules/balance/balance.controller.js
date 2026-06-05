@@ -37,12 +37,15 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiOkResponse, } from '@nestjs/sw
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { IsInt, Min } from 'class-validator';
+import { IsInt, Min, IsString, IsNotEmpty, IsOptional, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 /**
  * 充值请求 DTO
  */
 let RechargeDto = (() => {
+    let _targetUserId_decorators;
+    let _targetUserId_initializers = [];
+    let _targetUserId_extraInitializers = [];
     let _amount_decorators;
     let _amount_initializers = [];
     let _amount_extraInitializers = [];
@@ -52,13 +55,16 @@ let RechargeDto = (() => {
     return class RechargeDto {
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(null) : void 0;
-            _amount_decorators = [ApiProperty({ description: '充值金额（分）', example: 10000 }), IsInt(), Min(1)];
-            _remark_decorators = [ApiPropertyOptional({ description: '备注' })];
+            _targetUserId_decorators = [ApiProperty({ description: '目标用户 ID', example: 'uuid-string' }), IsString(), IsNotEmpty()];
+            _amount_decorators = [ApiProperty({ description: '充值金额（分）', example: 10000 }), IsInt(), Min(1), Max(100000000)];
+            _remark_decorators = [ApiPropertyOptional({ description: '备注' }), IsOptional(), IsString()];
+            __esDecorate(null, null, _targetUserId_decorators, { kind: "field", name: "targetUserId", static: false, private: false, access: { has: obj => "targetUserId" in obj, get: obj => obj.targetUserId, set: (obj, value) => { obj.targetUserId = value; } }, metadata: _metadata }, _targetUserId_initializers, _targetUserId_extraInitializers);
             __esDecorate(null, null, _amount_decorators, { kind: "field", name: "amount", static: false, private: false, access: { has: obj => "amount" in obj, get: obj => obj.amount, set: (obj, value) => { obj.amount = value; } }, metadata: _metadata }, _amount_initializers, _amount_extraInitializers);
             __esDecorate(null, null, _remark_decorators, { kind: "field", name: "remark", static: false, private: false, access: { has: obj => "remark" in obj, get: obj => obj.remark, set: (obj, value) => { obj.remark = value; } }, metadata: _metadata }, _remark_initializers, _remark_extraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         }
-        amount = __runInitializers(this, _amount_initializers, void 0);
+        targetUserId = __runInitializers(this, _targetUserId_initializers, void 0);
+        amount = (__runInitializers(this, _targetUserId_extraInitializers), __runInitializers(this, _amount_initializers, void 0));
         remark = (__runInitializers(this, _amount_extraInitializers), __runInitializers(this, _remark_initializers, void 0));
         constructor() {
             __runInitializers(this, _remark_extraInitializers);
@@ -122,7 +128,7 @@ let BalanceController = (() => {
          * 充值余额（管理员）
          */
         async recharge(user, dto) {
-            return this.balanceService.recharge(user.id, dto.amount, dto.remark);
+            return this.balanceService.recharge(dto.targetUserId, dto.amount, dto.remark);
         }
         /**
          * 获取交易流水

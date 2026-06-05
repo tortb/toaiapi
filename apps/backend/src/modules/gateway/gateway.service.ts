@@ -1,13 +1,15 @@
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
 import { ChannelService, ChannelSelectionResult } from './channel/channel.service';
 import { BillingService } from '../billing/billing.service';
 import { RequestLogService } from '../request-log/request-log.service';
+import { ApiKeyRepository } from '../api-key/api-key.repository';
 import { ApiKeyInfo } from '../../common/decorators/api-key.decorator';
 import {
   ChatRequest,
   ChatResponse,
   ChatChunk,
 } from './providers/provider-adapter.interface';
+import { ProviderError } from './providers/provider-error';
 
 /**
  * 网关业务服务
@@ -39,6 +41,7 @@ export class GatewayService {
     private readonly channelService: ChannelService,
     private readonly billingService: BillingService,
     private readonly requestLogService: RequestLogService,
+    private readonly apiKeyRepository: ApiKeyRepository,
   ) {}
 
   /**
@@ -115,6 +118,9 @@ export class GatewayService {
           latencyMs,
         });
 
+        // 记录 API Key 使用统计（异步，不阻塞响应）
+        this.apiKeyRepository.recordUsage(apiKey.id).catch(() => {});
+
         return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -129,6 +135,11 @@ export class GatewayService {
           false,
         );
 
+        // 如果是限流错误，标记渠道为 RATE_LIMITED
+        if (error instanceof ProviderError && error.isRateLimited) {
+          await this.channelService.markChannelRateLimited(channel.channelId);
+        }
+
         // 如果是最后一个渠道，抛出错误
         if (i === channels.length - 1) {
           break;
@@ -136,7 +147,10 @@ export class GatewayService {
       }
     }
 
-    // 所有渠道都失败
+    // 所有渠道都失败 - 保留原始 HTTP 状态码
+    if (lastError instanceof ProviderError) {
+      throw new HttpException(lastError.message, lastError.statusCode);
+    }
     throw lastError || new Error('All channels failed');
   }
 
@@ -162,115 +176,185 @@ export class GatewayService {
     // 检查模型限制
     this.checkModelLimit(apiKey, request.model);
 
-    // 选择渠道
-    const channel = await this.channelService.selectChannel(request.model);
+    // 选择渠道（带故障转移）
+    const channels = await this.channelService.selectChannelsWithFallback(
+      request.model,
+    );
 
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
     let totalTokens = 0;
     let responseContent = '';
+    let channelId = '';
+    let lastError: Error | null = null;
 
+    // SECURITY: try/finally 确保无论 generator 如何终止都执行计费和日志
+    // 当 controller 中断迭代（客户端断开）时，会调用 generator.return() 触发 finally
     try {
-      // 流式调用 provider
-      const stream = channel.adapter.chatStream(request);
+      // 尝试每个渠道（最多 MAX_RETRIES + 1 次）
+      for (let i = 0; i < Math.min(channels.length, this.MAX_RETRIES + 1); i++) {
+        const channel = channels[i];
+        if (!channel) continue;
+        channelId = channel.channelId;
 
-      for await (const chunk of stream) {
-        // 提取 usage 信息（如果 provider 返回）
-        if (chunk.usage) {
-          totalPromptTokens = chunk.usage.prompt_tokens;
-          totalCompletionTokens = chunk.usage.completion_tokens;
-          totalTokens = chunk.usage.total_tokens;
+        try {
+          const stream = channel.adapter.chatStream(request);
+
+          for await (const chunk of stream) {
+            // 提取 usage 信息（如果 provider 返回）
+            if (chunk.usage) {
+              totalPromptTokens = chunk.usage.prompt_tokens;
+              totalCompletionTokens = chunk.usage.completion_tokens;
+              totalTokens = chunk.usage.total_tokens;
+            }
+
+            // 收集响应内容用于 token 估算
+            if (chunk.choices?.[0]?.delta?.content) {
+              responseContent += chunk.choices[0].delta.content;
+            }
+
+            yield chunk;
+          }
+
+          // 流式正常完成，跳出重试循环
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          this.logger.warn(
+            `Stream channel ${channel.channelId} failed: ${lastError.message}`,
+          );
+
+          // 更新渠道统计（失败）
+          await this.channelService.updateChannelStats(
+            channel.channelId,
+            Date.now() - startTime,
+            false,
+          ).catch(() => {});
+
+          // 重置计数器准备下一个渠道
+          totalPromptTokens = 0;
+          totalCompletionTokens = 0;
+          totalTokens = 0;
+          responseContent = '';
         }
-
-        // 收集响应内容用于 token 估算
-        if (chunk.choices?.[0]?.delta?.content) {
-          responseContent += chunk.choices[0].delta.content;
-        }
-
-        yield chunk;
       }
-
-      // 计算延迟
-      const latencyMs = Date.now() - startTime;
-
-      // 更新渠道统计（成功）
-      await this.channelService.updateChannelStats(
-        channel.channelId,
-        latencyMs,
-        true,
-      );
-
-      // SECURITY: 当 Provider 未返回 usage 时，使用字符数估算 token 数
-      // 估算公式：中文约 1.5 token/字，英文约 0.75 token/word（4 字符）
-      // 简化为：总字符数 / 2 作为粗略估算
-      if (totalTokens === 0) {
-        const estimatedPromptTokens = this.estimateTokens(request.messages.map(m => m.content).join(''));
-        const estimatedCompletionTokens = this.estimateTokens(responseContent);
-        totalPromptTokens = estimatedPromptTokens;
-        totalCompletionTokens = estimatedCompletionTokens;
-        totalTokens = estimatedPromptTokens + estimatedCompletionTokens;
-
-        this.logger.warn(
-          `Provider 未返回 usage，使用估算值: prompt=${estimatedPromptTokens}, completion=${estimatedCompletionTokens}`,
-        );
-      }
-
-      // 计算费用并扣减余额
-      const cost = await this.billingService.processUsage(
-        apiKey.userId,
-        apiKey.id,
-        channel.channelId,
-        request.model,
-        {
-          prompt_tokens: totalPromptTokens,
-          completion_tokens: totalCompletionTokens,
-          total_tokens: totalTokens,
-        },
-      );
-
-      // 记录请求日志
-      await this.requestLogService.logRequest({
-        userId: apiKey.userId,
-        apiKeyId: apiKey.id,
-        modelId: request.model,
-        channelId: channel.channelId,
+    } finally {
+      // SECURITY: 无论流是否成功/中断/客户端断开，都必须执行计费和日志
+      // 这是防止免费使用的关键防线
+      this.streamCleanup({
+        apiKey,
+        request,
         requestPath,
-        requestMethod: 'POST',
-        promptTokens: totalPromptTokens,
-        completionTokens: totalCompletionTokens,
+        startTime,
+        channelId,
+        lastError,
+        totalPromptTokens,
+        totalCompletionTokens,
         totalTokens,
-        cost,
-        statusCode: 200,
-        latencyMs,
+        responseContent,
+      }).catch(cleanupError => {
+        this.logger.error(`Stream cleanup failed: ${cleanupError}`);
       });
-    } catch (error) {
-      // 更新渠道统计（失败）
-      await this.channelService.updateChannelStats(
-        channel.channelId,
-        Date.now() - startTime,
-        false,
-      );
+    }
+  }
 
-      // SECURITY: 流式失败也记录请求日志（审计不可缺失）
+  /**
+   * 流式响应清理：计费、日志、统计
+   * 无论流如何终止都必须执行
+   */
+  private async streamCleanup(params: {
+    apiKey: ApiKeyInfo;
+    request: ChatRequest;
+    requestPath: string;
+    startTime: number;
+    channelId: string;
+    lastError: Error | null;
+    totalPromptTokens: number;
+    totalCompletionTokens: number;
+    totalTokens: number;
+    responseContent: string;
+  }): Promise<void> {
+    const {
+      apiKey, request, requestPath, startTime, channelId,
+      lastError, totalPromptTokens, totalCompletionTokens,
+      totalTokens, responseContent,
+    } = params;
+
+    const latencyMs = Date.now() - startTime;
+
+    if (lastError) {
+      // 所有渠道都失败
       await this.requestLogService.logRequest({
         userId: apiKey.userId,
         apiKeyId: apiKey.id,
         modelId: request.model,
-        channelId: channel.channelId,
+        channelId,
         requestPath,
         requestMethod: 'POST',
-        promptTokens: totalPromptTokens,
-        completionTokens: totalCompletionTokens,
-        totalTokens,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
         cost: 0,
         statusCode: 500,
-        latencyMs: Date.now() - startTime,
-      }).catch(logError => {
-        this.logger.error(`Failed to log stream error: ${logError}`);
-      });
-
-      throw error;
+        latencyMs,
+      }).catch(() => {});
+      return;
     }
+
+    // 更新渠道统计（成功）
+    await this.channelService.updateChannelStats(
+      channelId,
+      latencyMs,
+      true,
+    ).catch(() => {});
+
+    // SECURITY: 当 Provider 未返回 usage 时，使用字符数估算 token 数
+    let finalPromptTokens = totalPromptTokens;
+    let finalCompletionTokens = totalCompletionTokens;
+    let finalTotalTokens = totalTokens;
+
+    if (finalTotalTokens === 0) {
+      finalPromptTokens = this.estimateTokens(request.messages.map(m => m.content).join(''));
+      finalCompletionTokens = this.estimateTokens(responseContent);
+      finalTotalTokens = finalPromptTokens + finalCompletionTokens;
+
+      this.logger.warn(
+        `Provider 未返回 usage，使用估算值: prompt=${finalPromptTokens}, completion=${finalCompletionTokens}`,
+      );
+    }
+
+    // 计算费用并扣减余额
+    const cost = await this.billingService.processUsage(
+      apiKey.userId,
+      apiKey.id,
+      channelId,
+      request.model,
+      {
+        prompt_tokens: finalPromptTokens,
+        completion_tokens: finalCompletionTokens,
+        total_tokens: finalTotalTokens,
+      },
+    );
+
+    // 记录请求日志
+    await this.requestLogService.logRequest({
+      userId: apiKey.userId,
+      apiKeyId: apiKey.id,
+      modelId: request.model,
+      channelId,
+      requestPath,
+      requestMethod: 'POST',
+      promptTokens: finalPromptTokens,
+      completionTokens: finalCompletionTokens,
+      totalTokens: finalTotalTokens,
+      cost,
+      statusCode: 200,
+      latencyMs,
+    });
+
+    // 记录 API Key 使用统计（异步，不阻塞）
+    this.apiKeyRepository.recordUsage(apiKey.id).catch(() => {});
   }
 
   /**
@@ -310,9 +394,24 @@ export class GatewayService {
     let otherCount = 0;
 
     for (const char of text) {
-      const code = char.charCodeAt(0);
-      // CJK 统一表意文字 + 扩展
-      if (code >= 0x4e00 && code <= 0x9fff) {
+      const code = char.codePointAt(0) ?? 0;
+      // CJK 统一表意文字（含扩展 A/B）、兼容表意文字
+      if (
+        (code >= 0x4e00 && code <= 0x9fff) ||   // CJK Unified Ideographs
+        (code >= 0x3400 && code <= 0x4dbf) ||   // CJK Extension A
+        (code >= 0xf900 && code <= 0xfaff) ||   // CJK Compatibility Ideographs
+        (code >= 0x20000 && code <= 0x2a6df) || // CJK Extension B
+        (code >= 0x2a700 && code <= 0x2ceaf)    // CJK Extensions C-F
+      ) {
+        cjkCount++;
+      } else if (
+        (code >= 0x3040 && code <= 0x309f) ||   // Hiragana
+        (code >= 0x30a0 && code <= 0x30ff) ||   // Katakana
+        (code >= 0xac00 && code <= 0xd7af) ||   // Hangul Syllables
+        (code >= 0x1100 && code <= 0x11ff) ||   // Hangul Jamo
+        (code >= 0xff00 && code <= 0xffef)      // Fullwidth Forms
+      ) {
+        // CJK 邻近文字（日文假名、韩文、全角字符）
         cjkCount++;
       } else if (code >= 0x0020 && code <= 0x007e) {
         // ASCII 可打印字符

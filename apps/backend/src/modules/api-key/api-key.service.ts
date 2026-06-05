@@ -106,6 +106,8 @@ export class ApiKeyService {
       tokenLimit: key.token_limit,
       modelLimit: key.model_limit,
       ipWhitelist: key.ip_whitelist,
+      lastUsedAt: key.last_used_at,
+      totalRequests: key.total_requests,
       createdAt: key.created_at,
     }));
   }
@@ -218,6 +220,59 @@ export class ApiKeyService {
       id: updated.id,
       name: updated.name,
       keyPrefix: updated.key_prefix,
+      isActive: updated.is_active,
+      expiresAt: updated.expires_at,
+      rateLimit: updated.rate_limit,
+      tokenLimit: updated.token_limit,
+      modelLimit: updated.model_limit,
+      ipWhitelist: updated.ip_whitelist,
+      createdAt: updated.created_at,
+    };
+  }
+
+  /**
+   * 轮换 API Key
+   *
+   * 生成新的 key 值，保留原有配置。旧 key 立即失效。
+   *
+   * @param userId - 用户 ID
+   * @param keyId - API Key ID
+   * @returns 新的 API Key 信息（包含完整 key，仅此一次）
+   * @throws {NotFoundException} API Key 不存在
+   * @throws {ForbiddenException} 无权操作
+   */
+  async rotateApiKey(userId: string, keyId: string): Promise<ApiKeyResponseDto> {
+    const apiKey = await this.apiKeyRepo.findById(keyId);
+
+    if (!apiKey) {
+      throw new NotFoundException('API key not found');
+    }
+
+    if (apiKey.user_id !== userId) {
+      throw new ForbiddenException('Not authorized to rotate this API key');
+    }
+
+    // 生成新的 key
+    const rawKey = `sk-toai-${nanoid(48)}`;
+    const keyPrefix = rawKey.substring(0, 16);
+    const keyHash = await hashPassword(rawKey);
+
+    // 更新记录（保留原有配置）
+    const updated = await this.apiKeyRepo.update(keyId, {
+      key_hash: keyHash,
+      key_prefix: keyPrefix,
+    });
+
+    // 清除旧的缓存
+    await this.redis.del(`apikey:prefix:${apiKey.key_prefix}`);
+
+    this.logger.log(`API Key rotated: ${keyId} for user ${userId}`);
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      keyPrefix: updated.key_prefix,
+      key: rawKey, // 仅轮换时返回
       isActive: updated.is_active,
       expiresAt: updated.expires_at,
       rateLimit: updated.rate_limit,

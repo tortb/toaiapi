@@ -92,7 +92,7 @@ let RedisService = (() => {
          * 设置键值对
          */
         async set(key, value, ttlSeconds) {
-            if (ttlSeconds) {
+            if (ttlSeconds != null && ttlSeconds > 0) {
                 await this.client.set(key, value, 'EX', ttlSeconds);
             }
             else {
@@ -142,6 +142,13 @@ let RedisService = (() => {
         async getCounter(key) {
             const value = await this.client.get(key);
             return value ? parseInt(value, 10) : 0;
+        }
+        /**
+         * Ping 测试连接
+         */
+        async ping() {
+            const result = await this.client.ping();
+            return result === 'PONG';
         }
         /**
          * 分布式锁 - 获取锁

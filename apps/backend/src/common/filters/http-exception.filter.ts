@@ -45,8 +45,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const msg = resp['message'];
         if (typeof msg === 'string') {
           message = msg;
-        } else if (Array.isArray(msg) && msg.length > 0 && typeof msg[0] === 'string') {
-          message = msg[0];
+        } else if (Array.isArray(msg) && msg.length > 0) {
+          // 返回所有验证错误信息，而非仅第一个
+          message = msg.filter((m): m is string => typeof m === 'string').join('; ');
         }
       }
     } else if (exception instanceof Error) {

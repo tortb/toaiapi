@@ -169,6 +169,14 @@ export class ChannelService {
   }
 
   /**
+   * 标记渠道为限流状态
+   */
+  async markChannelRateLimited(channelId: string): Promise<void> {
+    await this.channelRepo.markChannelRateLimited(channelId);
+    this.logger.warn(`Channel ${channelId} marked as RATE_LIMITED`);
+  }
+
+  /**
    * 获取可用模型列表
    */
   async getAvailableModels() {
@@ -184,19 +192,14 @@ export class ChannelService {
 
   /**
    * 解密 Channel API Key
-   * SECURITY: 兼容处理未加密的历史数据（明文）
+   * SECURITY: 解密失败直接抛出错误，不 fallback 到明文
    *
    * @param encryptedApiKey - 加密的 API Key（Base64 格式）
    * @returns 解密后的明文 API Key
+   * @throws 解密失败时抛出错误
    */
   private decryptChannelApiKey(encryptedApiKey: string): string {
-    try {
-      return decrypt(encryptedApiKey);
-    } catch {
-      // 兼容：如果解密失败，可能是未加密的历史数据
-      this.logger.warn('API Key 解密失败，可能是未加密的历史数据，按明文处理');
-      return encryptedApiKey;
-    }
+    return decrypt(encryptedApiKey);
   }
 
   /**
@@ -222,7 +225,7 @@ export class ChannelService {
 
     for (const item of items) {
       random -= item.channel.weight;
-      if (random <= 0) {
+      if (random < 0) {
         return item;
       }
     }

@@ -6,6 +6,7 @@ import {
   ChatResponse,
   ChatChunk,
 } from './provider-adapter.interface';
+import { ProviderError } from './provider-error';
 
 /**
  * OpenAI 兼容适配器
@@ -66,8 +67,10 @@ export class OpenAIAdapter implements ProviderAdapter {
       this.logger.error(
         `Provider error: ${response.status} ${response.statusText} - ${errorText}`,
       );
-      throw new Error(
+      throw new ProviderError(
         `Provider returned ${response.status}: ${errorText}`,
+        response.status,
+        this.name,
       );
     }
 
@@ -117,8 +120,10 @@ export class OpenAIAdapter implements ProviderAdapter {
       this.logger.error(
         `Provider stream error: ${response.status} ${response.statusText} - ${errorText}`,
       );
-      throw new Error(
+      throw new ProviderError(
         `Provider returned ${response.status}: ${errorText}`,
+        response.status,
+        this.name,
       );
     }
 

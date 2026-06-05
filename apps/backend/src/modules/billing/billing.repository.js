@@ -32,7 +32,7 @@ var __runInitializers = (this && this.__runInitializers) || function (thisArg, i
     }
     return useValue ? value : void 0;
 };
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 /**
  * 计费数据访问层
  *
@@ -90,16 +90,14 @@ let BillingRepository = (() => {
          */
         async deductBalance(userId, amount, orderId, remark) {
             return this.prisma.$transaction(async (tx) => {
-                // 1. 检查余额
-                const balance = await tx.userBalance.findUnique({
-                    where: { user_id: userId },
-                });
+                // 1. 检查余额（SELECT ... FOR UPDATE 防止并发超扣）
+                const [balance] = await tx.$queryRaw `SELECT user_id, amount, frozen FROM user_balances WHERE user_id = ${userId} FOR UPDATE`;
                 if (!balance) {
-                    throw new Error('User balance not found');
+                    throw new NotFoundException('User balance not found');
                 }
                 const available = balance.amount - balance.frozen;
                 if (available < amount) {
-                    throw new Error(`Insufficient balance: required ${amount}, available ${available}`);
+                    throw new HttpException(`Insufficient balance: required ${amount}, available ${available}`, HttpStatus.PAYMENT_REQUIRED);
                 }
                 // 2. 扣减余额
                 const updatedBalance = await tx.userBalance.update({

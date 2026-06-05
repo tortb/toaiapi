@@ -6,6 +6,7 @@ import {
   ChatResponse,
   ChatChunk,
 } from './provider-adapter.interface';
+import { ProviderError } from './provider-error';
 
 /**
  * Google Gemini 适配器
@@ -51,8 +52,10 @@ export class GeminiAdapter implements ProviderAdapter {
       this.logger.error(
         `Gemini error: ${response.status} ${response.statusText}`,
       );
-      throw new Error(
+      throw new ProviderError(
         `Gemini returned ${response.status}: ${errorText}`,
+        response.status,
+        this.name,
       );
     }
 
@@ -83,8 +86,10 @@ export class GeminiAdapter implements ProviderAdapter {
       this.logger.error(
         `Gemini stream error: ${response.status} ${response.statusText}`,
       );
-      throw new Error(
+      throw new ProviderError(
         `Gemini returned ${response.status}: ${errorText}`,
+        response.status,
+        this.name,
       );
     }
 

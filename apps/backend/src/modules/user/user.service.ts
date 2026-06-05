@@ -12,6 +12,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserEntity, userFromPrisma } from './entities/user.entity';
 import { hashPassword, validatePasswordStrength } from '@toai/auth';
 import { maskEmail } from '@toai/common';
+import { RedisService } from '../../redis/redis.service';
 
 /**
  * 用户业务服务
@@ -25,7 +26,10 @@ import { maskEmail } from '@toai/common';
 export class UserService {
   private readonly logger = new Logger(UserService.name);
 
-  constructor(private readonly userRepo: UserRepository) {}
+  constructor(
+    private readonly userRepo: UserRepository,
+    private readonly redis: RedisService,
+  ) {}
 
   /**
    * 创建用户（注册）
@@ -125,6 +129,8 @@ export class UserService {
   async deleteUser(id: string): Promise<void> {
     await this.findById(id);
     await this.userRepo.softDelete(id);
+    // SECURITY: 软删除后撤销所有 Refresh Token，强制下线
+    await this.redis.del(`refresh:${id}`);
     this.logger.log(`User soft-deleted: ${id}`);
   }
 }

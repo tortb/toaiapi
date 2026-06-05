@@ -120,4 +120,22 @@ export class ApiKeyController {
   ): Promise<void> {
     await this.apiKeyService.deleteApiKey(user.id, keyId);
   }
+
+  /**
+   * 轮换 API Key
+   *
+   * 生成新的 key 值，保留原有配置。旧 key 立即失效。
+   */
+  @Post(':id/rotate')
+  @ApiOperation({
+    summary: '轮换 API Key',
+    description: '生成新的 key 值，保留原有配置。旧 key 立即失效。完整 key 只在此次返回。',
+  })
+  @ApiOkResponse({ type: ApiKeyResponseDto })
+  async rotateApiKey(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('id') keyId: string,
+  ): Promise<ApiKeyResponseDto> {
+    return this.apiKeyService.rotateApiKey(user.id, keyId);
+  }
 }

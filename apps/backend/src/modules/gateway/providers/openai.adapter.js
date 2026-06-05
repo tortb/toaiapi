@@ -44,6 +44,7 @@ export class OpenAIAdapter {
                 Authorization: `Bearer ${this.config.apiKey}`,
             },
             body: JSON.stringify(body),
+            signal: AbortSignal.timeout(60000),
         });
         if (!response.ok) {
             const errorText = await response.text();
@@ -83,6 +84,7 @@ export class OpenAIAdapter {
                 Authorization: `Bearer ${this.config.apiKey}`,
             },
             body: JSON.stringify(body),
+            signal: AbortSignal.timeout(120000),
         });
         if (!response.ok) {
             const errorText = await response.text();

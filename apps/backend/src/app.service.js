@@ -47,12 +47,40 @@ let AppService = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        healthCheck() {
+        prisma;
+        redis;
+        constructor(prisma, redis) {
+            this.prisma = prisma;
+            this.redis = redis;
+        }
+        async healthCheck() {
+            const checks = {
+                database: false,
+                redis: false,
+            };
+            // 检查数据库连接
+            try {
+                await this.prisma.$queryRaw `SELECT 1`;
+                checks.database = true;
+            }
+            catch {
+                // 数据库连接失败
+            }
+            // 检查 Redis 连接
+            try {
+                await this.redis.ping();
+                checks.redis = true;
+            }
+            catch {
+                // Redis 连接失败
+            }
+            const isHealthy = checks.database && checks.redis;
             return {
-                status: 'ok',
+                status: isHealthy ? 'ok' : 'degraded',
                 timestamp: new Date().toISOString(),
                 service: 'ToAIAPI Backend',
-                version: '0.1.0',
+                version: '0.2.0',
+                checks,
             };
         }
     };

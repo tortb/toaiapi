@@ -153,6 +153,16 @@ export class AdminController {
     await this.adminService.deleteChannel(id);
   }
 
+  @Post('channels/:id/test')
+  @ApiOperation({
+    summary: '测试渠道连通性',
+    description: '向渠道发送一个简单的测试请求，验证 API Key 和 Base URL 是否有效',
+  })
+  @ApiOkResponse()
+  async testChannel(@Param('id') id: string) {
+    return this.adminService.testChannel(id);
+  }
+
   // ──────────────────────────────────────────────
   // Model 管理
   // ──────────────────────────────────────────────

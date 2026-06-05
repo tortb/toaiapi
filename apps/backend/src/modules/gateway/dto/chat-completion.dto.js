@@ -32,7 +32,7 @@ var __runInitializers = (this && this.__runInitializers) || function (thisArg, i
     }
     return useValue ? value : void 0;
 };
-import { IsString, IsArray, IsOptional, IsNumber, IsBoolean, IsEnum, ValidateNested, Min, Max, } from 'class-validator';
+import { IsString, IsArray, IsOptional, IsNumber, IsBoolean, IsEnum, ValidateNested, Min, Max, ArrayMinSize, } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 /**
@@ -55,7 +55,7 @@ let ChatMessageDto = (() => {
                     description: '消息角色',
                     enum: ['system', 'user', 'assistant', 'tool'],
                 }), IsEnum(['system', 'user', 'assistant', 'tool'])];
-            _content_decorators = [ApiProperty({ description: '消息内容' }), IsString()];
+            _content_decorators = [ApiProperty({ description: '消息内容', required: false, nullable: true }), IsOptional(), IsString()];
             _tool_call_id_decorators = [ApiPropertyOptional({ description: '工具调用 ID（role=tool 时必填）' }), IsOptional(), IsString()];
             __esDecorate(null, null, _role_decorators, { kind: "field", name: "role", static: false, private: false, access: { has: obj => "role" in obj, get: obj => obj.role, set: (obj, value) => { obj.role = value; } }, metadata: _metadata }, _role_initializers, _role_extraInitializers);
             __esDecorate(null, null, _content_decorators, { kind: "field", name: "content", static: false, private: false, access: { has: obj => "content" in obj, get: obj => obj.content, set: (obj, value) => { obj.content = value; } }, metadata: _metadata }, _content_initializers, _content_extraInitializers);
@@ -71,33 +71,6 @@ let ChatMessageDto = (() => {
     };
 })();
 export { ChatMessageDto };
-/**
- * 工具定义
- */
-let ToolDto = (() => {
-    let _type_decorators;
-    let _type_initializers = [];
-    let _type_extraInitializers = [];
-    let _function_decorators;
-    let _function_initializers = [];
-    let _function_extraInitializers = [];
-    return class ToolDto {
-        static {
-            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(null) : void 0;
-            _type_decorators = [ApiProperty({ description: '工具类型', example: 'function' }), IsString()];
-            _function_decorators = [ApiProperty({ description: '函数定义' }), ValidateNested(), Type(() => FunctionDto)];
-            __esDecorate(null, null, _type_decorators, { kind: "field", name: "type", static: false, private: false, access: { has: obj => "type" in obj, get: obj => obj.type, set: (obj, value) => { obj.type = value; } }, metadata: _metadata }, _type_initializers, _type_extraInitializers);
-            __esDecorate(null, null, _function_decorators, { kind: "field", name: "function", static: false, private: false, access: { has: obj => "function" in obj, get: obj => obj.function, set: (obj, value) => { obj.function = value; } }, metadata: _metadata }, _function_initializers, _function_extraInitializers);
-            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
-        }
-        type = __runInitializers(this, _type_initializers, void 0);
-        function = (__runInitializers(this, _type_extraInitializers), __runInitializers(this, _function_initializers, void 0));
-        constructor() {
-            __runInitializers(this, _function_extraInitializers);
-        }
-    };
-})();
-export { ToolDto };
 /**
  * 函数定义
  */
@@ -131,6 +104,33 @@ let FunctionDto = (() => {
     };
 })();
 export { FunctionDto };
+/**
+ * 工具定义
+ */
+let ToolDto = (() => {
+    let _type_decorators;
+    let _type_initializers = [];
+    let _type_extraInitializers = [];
+    let _function_decorators;
+    let _function_initializers = [];
+    let _function_extraInitializers = [];
+    return class ToolDto {
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(null) : void 0;
+            _type_decorators = [ApiProperty({ description: '工具类型', example: 'function' }), IsString()];
+            _function_decorators = [ApiProperty({ description: '函数定义' }), ValidateNested(), Type(() => FunctionDto)];
+            __esDecorate(null, null, _type_decorators, { kind: "field", name: "type", static: false, private: false, access: { has: obj => "type" in obj, get: obj => obj.type, set: (obj, value) => { obj.type = value; } }, metadata: _metadata }, _type_initializers, _type_extraInitializers);
+            __esDecorate(null, null, _function_decorators, { kind: "field", name: "function", static: false, private: false, access: { has: obj => "function" in obj, get: obj => obj.function, set: (obj, value) => { obj.function = value; } }, metadata: _metadata }, _function_initializers, _function_extraInitializers);
+            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+        }
+        type = __runInitializers(this, _type_initializers, void 0);
+        function = (__runInitializers(this, _type_extraInitializers), __runInitializers(this, _function_initializers, void 0));
+        constructor() {
+            __runInitializers(this, _function_extraInitializers);
+        }
+    };
+})();
+export { ToolDto };
 /**
  * OpenAI 兼容的 Chat Completion 请求 DTO
  *
@@ -186,7 +186,7 @@ let ChatCompletionDto = (() => {
             _messages_decorators = [ApiProperty({
                     description: '消息列表',
                     type: [ChatMessageDto],
-                }), IsArray(), ValidateNested({ each: true }), Type(() => ChatMessageDto)];
+                }), IsArray(), ArrayMinSize(1, { message: 'messages 不能为空' }), ValidateNested({ each: true }), Type(() => ChatMessageDto)];
             _temperature_decorators = [ApiPropertyOptional({
                     description: '采样温度',
                     example: 0.7,

@@ -37,7 +37,7 @@ import { Injectable, Logger } from '@nestjs/common';
  * 余额业务服务
  *
  * 提供余额查询、充值、交易流水查询等功能。
- * 作为 BillingService 的上层封装，提供用户友好的接口。
+ * 作为 BillingService 和 RequestLogService 的上层封装，提供用户友好的接口。
  */
 let BalanceService = (() => {
     let _classDecorators = [Injectable()];
@@ -62,12 +62,20 @@ let BalanceService = (() => {
         }
         /**
          * 获取用户余额
+         *
+         * @param userId - 用户 ID
+         * @returns 余额信息（分）：amount, frozen, available
          */
         async getBalance(userId) {
             return this.billingService.getBalance(userId);
         }
         /**
-         * 充值余额
+         * 充值余额（管理员操作）
+         *
+         * @param userId - 目标用户 ID
+         * @param amount - 充值金额（分），必须为正整数
+         * @param remark - 备注
+         * @returns 充值后的余额
          */
         async recharge(userId, amount, remark) {
             await this.billingService.recharge(userId, amount, remark);
@@ -75,12 +83,20 @@ let BalanceService = (() => {
         }
         /**
          * 获取交易流水
+         *
+         * @param userId - 用户 ID
+         * @param page - 页码（从 1 开始）
+         * @param pageSize - 每页数量（1-100）
          */
         async getTransactions(userId, page, pageSize) {
             return this.billingService.getTransactions(userId, page, pageSize);
         }
         /**
          * 获取请求日志
+         *
+         * @param userId - 用户 ID
+         * @param page - 页码（从 1 开始）
+         * @param pageSize - 每页数量（1-100）
          */
         async getRequestLogs(userId, page, pageSize) {
             return this.requestLogService.getUserLogs(userId, page, pageSize);

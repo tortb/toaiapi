@@ -92,10 +92,22 @@ export class AuthService {
    * @throws UnauthorizedException 凭证无效或账号未激活
    */
   async login(dto: LoginDto) {
+    // SECURITY: 暴力破解防护 - 检查登录失败次数
+    const failKey = `login-fail:${dto.email}`;
+    const failCount = await this.redis.getCounter(failKey);
+
+    if (failCount >= 5) {
+      const lockoutSeconds = Math.min(Math.pow(2, failCount - 5) * 60, 3600);
+      throw new UnauthorizedException(
+        `登录失败次数过多，请 ${lockoutSeconds} 秒后再试`,
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email: dto.email, deleted_at: null },
     });
     if (!user) {
+      await this.recordLoginFail(dto.email);
       throw new UnauthorizedException('邮箱或密码错误');
     }
 
@@ -105,8 +117,12 @@ export class AuthService {
 
     const valid = await verifyPassword(user.password_hash, dto.password);
     if (!valid) {
+      await this.recordLoginFail(dto.email);
       throw new UnauthorizedException('邮箱或密码错误');
     }
+
+    // 登录成功，清除失败计数
+    await this.redis.del(failKey);
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
 
@@ -229,9 +245,19 @@ export class AuthService {
       return;
     }
 
+    // SECURITY: 每用户每 5 分钟只能请求一次密码重置
+    const rateLimitKey = `password-reset-rate:${user.id}`;
+    const isRateLimited = await this.redis.exists(rateLimitKey);
+    if (isRateLimited) {
+      this.logger.warn(`Password reset rate limited for user: ${user.id}`);
+      return;
+    }
+
     const resetToken = randomBytes(32).toString('hex');
     const tokenKey = `password-reset:${resetToken}`;
 
+    // 设置速率限制（5 分钟）和 token 有效期（1 小时）
+    await this.redis.set(rateLimitKey, '1', 300);
     await this.redis.set(tokenKey, user.id, 3600);
 
     // SECURITY: 不在日志中输出重置链接，防止日志泄露
@@ -285,6 +311,16 @@ export class AuthService {
   }
 
   /**
+   * 记录登录失败（指数退避）
+   * 失败计数 15 分钟后自动过期
+   */
+  private async recordLoginFail(email: string): Promise<void> {
+    const failKey = `login-fail:${email}`;
+    await this.redis.incr(failKey);
+    await this.redis.expire(failKey, 900);
+  }
+
+  /**
    * 生成 JWT Token 对并将 Refresh Token 指纹存入 Redis
    * SECURITY: 使用 SHA-256 哈希存储 Refresh Token 指纹
    *
@@ -313,11 +349,15 @@ export class AuthService {
 
     await this.redis.set(`refresh:${userId}`, tokenHash, refreshTtl);
 
+    // 从配置读取 Access Token 过期时间（秒），默认 15 分钟
+    const accessTokenExpiry = this.config.get<string>('JWT_EXPIRATION', '15m');
+    const accessTtl = this.parseExpiryToSeconds(accessTokenExpiry);
+
     return {
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
       tokenType: 'Bearer',
-      expiresIn: 900,
+      expiresIn: accessTtl,
     };
   }
 

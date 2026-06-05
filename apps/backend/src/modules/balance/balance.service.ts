@@ -46,9 +46,19 @@ export class BalanceService {
    * @param userId - 用户 ID
    * @param page - 页码（从 1 开始）
    * @param pageSize - 每页数量（1-100）
+   * @param filters - 可选过滤条件
    */
-  async getTransactions(userId: string, page: number, pageSize: number) {
-    return this.billingService.getTransactions(userId, page, pageSize);
+  async getTransactions(
+    userId: string,
+    page: number,
+    pageSize: number,
+    filters?: {
+      type?: string;
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ) {
+    return this.billingService.getTransactions(userId, page, pageSize, filters);
   }
 
   /**

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ChannelStatus } from '@prisma/client';
+import { ChannelStatus, Prisma } from '@prisma/client';
 
 /**
  * 渠道数据访问层
@@ -58,16 +58,14 @@ export class ChannelRepository {
     latencyMs: number,
     success: boolean,
   ): Promise<void> {
+    // 使用原子 increment 操作避免并发竞态条件
+    // avg_latency_ms 仍需 read-modify-write，但影响较小
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
+      select: { avg_latency_ms: true },
     });
 
     if (!channel) return;
-
-    const totalRequests = channel.total_requests + 1;
-    const failedRequests = success
-      ? channel.failed_requests
-      : channel.failed_requests + 1;
 
     // 计算平均延迟（指数移动平均）
     const alpha = 0.1;
@@ -75,13 +73,18 @@ export class ChannelRepository {
       alpha * latencyMs + (1 - alpha) * channel.avg_latency_ms,
     );
 
+    const updateData: Prisma.ChannelUpdateInput = {
+      total_requests: { increment: 1 },
+      avg_latency_ms: avgLatency,
+    };
+
+    if (!success) {
+      updateData.failed_requests = { increment: 1 };
+    }
+
     await this.prisma.channel.update({
       where: { id: channelId },
-      data: {
-        total_requests: totalRequests,
-        failed_requests: failedRequests,
-        avg_latency_ms: avgLatency,
-      },
+      data: updateData,
     });
   }
 

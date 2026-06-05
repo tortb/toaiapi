@@ -18,8 +18,29 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { IsInt, Min, IsString, IsNotEmpty, IsOptional, Max } from 'class-validator';
+import { IsInt, Min, IsString, IsNotEmpty, IsOptional, Max, IsEnum, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TransactionType } from '@prisma/client';
+
+/**
+ * 交易流水查询 DTO
+ */
+class TransactionQueryDto extends PaginationDto {
+  @ApiPropertyOptional({ description: '交易类型', enum: TransactionType })
+  @IsOptional()
+  @IsEnum(TransactionType)
+  readonly type?: TransactionType;
+
+  @ApiPropertyOptional({ description: '开始日期（ISO 格式）', example: '2026-06-01' })
+  @IsOptional()
+  @IsDateString()
+  readonly startDate?: string;
+
+  @ApiPropertyOptional({ description: '结束日期（ISO 格式）', example: '2026-06-05' })
+  @IsOptional()
+  @IsDateString()
+  readonly endDate?: string;
+}
 
 /**
  * 充值请求 DTO
@@ -96,12 +117,17 @@ export class BalanceController {
   @ApiOperation({ summary: '获取交易流水' })
   async getTransactions(
     @CurrentUser() user: CurrentUserInfo,
-    @Query() pagination: PaginationDto,
+    @Query() query: TransactionQueryDto,
   ) {
     return this.balanceService.getTransactions(
       user.id,
-      pagination.page,
-      pagination.pageSize,
+      query.page,
+      query.pageSize,
+      {
+        type: query.type,
+        startDate: query.startDate ? new Date(query.startDate) : undefined,
+        endDate: query.endDate ? new Date(query.endDate) : undefined,
+      },
     );
   }
 

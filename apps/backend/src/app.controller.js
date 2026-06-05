@@ -56,7 +56,7 @@ let AppController = (() => {
         constructor(appService) {
             this.appService = appService;
         }
-        healthCheck() {
+        async healthCheck() {
             return this.appService.healthCheck();
         }
     };

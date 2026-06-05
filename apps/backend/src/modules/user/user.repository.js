@@ -67,10 +67,11 @@ let UserRepository = (() => {
         }
         /**
          * 根据邮箱查找用户
+         * SECURITY: 排除已软删除的用户，防止信息泄露和已删除用户登录
          */
         async findByEmail(email) {
             return this.prisma.user.findUnique({
-                where: { email },
+                where: { email, deleted_at: null },
             });
         }
         /**

@@ -6,12 +6,15 @@ import { Logger } from '@nestjs/common';
  * 需要将 OpenAI 格式转换为 Anthropic Messages API 格式。
  */
 export class AnthropicAdapter {
-    name = 'anthropic';
-    provider = 'Anthropic';
-    logger = new Logger('AnthropicAdapter');
+    name;
+    provider;
+    logger;
     config;
-    constructor(config) {
+    constructor(provider, config) {
+        this.name = provider;
+        this.provider = 'Anthropic';
         this.config = config;
+        this.logger = new Logger(`AnthropicAdapter:${provider}`);
     }
     /**
      * 同步聊天补全
@@ -26,6 +29,7 @@ export class AnthropicAdapter {
                 'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify(anthropicRequest),
+            signal: AbortSignal.timeout(60000),
         });
         if (!response.ok) {
             const errorText = await response.text();
@@ -48,6 +52,7 @@ export class AnthropicAdapter {
                 'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({ ...anthropicRequest, stream: true }),
+            signal: AbortSignal.timeout(120000),
         });
         if (!response.ok) {
             const errorText = await response.text();
@@ -136,23 +141,56 @@ export class AnthropicAdapter {
      * 转换请求格式
      */
     convertRequest(request) {
-        // 提取 system message
-        const systemMessage = request.messages.find((m) => m.role === 'system');
+        // 提取所有 system message 并拼接
+        const systemMessages = request.messages.filter((m) => m.role === 'system');
+        const systemContent = systemMessages.length > 0
+            ? systemMessages.map((m) => m.content).join('\n\n')
+            : undefined;
         const messages = request.messages
             .filter((m) => m.role !== 'system')
-            .map((m) => ({
-            role: m.role,
-            content: m.content,
-        }));
+            .map((m) => {
+            // Anthropic 使用 user 消息携带 tool_result
+            if (m.role === 'tool') {
+                return {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'tool_result',
+                            tool_use_id: m.tool_call_id || '',
+                            content: m.content,
+                        },
+                    ],
+                };
+            }
+            return {
+                role: m.role,
+                content: m.content,
+            };
+        });
         return {
             model: request.model,
             max_tokens: request.max_tokens || 4096,
-            system: systemMessage?.content,
+            system: systemContent,
             messages,
             temperature: request.temperature,
             top_p: request.top_p,
             stop_sequences: request.stop ? [...request.stop] : undefined,
         };
+    }
+    /**
+     * 映射 Anthropic stop_reason 到 OpenAI finish_reason
+     */
+    mapStopReason(stopReason, content) {
+        if (stopReason === 'tool_use')
+            return 'tool_calls';
+        if (stopReason === 'end_turn')
+            return 'stop';
+        if (stopReason === 'max_tokens')
+            return 'length';
+        // 兜底：检查内容中是否有 tool_use 块
+        if (content.some((c) => c.type === 'tool_use'))
+            return 'tool_calls';
+        return 'stop';
     }
     /**
      * 标准化响应格式
@@ -184,7 +222,7 @@ export class AnthropicAdapter {
                         content: textContent,
                         tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
                     },
-                    finish_reason: data.stop_reason === 'end_turn' ? 'stop' : 'length',
+                    finish_reason: this.mapStopReason(data.stop_reason, data.content),
                 }],
             usage: {
                 prompt_tokens: data.usage.input_tokens,

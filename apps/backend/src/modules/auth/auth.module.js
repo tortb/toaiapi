@@ -53,7 +53,7 @@ let AuthModule = (() => {
                 JwtModule.registerAsync({
                     imports: [ConfigModule],
                     useFactory: (configService) => ({
-                        secret: configService.get('JWT_SECRET', 'default-jwt-secret'),
+                        secret: configService.getOrThrow('JWT_SECRET'),
                         signOptions: { expiresIn: '15m' },
                     }),
                     inject: [ConfigService],

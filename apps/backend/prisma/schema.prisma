@@ -144,6 +144,10 @@ model ApiKey {
   // IP 白名单
   ip_whitelist String[]
 
+  // 使用统计
+  last_used_at DateTime?  // 最后使用时间
+  total_requests Int      @default(0) // 累计请求数
+
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
 

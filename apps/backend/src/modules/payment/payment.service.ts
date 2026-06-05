@@ -3,6 +3,7 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EPayService } from './epay.service';
@@ -24,7 +25,7 @@ import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
  * - 金额校验必须与订单一致
  */
 @Injectable()
-export class PaymentService {
+export class PaymentService implements OnModuleInit {
   private readonly logger = new Logger(PaymentService.name);
 
   constructor(
@@ -34,6 +35,15 @@ export class PaymentService {
     private readonly wechatPayService: WechatPayService,
     private readonly paymentConfigService: PaymentConfigService,
   ) {}
+
+  onModuleInit() {
+    // 每 5 分钟清理超时订单（30 分钟未支付）
+    setInterval(() => {
+      this.cancelStaleOrders(30).catch((err) => {
+        this.logger.error(`Stale order cleanup failed: ${err}`);
+      });
+    }, 5 * 60 * 1000);
+  }
 
   /**
    * 生成订单号
@@ -247,6 +257,33 @@ export class PaymentService {
     });
 
     this.logger.log(`Order cancelled: ${orderNo}`);
+  }
+
+  /**
+   * 取消超时订单
+   *
+   * 将超过指定时间仍为 PENDING 状态的订单自动取消。
+   * 建议通过定时任务调用（如每 5 分钟执行一次）。
+   *
+   * @param timeoutMinutes - 超时时间（分钟），默认 30
+   * @returns 取消的订单数量
+   */
+  async cancelStaleOrders(timeoutMinutes: number = 30): Promise<number> {
+    const cutoff = new Date(Date.now() - timeoutMinutes * 60 * 1000);
+
+    const result = await this.prisma.order.updateMany({
+      where: {
+        status: 'PENDING',
+        created_at: { lt: cutoff },
+      },
+      data: { status: 'CANCELLED' },
+    });
+
+    if (result.count > 0) {
+      this.logger.log(`Cancelled ${result.count} stale orders (older than ${timeoutMinutes}min)`);
+    }
+
+    return result.count;
   }
 
   /**

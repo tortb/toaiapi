@@ -65,7 +65,7 @@ let PrismaService = (() => {
          * 清理数据库（仅用于测试）
          */
         async cleanDatabase() {
-            if (process.env.NODE_ENV === 'production') {
+            if (process.env['NODE_ENV'] === 'production') {
                 throw new Error('Cannot clean database in production');
             }
             // 按照外键依赖顺序删除

@@ -43,7 +43,7 @@ export class UserRepository {
    */
   async update(id: string, data: Prisma.UserUpdateInput): Promise<User> {
     return this.prisma.user.update({
-      where: { id },
+      where: { id, deleted_at: null },
       data,
     });
   }

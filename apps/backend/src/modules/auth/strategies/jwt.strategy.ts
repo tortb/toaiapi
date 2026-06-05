@@ -41,8 +41,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     role: string;
     type?: string;
   }): Promise<{ id: string; email: string; role: string }> {
-    // SECURITY: 只接受 access token
-    if (payload.type && payload.type !== 'access') {
+    // SECURITY: 只接受 access token（缺失 type 字段也拒绝）
+    if (!payload.type || payload.type !== 'access') {
       throw new UnauthorizedException('Token 类型无效');
     }
 

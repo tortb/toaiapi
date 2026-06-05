@@ -34,6 +34,7 @@ var __runInitializers = (this && this.__runInitializers) || function (thisArg, i
 };
 import { Injectable, NotFoundException, Logger, } from '@nestjs/common';
 import { ProviderAdapterFactory } from '../providers/provider-adapter.factory';
+import { decrypt } from '../../../common/utils/crypto.util';
 /**
  * 渠道业务服务
  *
@@ -43,6 +44,8 @@ import { ProviderAdapterFactory } from '../providers/provider-adapter.factory';
  * 1. 按优先级降序排列
  * 2. 在最高优先级中按权重随机选择
  * 3. 失败时自动尝试下一个渠道
+ *
+ * SECURITY: 数据库中存储的是加密的 API Key，使用时需解密
  */
 let ChannelService = (() => {
     let _classDecorators = [Injectable()];
@@ -65,10 +68,11 @@ let ChannelService = (() => {
         }
         /**
          * 选择渠道并创建适配器
+         * SECURITY: 从数据库读取加密的 API Key，解密后传给适配器
          *
          * @param modelName - 模型名称
          * @returns 渠道选择结果
-         * @throws {NotFoundException} 没有可用渠道
+         * @throws 没有可用渠道
          */
         async selectChannel(modelName) {
             const channels = await this.channelRepo.findAvailableChannels(modelName);
@@ -76,26 +80,36 @@ let ChannelService = (() => {
                 throw new NotFoundException(`No available channel for model: ${modelName}`);
             }
             // 按优先级分组
-            const maxPriority = channels[0].channel.priority;
+            const firstChannel = channels[0];
+            if (!firstChannel) {
+                throw new NotFoundException(`No available channel for model: ${modelName}`);
+            }
+            const maxPriority = firstChannel.channel.priority;
             const topPriority = channels.filter((c) => c.channel.priority === maxPriority);
             // 在最高优先级中按权重选择
             const selected = this.selectByWeight(topPriority);
+            if (!selected) {
+                throw new NotFoundException(`No available channel for model: ${modelName}`);
+            }
+            // SECURITY: 解密 API Key
+            const decryptedApiKey = this.decryptChannelApiKey(selected.channel.api_key);
             // 创建适配器
             const config = {
                 baseUrl: selected.channel.base_url,
-                apiKey: selected.channel.api_key,
+                apiKey: decryptedApiKey,
             };
             const adapter = ProviderAdapterFactory.create(selected.channel.provider.name, config);
             return {
                 channelId: selected.channel.id,
                 providerName: selected.channel.provider.name,
                 baseUrl: selected.channel.base_url,
-                apiKey: selected.channel.api_key,
+                apiKey: decryptedApiKey,
                 adapter,
             };
         }
         /**
          * 选择渠道（带故障转移）
+         * SECURITY: 从数据库读取加密的 API Key，解密后传给适配器
          *
          * @param modelName - 模型名称
          * @returns 渠道选择结果列表（用于故障转移）
@@ -109,16 +123,18 @@ let ChannelService = (() => {
             const results = [];
             for (const channelModel of channels) {
                 try {
+                    // SECURITY: 解密 API Key
+                    const decryptedApiKey = this.decryptChannelApiKey(channelModel.channel.api_key);
                     const config = {
                         baseUrl: channelModel.channel.base_url,
-                        apiKey: channelModel.channel.api_key,
+                        apiKey: decryptedApiKey,
                     };
                     const adapter = ProviderAdapterFactory.create(channelModel.channel.provider.name, config);
                     results.push({
                         channelId: channelModel.channel.id,
                         providerName: channelModel.channel.provider.name,
                         baseUrl: channelModel.channel.base_url,
-                        apiKey: channelModel.channel.api_key,
+                        apiKey: decryptedApiKey,
                         adapter,
                     });
                 }
@@ -148,14 +164,37 @@ let ChannelService = (() => {
             return this.channelRepo.findAvailableModels();
         }
         /**
+         * 获取所有活跃渠道的统计信息（公开状态页用）
+         */
+        async getChannelStats() {
+            return this.channelRepo.findChannelStats();
+        }
+        /**
+         * 解密 Channel API Key
+         * SECURITY: 解密失败直接抛出错误，不 fallback 到明文
+         *
+         * @param encryptedApiKey - 加密的 API Key（Base64 格式）
+         * @returns 解密后的明文 API Key
+         * @throws 解密失败时抛出错误
+         */
+        decryptChannelApiKey(encryptedApiKey) {
+            return decrypt(encryptedApiKey);
+        }
+        /**
          * 按权重随机选择
          */
         selectByWeight(items) {
+            if (items.length === 0) {
+                return undefined;
+            }
             const totalWeight = items.reduce((sum, item) => sum + item.channel.weight, 0);
+            if (totalWeight === 0) {
+                return items[0];
+            }
             let random = Math.random() * totalWeight;
             for (const item of items) {
                 random -= item.channel.weight;
-                if (random <= 0) {
+                if (random < 0) {
                     return item;
                 }
             }

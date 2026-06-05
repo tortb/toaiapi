@@ -8,6 +8,7 @@ import {
   ValidateNested,
   Min,
   Max,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -23,9 +24,10 @@ export class ChatMessageDto {
   @IsEnum(['system', 'user', 'assistant', 'tool'])
   readonly role!: 'system' | 'user' | 'assistant' | 'tool';
 
-  @ApiProperty({ description: '消息内容' })
+  @ApiProperty({ description: '消息内容', required: false, nullable: true })
+  @IsOptional()
   @IsString()
-  readonly content!: string;
+  readonly content?: string | null;
 
   @ApiPropertyOptional({ description: '工具调用 ID（role=tool 时必填）' })
   @IsOptional()
@@ -83,6 +85,7 @@ export class ChatCompletionDto {
     type: [ChatMessageDto],
   })
   @IsArray()
+  @ArrayMinSize(1, { message: 'messages 不能为空' })
   @ValidateNested({ each: true })
   @Type(() => ChatMessageDto)
   readonly messages!: ChatMessageDto[];

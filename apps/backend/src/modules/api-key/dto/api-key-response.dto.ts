@@ -39,6 +39,12 @@ export class ApiKeyResponseDto {
   @ApiProperty({ description: 'IP 白名单', type: [String] })
   readonly ipWhitelist!: string[];
 
+  @ApiPropertyOptional({ description: '最后使用时间' })
+  readonly lastUsedAt?: Date | null;
+
+  @ApiProperty({ description: '累计请求数' })
+  readonly totalRequests?: number;
+
   @ApiProperty({ description: '创建时间' })
   readonly createdAt!: Date;
 }

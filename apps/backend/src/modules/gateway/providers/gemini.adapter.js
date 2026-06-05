@@ -6,27 +6,35 @@ import { Logger } from '@nestjs/common';
  * 需要将 OpenAI 格式转换为 Google AI API 格式。
  */
 export class GeminiAdapter {
-    name = 'gemini';
-    provider = 'Google';
-    logger = new Logger('GeminiAdapter');
+    name;
+    provider;
+    logger;
     config;
-    constructor(config) {
+    constructor(provider, config) {
+        this.name = provider;
+        this.provider = 'Google';
         this.config = config;
+        this.logger = new Logger(`GeminiAdapter:${provider}`);
     }
     /**
      * 同步聊天补全
      */
     async chat(request) {
         const geminiRequest = this.convertRequest(request);
-        const url = `${this.config.baseUrl}/v1beta/models/${request.model}:generateContent?key=${this.config.apiKey}`;
+        // Google API 使用 API Key 作为查询参数（这是官方要求的方式）
+        const url = `${this.config.baseUrl}/v1beta/models/${request.model}:generateContent`;
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': this.config.apiKey,
+            },
             body: JSON.stringify(geminiRequest),
+            signal: AbortSignal.timeout(60000),
         });
         if (!response.ok) {
             const errorText = await response.text();
-            this.logger.error(`Gemini error: ${response.status} ${response.statusText} - ${errorText}`);
+            this.logger.error(`Gemini error: ${response.status} ${response.statusText}`);
             throw new Error(`Gemini returned ${response.status}: ${errorText}`);
         }
         const data = (await response.json());
@@ -37,15 +45,19 @@ export class GeminiAdapter {
      */
     async *chatStream(request) {
         const geminiRequest = this.convertRequest(request);
-        const url = `${this.config.baseUrl}/v1beta/models/${request.model}:streamGenerateContent?alt=sse&key=${this.config.apiKey}`;
+        const url = `${this.config.baseUrl}/v1beta/models/${request.model}:streamGenerateContent?alt=sse`;
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': this.config.apiKey,
+            },
             body: JSON.stringify(geminiRequest),
+            signal: AbortSignal.timeout(120000),
         });
         if (!response.ok) {
             const errorText = await response.text();
-            this.logger.error(`Gemini stream error: ${response.status} ${response.statusText} - ${errorText}`);
+            this.logger.error(`Gemini stream error: ${response.status} ${response.statusText}`);
             throw new Error(`Gemini returned ${response.status}: ${errorText}`);
         }
         const reader = response.body?.getReader();

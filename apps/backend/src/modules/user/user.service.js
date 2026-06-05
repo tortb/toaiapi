@@ -32,14 +32,17 @@ var __runInitializers = (this && this.__runInitializers) || function (thisArg, i
     }
     return useValue ? value : void 0;
 };
-import { Injectable, ConflictException, NotFoundException, Logger, } from '@nestjs/common';
-import { UserEntity } from './entities/user.entity';
+import { Injectable, ConflictException, BadRequestException, NotFoundException, Logger, } from '@nestjs/common';
+import { userFromPrisma } from './entities/user.entity';
 import { hashPassword, validatePasswordStrength } from '@toai/auth';
+import { maskEmail } from '@toai/common';
 /**
  * 用户业务服务
  *
  * 处理用户相关的业务逻辑。
  * 通过 UserRepository 访问数据库。
+ * SECURITY: 日志中使用 maskEmail 脱敏邮箱
+ * SECURITY: findByEmail 返回脱敏实体，不暴露 password_hash
  */
 let UserService = (() => {
     let _classDecorators = [Injectable()];
@@ -63,19 +66,21 @@ let UserService = (() => {
         /**
          * 创建用户（注册）
          *
-         * @throws {ConflictException} 邮箱已注册
-         * @throws {Error} 密码强度不足
+         * @param dto - 创建用户数据
+         * @returns 脱敏后的用户实体
+         * @throws ConflictException 邮箱已注册
+         * @throws BadRequestException 密码强度不足
          */
         async createUser(dto) {
             // 检查邮箱是否已注册
             const exists = await this.userRepo.existsByEmail(dto.email);
             if (exists) {
-                throw new ConflictException('Email already registered');
+                throw new ConflictException('该邮箱已被注册');
             }
             // 验证密码强度
             const passwordValidation = validatePasswordStrength(dto.password);
             if (!passwordValidation.valid) {
-                throw new ConflictException(`Password does not meet requirements: ${passwordValidation.errors.join(', ')}`);
+                throw new BadRequestException(`密码不符合要求: ${passwordValidation.errors.join(', ')}`);
             }
             // 哈希密码
             const passwordHash = await hashPassword(dto.password);
@@ -85,33 +90,44 @@ let UserService = (() => {
                 password_hash: passwordHash,
                 display_name: dto.displayName,
             });
-            this.logger.log(`User created: ${user.id} (${user.email})`);
-            return UserEntity.fromPrisma(user);
+            // SECURITY: 日志中脱敏邮箱
+            this.logger.log(`User created: ${user.id} (${maskEmail(user.email)})`);
+            return userFromPrisma(user);
         }
         /**
          * 根据 ID 查找用户
          *
-         * @throws {NotFoundException} 用户不存在
+         * @param id - 用户 ID
+         * @returns 脱敏后的用户实体
+         * @throws NotFoundException 用户不存在
          */
         async findById(id) {
             const user = await this.userRepo.findById(id);
             if (!user) {
-                throw new NotFoundException('User not found');
+                throw new NotFoundException('用户不存在');
             }
-            return UserEntity.fromPrisma(user);
+            return userFromPrisma(user);
         }
         /**
          * 根据邮箱查找用户
+         * SECURITY: 返回脱敏实体，不暴露 password_hash
          *
-         * @returns 用户实体或 null
+         * @param email - 用户邮箱
+         * @returns 脱敏后的用户实体或 null
          */
         async findByEmail(email) {
-            return this.userRepo.findByEmail(email);
+            const user = await this.userRepo.findByEmail(email);
+            if (!user)
+                return null;
+            return userFromPrisma(user);
         }
         /**
          * 更新用户信息
          *
-         * @throws {NotFoundException} 用户不存在
+         * @param id - 用户 ID
+         * @param dto - 更新数据
+         * @returns 脱敏后的用户实体
+         * @throws NotFoundException 用户不存在
          */
         async updateUser(id, dto) {
             // 检查用户是否存在
@@ -121,12 +137,13 @@ let UserService = (() => {
                 avatar_url: dto.avatarUrl,
             });
             this.logger.log(`User updated: ${id}`);
-            return UserEntity.fromPrisma(user);
+            return userFromPrisma(user);
         }
         /**
          * 软删除用户
          *
-         * @throws {NotFoundException} 用户不存在
+         * @param id - 用户 ID
+         * @throws NotFoundException 用户不存在
          */
         async deleteUser(id) {
             await this.findById(id);

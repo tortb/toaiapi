@@ -6,6 +6,7 @@ import {
   ChatResponse,
   ChatChunk,
 } from './provider-adapter.interface';
+import { ProviderError } from './provider-error';
 
 /**
  * Anthropic 适配器
@@ -49,8 +50,10 @@ export class AnthropicAdapter implements ProviderAdapter {
       this.logger.error(
         `Anthropic error: ${response.status} ${response.statusText} - ${errorText}`,
       );
-      throw new Error(
+      throw new ProviderError(
         `Anthropic returned ${response.status}: ${errorText}`,
+        response.status,
+        this.name,
       );
     }
 
@@ -80,8 +83,10 @@ export class AnthropicAdapter implements ProviderAdapter {
       this.logger.error(
         `Anthropic stream error: ${response.status} ${response.statusText} - ${errorText}`,
       );
-      throw new Error(
+      throw new ProviderError(
         `Anthropic returned ${response.status}: ${errorText}`,
+        response.status,
+        this.name,
       );
     }
 
@@ -144,9 +149,10 @@ export class AnthropicAdapter implements ProviderAdapter {
                   choices: [{
                     index: 0,
                     delta: {},
-                    finish_reason: event.delta?.stop_reason === 'end_turn'
-                      ? 'stop'
-                      : 'length',
+                    finish_reason: this.mapStopReason(
+                      event.delta?.stop_reason || 'end_turn',
+                      [],
+                    ),
                   }],
                   usage: {
                     prompt_tokens: totalInputTokens,
@@ -170,8 +176,11 @@ export class AnthropicAdapter implements ProviderAdapter {
    * 转换请求格式
    */
   private convertRequest(request: ChatRequest): AnthropicMessageRequest {
-    // 提取 system message
-    const systemMessage = request.messages.find((m) => m.role === 'system');
+    // 提取所有 system message 并拼接
+    const systemMessages = request.messages.filter((m) => m.role === 'system');
+    const systemContent = systemMessages.length > 0
+      ? systemMessages.map((m) => m.content).join('\n\n')
+      : undefined;
     const messages = request.messages
       .filter((m) => m.role !== 'system')
       .map((m) => {
@@ -197,12 +206,27 @@ export class AnthropicAdapter implements ProviderAdapter {
     return {
       model: request.model,
       max_tokens: request.max_tokens || 4096,
-      system: systemMessage?.content,
+      system: systemContent,
       messages,
       temperature: request.temperature,
       top_p: request.top_p,
       stop_sequences: request.stop ? [...request.stop] : undefined,
     };
+  }
+
+  /**
+   * 映射 Anthropic stop_reason 到 OpenAI finish_reason
+   */
+  private mapStopReason(
+    stopReason: string,
+    content: AnthropicMessageResponse['content'],
+  ): 'stop' | 'length' | 'tool_calls' {
+    if (stopReason === 'tool_use') return 'tool_calls';
+    if (stopReason === 'end_turn') return 'stop';
+    if (stopReason === 'max_tokens') return 'length';
+    // 兜底：检查内容中是否有 tool_use 块
+    if (content.some((c) => c.type === 'tool_use')) return 'tool_calls';
+    return 'stop';
   }
 
   /**
@@ -240,7 +264,7 @@ export class AnthropicAdapter implements ProviderAdapter {
           content: textContent,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
         },
-        finish_reason: data.stop_reason === 'end_turn' ? 'stop' : 'length',
+        finish_reason: this.mapStopReason(data.stop_reason, data.content),
       }],
       usage: {
         prompt_tokens: data.usage.input_tokens,
