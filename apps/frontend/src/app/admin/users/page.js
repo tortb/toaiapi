@@ -18,34 +18,34 @@ const sidebarSections = [
         title: "用户管理",
         items: [
             { icon: <IconUserList size={18}/>, label: "用户列表", href: "/admin/users", active: true },
-            { icon: <IconUserGroup size={18}/>, label: "用户分组", href: "#" },
-            { icon: <IconKey size={18}/>, label: "API Key 管理", href: "#" },
+            { icon: <IconUserGroup size={18}/>, label: "用户分组", href: "/admin/users/groups" },
+            { icon: <IconKey size={18}/>, label: "API Key 管理", href: "/admin/apikeys" },
         ],
     },
     {
         title: "订单与财务",
         items: [
-            { icon: <IconOrders size={18}/>, label: "订单管理", href: "#" },
-            { icon: <IconRecharge size={18}/>, label: "充值记录", href: "#" },
-            { icon: <IconBill size={18}/>, label: "账单管理", href: "#" },
-            { icon: <IconInvoice size={18}/>, label: "发票管理", href: "#" },
+            { icon: <IconOrders size={18}/>, label: "订单管理", href: "/admin/orders" },
+            { icon: <IconRecharge size={18}/>, label: "充值记录", href: "/admin/recharges" },
+            { icon: <IconBill size={18}/>, label: "账单管理", href: "/admin/bills" },
+            { icon: <IconInvoice size={18}/>, label: "发票管理", href: "/admin/invoices" },
         ],
     },
     {
         title: "模型与通道",
         items: [
-            { icon: <IconModel size={18}/>, label: "模型管理", href: "#" },
-            { icon: <IconChannel size={18}/>, label: "通道管理", href: "#" },
-            { icon: <IconPrice size={18}/>, label: "模型价格", href: "#" },
+            { icon: <IconModel size={18}/>, label: "模型管理", href: "/admin/models" },
+            { icon: <IconChannel size={18}/>, label: "通道管理", href: "/admin/channels" },
+            { icon: <IconPrice size={18}/>, label: "模型价格", href: "/admin/pricing" },
         ],
     },
     {
         title: "系统与监控",
         items: [
-            { icon: <IconSystem size={18}/>, label: "系统设置", href: "#" },
-            { icon: <IconLog size={18}/>, label: "操作日志", href: "#" },
-            { icon: <IconLog size={18}/>, label: "调用日志", href: "#" },
-            { icon: <IconMonitor size={18}/>, label: "系统监控", href: "#" },
+            { icon: <IconSystem size={18}/>, label: "系统设置", href: "/admin/settings" },
+            { icon: <IconLog size={18}/>, label: "操作日志", href: "/admin/logs/operations" },
+            { icon: <IconLog size={18}/>, label: "调用日志", href: "/admin/logs/requests" },
+            { icon: <IconMonitor size={18}/>, label: "系统监控", href: "/admin/monitor" },
         ],
     },
 ];

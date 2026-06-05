@@ -53,6 +53,7 @@ import {
 interface SidebarItem {
   icon: React.ReactNode;
   label: string;
+  href: string;
   active?: boolean;
 }
 
@@ -64,40 +65,40 @@ interface SidebarSection {
 const sidebarSections: SidebarSection[] = [
   {
     title: "控制台",
-    items: [{ icon: <IconDashboard size={18} />, label: "控制台", active: true }],
+    items: [{ icon: <IconDashboard size={18} />, label: "控制台", href: "/admin", active: true }],
   },
   {
     title: "用户管理",
     items: [
-      { icon: <IconUserList size={18} />, label: "用户列表" },
-      { icon: <IconUserGroup size={18} />, label: "用户分组" },
-      { icon: <IconKey size={18} />, label: "API Key 管理" },
+      { icon: <IconUserList size={18} />, label: "用户列表", href: "/admin/users" },
+      { icon: <IconUserGroup size={18} />, label: "用户分组", href: "/admin/users/groups" },
+      { icon: <IconKey size={18} />, label: "API Key 管理", href: "/admin/apikeys" },
     ],
   },
   {
     title: "订单与财务",
     items: [
-      { icon: <IconOrders size={18} />, label: "订单管理" },
-      { icon: <IconRecharge size={18} />, label: "充值记录" },
-      { icon: <IconBill size={18} />, label: "账单管理" },
-      { icon: <IconInvoice size={18} />, label: "发票管理" },
+      { icon: <IconOrders size={18} />, label: "订单管理", href: "/admin/orders" },
+      { icon: <IconRecharge size={18} />, label: "充值记录", href: "/admin/recharges" },
+      { icon: <IconBill size={18} />, label: "账单管理", href: "/admin/bills" },
+      { icon: <IconInvoice size={18} />, label: "发票管理", href: "/admin/invoices" },
     ],
   },
   {
     title: "模型与通道",
     items: [
-      { icon: <IconModel size={18} />, label: "模型管理" },
-      { icon: <IconChannel size={18} />, label: "通道管理" },
-      { icon: <IconPrice size={18} />, label: "模型价格" },
+      { icon: <IconModel size={18} />, label: "模型管理", href: "/admin/models" },
+      { icon: <IconChannel size={18} />, label: "通道管理", href: "/admin/channels" },
+      { icon: <IconPrice size={18} />, label: "模型价格", href: "/admin/pricing" },
     ],
   },
   {
     title: "系统与监控",
     items: [
-      { icon: <IconSystem size={18} />, label: "系统设置" },
-      { icon: <IconLog size={18} />, label: "操作日志" },
-      { icon: <IconLog size={18} />, label: "调用日志" },
-      { icon: <IconMonitor size={18} />, label: "系统监控" },
+      { icon: <IconSystem size={18} />, label: "系统设置", href: "/admin/settings" },
+      { icon: <IconLog size={18} />, label: "操作日志", href: "/admin/logs/operations" },
+      { icon: <IconLog size={18} />, label: "调用日志", href: "/admin/logs/requests" },
+      { icon: <IconMonitor size={18} />, label: "系统监控", href: "/admin/monitor" },
     ],
   },
 ];
@@ -160,7 +161,7 @@ export default function AdminPage() {
                 {section.items.map((item) => (
                   <li key={item.label}>
                     <a
-                      href="#"
+                      href={item.href}
                       className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition ${
                         item.active
                           ? "bg-primary-50 text-primary border-r-2 border-primary font-medium"
