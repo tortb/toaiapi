@@ -37,6 +37,7 @@ model User {
   subscriptions   UserSubscription?
   transactions    UserTransaction[]
   userRoles       UserRoleMapping[]
+  invoices        Invoice[]
 
   @@index([created_at])
   @@index([role])
@@ -533,4 +534,51 @@ model RechargePromotion {
 enum BonusType {
   FIXED       // 固定金额赠送（如充100送10）
   PERCENTAGE  // 百分比赠送（如充100送10%）
+}
+
+// ──────────────────────────────────────────────
+// 发票
+// ──────────────────────────────────────────────
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoice_no      String        @unique           // 发票号
+  user_id         String
+  user            User          @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  type            InvoiceType                     // COMPANY=企业, PERSONAL=个人
+  company_name    String?                         // 公司名称
+  tax_id          String?                         // 税号
+  company_address String?                         // 公司地址
+  company_phone   String?                         // 公司电话
+  bank_name       String?                         // 开户银行
+  bank_account    String?                         // 银行账号（加密）
+  amount          Int                             // 发票金额（分）
+  content         String        @default("技术服务费")  // 发票内容
+  status          InvoiceStatus @default(PENDING)
+  applicant_email String                          // 申请人邮箱
+  applicant_phone String?                         // 申请人电话
+  mailing_address String?                         // 邮寄地址
+  file_url        String?                         // 发票 PDF/图片 URL
+  reviewed_at     DateTime?                       // 审核时间
+  reviewed_by     String?                         // 审核人
+  review_remark   String?                         // 审核备注
+  issued_at       DateTime?                       // 开具时间
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  @@index([user_id, status])
+  @@index([status, created_at])
+}
+
+enum InvoiceType {
+  COMPANY     // 企业发票
+  PERSONAL    // 个人发票
+}
+
+enum InvoiceStatus {
+  PENDING     // 待审核
+  APPROVED    // 已通过
+  REJECTED    // 已驳回
+  ISSUED      // 已开具
+  CANCELLED   // 已取消
 }

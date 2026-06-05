@@ -45,6 +45,7 @@ import { DashboardResponseDto } from './dto/dashboard-response.dto';
 import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto';
+import { CreateInvoiceDto, ReviewInvoiceDto, IssueInvoiceDto } from './dto/invoice.dto';
 
 /**
  * Admin 管理控制器
@@ -596,5 +597,67 @@ export class AdminController {
   @ApiNoContentResponse()
   async deletePromotion(@Param('id') id: string) {
     await this.adminService.deletePromotion(id);
+  }
+
+  // ──────────────────────────────────────────────
+  // Invoice 发票管理
+  // ──────────────────────────────────────────────
+
+  @Get('invoices')
+  @ApiOperation({ summary: '获取发票列表' })
+  @ApiOkResponse()
+  async listInvoices(
+    @Query() pagination: PaginationDto,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.listInvoices(pagination.page, pagination.pageSize, status, search);
+  }
+
+  @Post('invoices')
+  @Roles('admin')
+  @ApiOperation({ summary: '创建发票' })
+  @ApiCreatedResponse()
+  async createInvoice(
+    @Body() dto: CreateInvoiceDto,
+    @CurrentUser() operator: CurrentUserInfo,
+  ) {
+    return this.adminService.createInvoice(operator.id, dto);
+  }
+
+  @Get('invoices/:id')
+  @ApiOperation({ summary: '获取发票详情' })
+  @ApiOkResponse()
+  async getInvoice(@Param('id') id: string) {
+    return this.adminService.getInvoice(id);
+  }
+
+  @Patch('invoices/:id/review')
+  @Roles('admin')
+  @ApiOperation({ summary: '审核发票' })
+  @ApiOkResponse()
+  async reviewInvoice(
+    @Param('id') id: string,
+    @Body() dto: ReviewInvoiceDto,
+    @CurrentUser() operator: CurrentUserInfo,
+  ) {
+    return this.adminService.reviewInvoice(id, dto, operator.id);
+  }
+
+  @Patch('invoices/:id/issue')
+  @Roles('admin')
+  @ApiOperation({ summary: '开具发票' })
+  @ApiOkResponse()
+  async issueInvoice(@Param('id') id: string, @Body() dto: IssueInvoiceDto) {
+    return this.adminService.issueInvoice(id, dto);
+  }
+
+  @Delete('invoices/:id')
+  @Roles('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: '删除发票' })
+  @ApiNoContentResponse()
+  async deleteInvoice(@Param('id') id: string) {
+    await this.adminService.deleteInvoice(id);
   }
 }

@@ -1072,6 +1072,131 @@ export function getBonusTypeLabel(type: string): string {
 }
 
 // ──────────────────────────────────────────────
+// Invoice API
+// ──────────────────────────────────────────────
+
+export interface InvoiceData {
+  id: string;
+  invoiceNo: string;
+  userId: string;
+  userEmail: string;
+  userName: string | null;
+  type: string;
+  companyName: string | null;
+  taxId: string | null;
+  companyAddress: string | null;
+  companyPhone: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
+  amount: number;
+  content: string;
+  status: string;
+  applicantEmail: string;
+  applicantPhone: string | null;
+  mailingAddress: string | null;
+  fileUrl: string | null;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewRemark: string | null;
+  issuedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvoiceListParams {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  search?: string;
+}
+
+export interface CreateInvoicePayload {
+  type: "COMPANY" | "PERSONAL";
+  company_name?: string;
+  tax_id?: string;
+  company_address?: string;
+  company_phone?: string;
+  bank_name?: string;
+  bank_account?: string;
+  amount: number;
+  content?: string;
+  applicant_email: string;
+  applicant_phone?: string;
+  mailing_address?: string;
+}
+
+export interface ReviewInvoicePayload {
+  status: "APPROVED" | "REJECTED";
+  review_remark?: string;
+}
+
+export interface IssueInvoicePayload {
+  file_url?: string;
+}
+
+export async function getInvoices(params: InvoiceListParams = {}): Promise<PaginatedResponse<InvoiceData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.status) searchParams.set("status", params.status);
+  if (params.search) searchParams.set("search", params.search);
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<InvoiceData>>(`${API_PREFIX}/admin/invoices${query ? `?${query}` : ""}`);
+}
+
+export async function getInvoice(id: string): Promise<InvoiceData> {
+  return adminFetch<InvoiceData>(`${API_PREFIX}/admin/invoices/${id}`);
+}
+
+export async function createInvoice(payload: CreateInvoicePayload): Promise<InvoiceData> {
+  return adminFetch<InvoiceData>(`${API_PREFIX}/admin/invoices`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function reviewInvoice(id: string, payload: ReviewInvoicePayload): Promise<InvoiceData> {
+  return adminFetch<InvoiceData>(`${API_PREFIX}/admin/invoices/${id}/review`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function issueInvoice(id: string, payload: IssueInvoicePayload = {}): Promise<InvoiceData> {
+  return adminFetch<InvoiceData>(`${API_PREFIX}/admin/invoices/${id}/issue`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteInvoice(id: string): Promise<void> {
+  return adminFetch<void>(`${API_PREFIX}/admin/invoices/${id}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * 发票状态映射
+ */
+export function getInvoiceStatusLabel(status: string): { label: string; color: string; dotColor: string } {
+  const map: Record<string, { label: string; color: string; dotColor: string }> = {
+    PENDING: { label: "待审核", color: "text-warning", dotColor: "bg-warning" },
+    APPROVED: { label: "已通过", color: "text-success", dotColor: "bg-success" },
+    REJECTED: { label: "已驳回", color: "text-red-500", dotColor: "bg-red-500" },
+    ISSUED: { label: "已开具", color: "text-primary", dotColor: "bg-primary" },
+    CANCELLED: { label: "已取消", color: "text-gray-400", dotColor: "bg-gray-400" },
+  };
+  return map[status] ?? { label: status, color: "text-gray-500", dotColor: "bg-gray-400" };
+}
+
+/**
+ * 发票类型映射
+ */
+export function getInvoiceTypeLabel(type: string): string {
+  return type === "COMPANY" ? "企业发票" : "个人发票";
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 

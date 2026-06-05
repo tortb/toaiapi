@@ -20,6 +20,7 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto';
+import { CreateInvoiceDto, ReviewInvoiceDto, IssueInvoiceDto } from './dto/invoice.dto';
 import { UpdateSmtpConfigDto } from './dto/smtp-config.dto';
 import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
@@ -1500,6 +1501,124 @@ export class AdminService {
       isActive: p.is_active,
       createdAt: p.created_at,
       updatedAt: p.updated_at,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Invoice 发票管理
+  // ──────────────────────────────────────────────
+
+  async listInvoices(page: number, pageSize: number, status?: string, search?: string) {
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.InvoiceWhereInput = {};
+    if (status) where.status = status as any;
+    if (search) {
+      where.OR = [
+        { invoice_no: { contains: search, mode: 'insensitive' } },
+        { company_name: { contains: search, mode: 'insensitive' } },
+        { tax_id: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const { items, total } = await this.adminRepo.findInvoices({ skip, take: pageSize, where });
+    return {
+      items: items.map((i) => this.toInvoiceResponse(i)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  async getInvoice(id: string) {
+    const invoice = await this.adminRepo.findInvoiceById(id);
+    if (!invoice) throw new NotFoundException('发票不存在');
+    return this.toInvoiceResponse(invoice);
+  }
+
+  async createInvoice(userId: string, dto: CreateInvoiceDto) {
+    const invoiceNo = await this.adminRepo.generateInvoiceNo();
+    const invoice = await this.adminRepo.createInvoice({
+      invoice_no: invoiceNo,
+      user: { connect: { id: userId } },
+      type: dto.type,
+      company_name: dto.company_name,
+      tax_id: dto.tax_id,
+      company_address: dto.company_address,
+      company_phone: dto.company_phone,
+      bank_name: dto.bank_name,
+      bank_account: dto.bank_account,
+      amount: dto.amount,
+      content: dto.content ?? '技术服务费',
+      applicant_email: dto.applicant_email,
+      applicant_phone: dto.applicant_phone,
+      mailing_address: dto.mailing_address,
+    });
+    return this.toInvoiceResponse(invoice);
+  }
+
+  async reviewInvoice(id: string, dto: ReviewInvoiceDto, reviewerId: string) {
+    const existing = await this.adminRepo.findInvoiceById(id);
+    if (!existing) throw new NotFoundException('发票不存在');
+    if (existing.status !== 'PENDING') throw new BadRequestException('只能审核待审核状态的发票');
+
+    const invoice = await this.adminRepo.updateInvoice(id, {
+      status: dto.status,
+      review_remark: dto.review_remark,
+      reviewed_at: new Date(),
+      reviewed_by: reviewerId,
+    });
+    return this.toInvoiceResponse(invoice);
+  }
+
+  async issueInvoice(id: string, dto: IssueInvoiceDto) {
+    const existing = await this.adminRepo.findInvoiceById(id);
+    if (!existing) throw new NotFoundException('发票不存在');
+    if (existing.status !== 'APPROVED') throw new BadRequestException('只能开具已通过的发票');
+
+    const invoice = await this.adminRepo.updateInvoice(id, {
+      status: 'ISSUED',
+      file_url: dto.file_url,
+      issued_at: new Date(),
+    });
+    return this.toInvoiceResponse(invoice);
+  }
+
+  async deleteInvoice(id: string) {
+    const existing = await this.adminRepo.findInvoiceById(id);
+    if (!existing) throw new NotFoundException('发票不存在');
+    if (existing.status === 'ISSUED') throw new BadRequestException('已开具的发票不能删除');
+    await this.adminRepo.deleteInvoice(id);
+  }
+
+  private toInvoiceResponse(i: any) {
+    return {
+      id: i.id,
+      invoiceNo: i.invoice_no,
+      userId: i.user_id,
+      userEmail: i.user?.email ?? 'Unknown',
+      userName: i.user?.display_name ?? null,
+      type: i.type,
+      companyName: i.company_name,
+      taxId: i.tax_id,
+      companyAddress: i.company_address,
+      companyPhone: i.company_phone,
+      bankName: i.bank_name,
+      bankAccount: i.bank_account,
+      amount: i.amount,
+      content: i.content,
+      status: i.status,
+      applicantEmail: i.applicant_email,
+      applicantPhone: i.applicant_phone,
+      mailingAddress: i.mailing_address,
+      fileUrl: i.file_url,
+      reviewedAt: i.reviewed_at,
+      reviewedBy: i.reviewed_by,
+      reviewRemark: i.review_remark,
+      issuedAt: i.issued_at,
+      createdAt: i.created_at,
+      updatedAt: i.updated_at,
     };
   }
 }

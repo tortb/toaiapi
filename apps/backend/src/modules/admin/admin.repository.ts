@@ -1077,4 +1077,76 @@ export class AdminRepository {
       orderBy: { min_amount: 'desc' },
     });
   }
+
+  // ──────────────────────────────────────────────
+  // Invoice 发票
+  // ──────────────────────────────────────────────
+
+  async findInvoices(params: {
+    skip?: number;
+    take?: number;
+    where?: Prisma.InvoiceWhereInput;
+  }) {
+    const [items, total] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where: params.where,
+        skip: params.skip,
+        take: params.take,
+        orderBy: { created_at: 'desc' },
+        include: {
+          user: { select: { id: true, email: true, display_name: true } },
+        },
+      }),
+      this.prisma.invoice.count({ where: params.where }),
+    ]);
+    return { items, total };
+  }
+
+  async findInvoiceById(id: string) {
+    return this.prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, email: true, display_name: true } },
+      },
+    });
+  }
+
+  async createInvoice(data: Prisma.InvoiceCreateInput) {
+    return this.prisma.invoice.create({
+      data,
+      include: {
+        user: { select: { id: true, email: true, display_name: true } },
+      },
+    });
+  }
+
+  async updateInvoice(id: string, data: Prisma.InvoiceUpdateInput) {
+    return this.prisma.invoice.update({
+      where: { id },
+      data,
+      include: {
+        user: { select: { id: true, email: true, display_name: true } },
+      },
+    });
+  }
+
+  async deleteInvoice(id: string) {
+    return this.prisma.invoice.delete({ where: { id } });
+  }
+
+  /**
+   * 生成发票号：INV-yyyyMMdd-xxxxxx
+   */
+  async generateInvoiceNo(): Promise<string> {
+    const date = new Date();
+    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
+    const count = await this.prisma.invoice.count({
+      where: {
+        created_at: {
+          gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
+        },
+      },
+    });
+    return `INV-${dateStr}-${String(count + 1).padStart(6, "0")}`;
+  }
 }
