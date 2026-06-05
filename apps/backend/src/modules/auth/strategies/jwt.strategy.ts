@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { UserService } from '../../user/user.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 /**
  * JWT 策略
@@ -15,7 +15,7 @@ import { UserService } from '../../user/user.service';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
-    private readonly userService: UserService,
+    private readonly prisma: PrismaService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -46,10 +46,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Token 类型无效');
     }
 
-    // SECURITY: 检查用户是否存在
-    const user = await this.userService.findById(payload.sub);
+    // SECURITY: 直接查询数据库，避免 UserService 的 NotFoundException
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub, deleted_at: null },
+      select: { id: true, email: true, role: true, status: true },
+    });
+
     if (!user) {
-      throw new UnauthorizedException('用户不存在');
+      throw new UnauthorizedException('用户不存在或已被删除，请重新登录');
     }
 
     // SECURITY: 检查用户状态
