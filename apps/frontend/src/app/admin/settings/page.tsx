@@ -481,17 +481,10 @@ function SmtpConfigForm() {
               onChange={(e) => updateField("port", parseInt(e.target.value) || 587)}
               className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={form.secure ?? false}
-                onChange={(e) => updateField("secure", e.target.checked)}
-                className="rounded border-gray-300"
-              />
-              使用 SSL/TLS
-            </label>
           </div>
-          <div className="text-[11px] text-gray-400 mt-1">常用端口：25（不加密）、465（SSL）、587（TLS）</div>
+          <div className="text-[11px] text-gray-400 mt-1">
+            加密方式自动识别：465（SSL直连）、587（STARTTLS）、25（不加密）
+          </div>
         </div>
 
         <div className="py-3">

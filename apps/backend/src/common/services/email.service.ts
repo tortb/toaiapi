@@ -51,11 +51,12 @@ export class EmailService implements OnModuleInit {
       // port 465: secure=true (直接 SSL/TLS)
       // port 587: secure=false + requireTLS=true (STARTTLS)
       // port 25:  secure=false (无加密)
+      const isPort465 = config.port === 465;
       this.transporter = nodemailer.createTransport({
         host: config.host,
         port: config.port,
-        secure: config.secure,
-        requireTLS: !config.secure && config.port === 587,
+        secure: isPort465, // 仅 465 端口使用 direct TLS
+        requireTLS: !isPort465, // 其他端口尝试 STARTTLS
         tls: {
           rejectUnauthorized: false, // 允许自签名证书
         },
