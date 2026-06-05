@@ -242,6 +242,10 @@ async function seedAdmin() {
     console.log('\n👤 Seeding Admin User...');
     const adminEmail = process.env['ADMIN_EMAIL'] || 'admin@toaiapi.com';
     const adminPassword = process.env['ADMIN_PASSWORD'] || 'Admin@123456';
+    // 获取管理员用户组
+    const adminGroup = await prisma.userGroup.findUnique({
+        where: { name: 'admin' },
+    });
     // 使用 Argon2id 哈希密码
     const passwordHash = await argon2.hash(adminPassword, {
         type: argon2.argon2id,
@@ -256,6 +260,7 @@ async function seedAdmin() {
             password_hash: passwordHash,
             role: 'ADMIN',
             status: 'ACTIVE',
+            group_id: adminGroup?.id,
         },
         create: {
             email: adminEmail,
@@ -263,6 +268,7 @@ async function seedAdmin() {
             display_name: 'Admin',
             role: 'ADMIN',
             status: 'ACTIVE',
+            group_id: adminGroup?.id,
         },
     });
     // 创建管理员余额（如果不存在）
@@ -327,9 +333,275 @@ async function seedSmtpConfig() {
     });
     console.log('   ✓ Default SMTP config created');
 }
-// ============================================================
-// Main
-// ============================================================
+const USER_GROUPS = [
+    {
+        name: 'free',
+        display_name: '免费用户',
+        description: '默认免费用户组',
+        price_multiplier: 1.0,
+        rpm_limit: 10,
+        tpm_limit: 10000,
+        max_api_keys: 1000,
+        is_builtin: true,
+    },
+    {
+        name: 'vip',
+        display_name: 'VIP 用户',
+        description: 'VIP 用户，更高限额',
+        price_multiplier: 0.8,
+        rpm_limit: 60,
+        tpm_limit: 60000,
+        max_api_keys: 1000,
+        is_builtin: true,
+    },
+    {
+        name: 'enterprise',
+        display_name: '企业用户',
+        description: '企业用户，最高限额',
+        price_multiplier: 0.6,
+        rpm_limit: 300,
+        tpm_limit: 300000,
+        max_api_keys: 1000,
+        is_builtin: true,
+    },
+    {
+        name: 'agent',
+        display_name: '代理商',
+        description: '代理商用户组',
+        price_multiplier: 0.5,
+        rpm_limit: 600,
+        tpm_limit: 600000,
+        max_api_keys: 1000,
+        is_builtin: true,
+    },
+    {
+        name: 'admin',
+        display_name: '管理员',
+        description: '系统管理员',
+        price_multiplier: 0,
+        rpm_limit: 1000,
+        tpm_limit: 1000000,
+        max_api_keys: 1000,
+        is_builtin: true,
+    },
+];
+async function seedUserGroups() {
+    console.log('\n👥 Seeding User Groups...');
+    for (const group of USER_GROUPS) {
+        await prisma.userGroup.upsert({
+            where: { name: group.name },
+            update: {
+                display_name: group.display_name,
+                description: group.description,
+                price_multiplier: group.price_multiplier,
+                rpm_limit: group.rpm_limit,
+                tpm_limit: group.tpm_limit,
+                max_api_keys: group.max_api_keys,
+            },
+            create: {
+                name: group.name,
+                display_name: group.display_name,
+                description: group.description,
+                price_multiplier: group.price_multiplier,
+                rpm_limit: group.rpm_limit,
+                tpm_limit: group.tpm_limit,
+                max_api_keys: group.max_api_keys,
+                is_builtin: group.is_builtin,
+                is_active: true,
+            },
+        });
+        console.log(`   ✓ UserGroup: ${group.name} (${group.display_name})`);
+    }
+}
+const ROLES = [
+    {
+        code: 'super_admin',
+        name: '超级管理员',
+        description: '系统最高权限，可管理所有功能',
+        level: 100,
+        is_system: true,
+        data_scope: 'ALL',
+    },
+    {
+        code: 'admin',
+        name: '管理员',
+        description: '平台管理员，可管理用户、订单、模型等',
+        level: 80,
+        is_system: true,
+        data_scope: 'ALL',
+    },
+    {
+        code: 'operator',
+        name: '运营专员',
+        description: '运营人员，可管理公告、工单等',
+        level: 60,
+        is_system: true,
+        data_scope: 'ALL',
+    },
+    {
+        code: 'finance',
+        name: '财务',
+        description: '财务人员，可管理订单、发票等',
+        level: 50,
+        is_system: true,
+        data_scope: 'ALL',
+    },
+    {
+        code: 'auditor',
+        name: '审计员',
+        description: '审计人员，只读权限',
+        level: 40,
+        is_system: true,
+        data_scope: 'ALL',
+    },
+    {
+        code: 'user',
+        name: '普通用户',
+        description: '普通用户，仅可管理自己的资源',
+        level: 10,
+        is_system: true,
+        data_scope: 'SELF',
+    },
+];
+const PERMISSIONS = [
+    // 用户管理
+    { code: 'user:list', name: '查看用户列表', resource: 'user', action: 'list' },
+    { code: 'user:view', name: '查看用户详情', resource: 'user', action: 'view' },
+    { code: 'user:create', name: '创建用户', resource: 'user', action: 'create' },
+    { code: 'user:update', name: '编辑用户', resource: 'user', action: 'update' },
+    { code: 'user:delete', name: '删除用户', resource: 'user', action: 'delete' },
+    { code: 'user:ban', name: '封禁用户', resource: 'user', action: 'ban' },
+    // 用户组管理
+    { code: 'user-group:list', name: '查看用户组列表', resource: 'user-group', action: 'list' },
+    { code: 'user-group:create', name: '创建用户组', resource: 'user-group', action: 'create' },
+    { code: 'user-group:update', name: '编辑用户组', resource: 'user-group', action: 'update' },
+    { code: 'user-group:delete', name: '删除用户组', resource: 'user-group', action: 'delete' },
+    // API Key 管理
+    { code: 'apikey:list', name: '查看 API Key 列表', resource: 'apikey', action: 'list' },
+    { code: 'apikey:view', name: '查看 API Key 详情', resource: 'apikey', action: 'view' },
+    { code: 'apikey:create', name: '创建 API Key', resource: 'apikey', action: 'create' },
+    { code: 'apikey:delete', name: '删除 API Key', resource: 'apikey', action: 'delete' },
+    // 订单管理
+    { code: 'order:list', name: '查看订单列表', resource: 'order', action: 'list' },
+    { code: 'order:view', name: '查看订单详情', resource: 'order', action: 'view' },
+    { code: 'order:refund', name: '退款', resource: 'order', action: 'refund' },
+    // 模型管理
+    { code: 'model:list', name: '查看模型列表', resource: 'model', action: 'list' },
+    { code: 'model:create', name: '创建模型', resource: 'model', action: 'create' },
+    { code: 'model:update', name: '编辑模型', resource: 'model', action: 'update' },
+    { code: 'model:delete', name: '删除模型', resource: 'model', action: 'delete' },
+    // 渠道管理
+    { code: 'channel:list', name: '查看渠道列表', resource: 'channel', action: 'list' },
+    { code: 'channel:create', name: '创建渠道', resource: 'channel', action: 'create' },
+    { code: 'channel:update', name: '编辑渠道', resource: 'channel', action: 'update' },
+    { code: 'channel:delete', name: '删除渠道', resource: 'channel', action: 'delete' },
+    // 系统设置
+    { code: 'system:settings', name: '系统设置', resource: 'system', action: 'settings' },
+    { code: 'system:logs', name: '查看日志', resource: 'system', action: 'logs' },
+    { code: 'system:monitor', name: '系统监控', resource: 'system', action: 'monitor' },
+    // Dashboard
+    { code: 'dashboard:view', name: '查看 Dashboard', resource: 'dashboard', action: 'view' },
+];
+// 角色-权限映射（super_admin 拥有所有权限）
+const ROLE_PERMISSIONS = {
+    super_admin: PERMISSIONS.map((p) => p.code),
+    admin: [
+        'user:list', 'user:view', 'user:update', 'user:ban',
+        'user-group:list', 'user-group:create', 'user-group:update', 'user-group:delete',
+        'apikey:list', 'apikey:view', 'apikey:create', 'apikey:delete',
+        'order:list', 'order:view', 'order:refund',
+        'model:list', 'model:create', 'model:update', 'model:delete',
+        'channel:list', 'channel:create', 'channel:update', 'channel:delete',
+        'system:settings', 'system:logs', 'system:monitor',
+        'dashboard:view',
+    ],
+    operator: [
+        'user:list', 'user:view',
+        'order:list', 'order:view',
+        'dashboard:view',
+        'system:logs',
+    ],
+    finance: [
+        'order:list', 'order:view', 'order:refund',
+        'dashboard:view',
+    ],
+    auditor: [
+        'user:list', 'user:view',
+        'order:list', 'order:view',
+        'model:list',
+        'channel:list',
+        'system:logs', 'system:monitor',
+        'dashboard:view',
+    ],
+    user: [],
+};
+async function seedRoles() {
+    console.log('\n🔐 Seeding Roles...');
+    for (const role of ROLES) {
+        await prisma.role.upsert({
+            where: { code: role.code },
+            update: {
+                name: role.name,
+                description: role.description,
+                level: role.level,
+                data_scope: role.data_scope,
+            },
+            create: {
+                code: role.code,
+                name: role.name,
+                description: role.description,
+                level: role.level,
+                is_system: role.is_system,
+                data_scope: role.data_scope,
+                is_active: true,
+            },
+        });
+        console.log(`   ✓ Role: ${role.code} (${role.name})`);
+    }
+}
+async function seedPermissions() {
+    console.log('\n🔑 Seeding Permissions...');
+    for (const perm of PERMISSIONS) {
+        await prisma.permission.upsert({
+            where: { code: perm.code },
+            update: {
+                name: perm.name,
+                resource: perm.resource,
+                action: perm.action,
+            },
+            create: {
+                code: perm.code,
+                name: perm.name,
+                resource: perm.resource,
+                action: perm.action,
+            },
+        });
+    }
+    console.log(`   ✓ Total: ${PERMISSIONS.length} permissions`);
+}
+async function seedRolePermissions() {
+    console.log('\n🔗 Seeding Role-Permission mappings...');
+    for (const [roleCode, permCodes] of Object.entries(ROLE_PERMISSIONS)) {
+        const role = await prisma.role.findUnique({ where: { code: roleCode } });
+        if (!role)
+            continue;
+        // 先删除旧的关联
+        await prisma.rolePermission.deleteMany({ where: { role_id: role.id } });
+        // 创建新的关联
+        for (const permCode of permCodes) {
+            const perm = await prisma.permission.findUnique({ where: { code: permCode } });
+            if (!perm)
+                continue;
+            await prisma.rolePermission.create({
+                data: {
+                    role_id: role.id,
+                    permission_id: perm.id,
+                },
+            });
+        }
+        console.log(`   ✓ ${roleCode}: ${permCodes.length} permissions`);
+    }
+}
 async function main() {
     console.log('🌱 ToAIAPI Database Seeding');
     console.log('='.repeat(50));
@@ -339,11 +611,17 @@ async function main() {
         await seedProviders();
         // 2. Models（依赖 Provider）
         await seedModels();
-        // 3. Admin（无依赖）
+        // 3. UserGroups（无依赖）
+        await seedUserGroups();
+        // 4. RBAC（无依赖）
+        await seedRoles();
+        await seedPermissions();
+        await seedRolePermissions();
+        // 5. Admin（依赖 UserGroup）
         await seedAdmin();
-        // 4. Payment Configs（无依赖）
+        // 6. Payment Configs（无依赖）
         await seedPaymentConfigs();
-        // 5. SMTP Config（无依赖）
+        // 7. SMTP Config（无依赖）
         await seedSmtpConfig();
         console.log('\n' + '='.repeat(50));
         console.log('✅ Database seeding completed successfully!');

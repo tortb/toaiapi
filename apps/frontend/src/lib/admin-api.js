@@ -154,6 +154,80 @@ export function getUserStatusLabel(status) {
     };
     return map[status] ?? { label: status, color: "text-gray-500", dotColor: "bg-gray-400" };
 }
+/**
+ * 获取用户组列表
+ */
+export async function getUserGroups(params = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.page)
+        searchParams.set("page", String(params.page));
+    if (params.pageSize)
+        searchParams.set("pageSize", String(params.pageSize));
+    if (params.search)
+        searchParams.set("search", params.search);
+    if (params.isActive !== undefined)
+        searchParams.set("isActive", String(params.isActive));
+    const query = searchParams.toString();
+    return adminFetch(`${API_PREFIX}/admin/user-groups${query ? `?${query}` : ""}`);
+}
+/**
+ * 获取用户组详情
+ */
+export async function getUserGroup(id) {
+    return adminFetch(`${API_PREFIX}/admin/user-groups/${id}`);
+}
+/**
+ * 创建用户组
+ */
+export async function createUserGroup(payload) {
+    return adminFetch(`${API_PREFIX}/admin/user-groups`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+/**
+ * 更新用户组
+ */
+export async function updateUserGroup(id, payload) {
+    return adminFetch(`${API_PREFIX}/admin/user-groups/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+/**
+ * 切换用户组状态
+ */
+export async function toggleUserGroup(id) {
+    return adminFetch(`${API_PREFIX}/admin/user-groups/${id}/toggle`, {
+        method: "PATCH",
+    });
+}
+/**
+ * 删除用户组
+ */
+export async function deleteUserGroup(id) {
+    return adminFetch(`${API_PREFIX}/admin/user-groups/${id}`, {
+        method: "DELETE",
+    });
+}
+/**
+ * 获取角色列表
+ */
+export async function getRoles() {
+    return adminFetch(`${API_PREFIX}/admin/roles`);
+}
+/**
+ * 获取角色详情
+ */
+export async function getRole(id) {
+    return adminFetch(`${API_PREFIX}/admin/roles/${id}`);
+}
+/**
+ * 获取所有权限点
+ */
+export async function getPermissions() {
+    return adminFetch(`${API_PREFIX}/admin/permissions`);
+}
 // ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────

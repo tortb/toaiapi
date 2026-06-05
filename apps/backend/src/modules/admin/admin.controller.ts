@@ -191,6 +191,46 @@ export class AdminController {
   }
 
   // ──────────────────────────────────────────────
+  // API Key 管理 (Admin)
+  // ──────────────────────────────────────────────
+
+  @Get('api-keys')
+  @ApiOperation({ summary: '获取 API Key 列表', description: '分页查询，支持搜索和筛选' })
+  @ApiOkResponse()
+  async listApiKeys(
+    @Query() pagination: PaginationDto,
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: boolean,
+    @Query('userId') userId?: string,
+  ) {
+    return this.adminService.listApiKeys(pagination.page, pagination.pageSize, search, isActive, userId);
+  }
+
+  @Get('api-keys/:id')
+  @ApiOperation({ summary: '获取 API Key 详情' })
+  @ApiOkResponse()
+  async getApiKey(@Param('id') id: string) {
+    return this.adminService.getApiKey(id);
+  }
+
+  @Patch('api-keys/:id/toggle')
+  @Roles('admin')
+  @ApiOperation({ summary: '切换 API Key 状态' })
+  @ApiOkResponse()
+  async toggleApiKey(@Param('id') id: string) {
+    return this.adminService.toggleApiKey(id);
+  }
+
+  @Delete('api-keys/:id')
+  @Roles('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: '删除 API Key' })
+  @ApiNoContentResponse()
+  async deleteApiKey(@Param('id') id: string) {
+    await this.adminService.deleteApiKey(id);
+  }
+
+  // ──────────────────────────────────────────────
   // Provider 管理
   // ──────────────────────────────────────────────
 

@@ -436,6 +436,70 @@ export async function getPermissions(): Promise<PermissionData[]> {
 }
 
 // ──────────────────────────────────────────────
+// API Key Admin API
+// ──────────────────────────────────────────────
+
+export interface ApiKeyAdminData {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string | null;
+  keyPrefix: string;
+  name: string | null;
+  isActive: boolean;
+  expiresAt: string | null;
+  rateLimit: number | null;
+  tokenLimit: number | null;
+  modelLimit: string[];
+  ipWhitelist: string[];
+  lastUsedAt: string | null;
+  totalRequests: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiKeyListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  isActive?: boolean;
+  userId?: string;
+}
+
+/**
+ * 获取 API Key 列表（Admin）
+ */
+export async function getApiKeys(params: ApiKeyListParams = {}): Promise<PaginatedResponse<ApiKeyAdminData>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
+  if (params.search) searchParams.set("search", params.search);
+  if (params.isActive !== undefined) searchParams.set("isActive", String(params.isActive));
+  if (params.userId) searchParams.set("userId", params.userId);
+
+  const query = searchParams.toString();
+  return adminFetch<PaginatedResponse<ApiKeyAdminData>>(`${API_PREFIX}/admin/api-keys${query ? `?${query}` : ""}`);
+}
+
+/**
+ * 切换 API Key 状态
+ */
+export async function toggleApiKey(id: string): Promise<ApiKeyAdminData> {
+  return adminFetch<ApiKeyAdminData>(`${API_PREFIX}/admin/api-keys/${id}/toggle`, {
+    method: "PATCH",
+  });
+}
+
+/**
+ * 删除 API Key
+ */
+export async function deleteApiKey(id: string): Promise<void> {
+  return adminFetch<void>(`${API_PREFIX}/admin/api-keys/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 

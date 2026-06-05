@@ -116,6 +116,371 @@ let AdminService = (() => {
             };
         }
         // ──────────────────────────────────────────────
+        // UserGroup 管理
+        // ──────────────────────────────────────────────
+        /**
+         * 查询用户组列表（分页）
+         */
+        async listUserGroups(page, pageSize, search, isActive) {
+            const skip = (page - 1) * pageSize;
+            const where = { deleted_at: null };
+            if (search) {
+                where['OR'] = [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { display_name: { contains: search, mode: 'insensitive' } },
+                ];
+            }
+            if (isActive !== undefined) {
+                where['is_active'] = isActive;
+            }
+            const { items, total } = await this.adminRepo.findUserGroups({ skip, take: pageSize, where });
+            return {
+                items: items.map((g) => this.toUserGroupResponse(g)),
+                total,
+                page,
+                pageSize,
+                totalPages: Math.ceil(total / pageSize),
+            };
+        }
+        /**
+         * 获取用户组详情
+         */
+        async getUserGroup(id) {
+            const group = await this.adminRepo.findUserGroupById(id);
+            if (!group) {
+                throw new NotFoundException('User group not found');
+            }
+            return this.toUserGroupResponse(group);
+        }
+        /**
+         * 创建用户组
+         */
+        async createUserGroup(dto) {
+            const existing = await this.adminRepo.findUserGroupByName(dto.name);
+            if (existing) {
+                throw new ConflictException(`User group '${dto.name}' already exists`);
+            }
+            const group = await this.adminRepo.createUserGroup({
+                name: dto.name,
+                display_name: dto.displayName,
+                description: dto.description,
+                price_multiplier: dto.priceMultiplier,
+                rpm_limit: dto.rpmLimit,
+                tpm_limit: dto.tpmLimit,
+                max_api_keys: dto.maxApiKeys,
+                allowed_models: dto.allowedModels ?? [],
+                allowed_channels: dto.allowedChannels ?? [],
+                allow_proxy: dto.allowProxy ?? true,
+                allow_share: dto.allowShare ?? false,
+            });
+            this.logger.log(`User group created: ${group.id} (${group.name})`);
+            return this.toUserGroupResponse(group);
+        }
+        /**
+         * 更新用户组
+         */
+        async updateUserGroup(id, dto) {
+            const existing = await this.adminRepo.findUserGroupById(id);
+            if (!existing) {
+                throw new NotFoundException('User group not found');
+            }
+            const group = await this.adminRepo.updateUserGroup(id, {
+                ...(dto.displayName !== undefined && { display_name: dto.displayName }),
+                ...(dto.description !== undefined && { description: dto.description }),
+                ...(dto.priceMultiplier !== undefined && { price_multiplier: dto.priceMultiplier }),
+                ...(dto.rpmLimit !== undefined && { rpm_limit: dto.rpmLimit }),
+                ...(dto.tpmLimit !== undefined && { tpm_limit: dto.tpmLimit }),
+                ...(dto.maxApiKeys !== undefined && { max_api_keys: dto.maxApiKeys }),
+                ...(dto.allowedModels !== undefined && { allowed_models: dto.allowedModels }),
+                ...(dto.allowedChannels !== undefined && { allowed_channels: dto.allowedChannels }),
+                ...(dto.allowProxy !== undefined && { allow_proxy: dto.allowProxy }),
+                ...(dto.allowShare !== undefined && { allow_share: dto.allowShare }),
+            });
+            this.logger.log(`User group updated: ${id}`);
+            return this.toUserGroupResponse(group);
+        }
+        /**
+         * 切换用户组状态
+         */
+        async toggleUserGroup(id) {
+            const existing = await this.adminRepo.findUserGroupById(id);
+            if (!existing) {
+                throw new NotFoundException('User group not found');
+            }
+            const group = await this.adminRepo.updateUserGroup(id, {
+                is_active: !existing.is_active,
+            });
+            this.logger.log(`User group ${group.is_active ? 'enabled' : 'disabled'}: ${id}`);
+            return this.toUserGroupResponse(group);
+        }
+        /**
+         * 删除用户组
+         */
+        async deleteUserGroup(id) {
+            const existing = await this.adminRepo.findUserGroupById(id);
+            if (!existing) {
+                throw new NotFoundException('User group not found');
+            }
+            if (existing.is_builtin) {
+                throw new ForbiddenException('Cannot delete built-in user group');
+            }
+            const userCount = await this.adminRepo.countUsersInGroup(id);
+            if (userCount > 0) {
+                throw new ConflictException(`Cannot delete user group '${existing.name}': ${userCount} user(s) still assigned. Reassign users first.`);
+            }
+            await this.adminRepo.deleteUserGroup(id);
+            this.logger.log(`User group deleted: ${id} (${existing.name})`);
+        }
+        /**
+         * 转换用户组响应
+         */
+        toUserGroupResponse(group) {
+            return {
+                id: group.id,
+                name: group.name,
+                displayName: group.display_name,
+                description: group.description,
+                priceMultiplier: Number(group.price_multiplier),
+                rpmLimit: group.rpm_limit,
+                tpmLimit: group.tpm_limit,
+                maxApiKeys: group.max_api_keys,
+                allowedModels: group.allowed_models,
+                allowedChannels: group.allowed_channels,
+                allowProxy: group.allow_proxy,
+                allowShare: group.allow_share,
+                isActive: group.is_active,
+                isBuiltin: group.is_builtin,
+                userCount: group._count?.users ?? 0,
+                createdAt: group.created_at,
+                updatedAt: group.updated_at,
+            };
+        }
+        // ──────────────────────────────────────────────
+        // Role 管理
+        // ──────────────────────────────────────────────
+        /**
+         * 查询角色列表
+         */
+        async listRoles() {
+            const roles = await this.adminRepo.findRoles({});
+            return roles.map((r) => this.toRoleResponse(r));
+        }
+        /**
+         * 获取角色详情
+         */
+        async getRole(id) {
+            const role = await this.adminRepo.findRoleById(id);
+            if (!role) {
+                throw new NotFoundException('Role not found');
+            }
+            return this.toRoleDetailResponse(role);
+        }
+        /**
+         * 创建角色
+         */
+        async createRole(dto) {
+            const existing = await this.adminRepo.findRoleByCode(dto.code);
+            if (existing) {
+                throw new ConflictException(`Role '${dto.code}' already exists`);
+            }
+            const role = await this.adminRepo.createRole({
+                code: dto.code,
+                name: dto.name,
+                description: dto.description,
+                level: dto.level,
+                data_scope: dto.dataScope ?? 'SELF',
+            });
+            this.logger.log(`Role created: ${role.id} (${role.code})`);
+            return this.toRoleResponse(role);
+        }
+        /**
+         * 更新角色
+         */
+        async updateRole(id, dto) {
+            const existing = await this.adminRepo.findRoleById(id);
+            if (!existing) {
+                throw new NotFoundException('Role not found');
+            }
+            if (existing.is_system) {
+                throw new ForbiddenException('Cannot modify system role');
+            }
+            const role = await this.adminRepo.updateRole(id, {
+                ...(dto.name !== undefined && { name: dto.name }),
+                ...(dto.description !== undefined && { description: dto.description }),
+                ...(dto.level !== undefined && { level: dto.level }),
+                ...(dto.dataScope !== undefined && { data_scope: dto.dataScope }),
+                ...(dto.isActive !== undefined && { is_active: dto.isActive }),
+            });
+            this.logger.log(`Role updated: ${id}`);
+            return this.toRoleResponse(role);
+        }
+        /**
+         * 删除角色
+         */
+        async deleteRole(id) {
+            const existing = await this.adminRepo.findRoleById(id);
+            if (!existing) {
+                throw new NotFoundException('Role not found');
+            }
+            if (existing.is_system) {
+                throw new ForbiddenException('Cannot delete system role');
+            }
+            if (existing._count.user_roles > 0) {
+                throw new ConflictException('Cannot delete role with assigned users');
+            }
+            await this.adminRepo.deleteRole(id);
+            this.logger.log(`Role deleted: ${id} (${existing.code})`);
+        }
+        /**
+         * 设置角色权限
+         */
+        async setRolePermissions(id, dto) {
+            const role = await this.adminRepo.findRoleById(id);
+            if (!role) {
+                throw new NotFoundException('Role not found');
+            }
+            await this.adminRepo.setRolePermissions(id, dto.permissionIds);
+            const updated = await this.adminRepo.findRoleById(id);
+            this.logger.log(`Role permissions updated: ${id}`);
+            return this.toRoleDetailResponse(updated);
+        }
+        /**
+         * 获取所有权限
+         */
+        async listPermissions() {
+            const permissions = await this.adminRepo.findPermissions();
+            return permissions.map((p) => ({
+                id: p.id,
+                code: p.code,
+                name: p.name,
+                resource: p.resource,
+                action: p.action,
+            }));
+        }
+        /**
+         * 转换角色响应
+         */
+        toRoleResponse(role) {
+            return {
+                id: role.id,
+                code: role.code,
+                name: role.name,
+                description: role.description,
+                level: role.level,
+                isSystem: role.is_system,
+                isActive: role.is_active,
+                dataScope: role.data_scope,
+                permissionCount: role._count?.permissions ?? 0,
+                userCount: role._count?.user_roles ?? 0,
+                createdAt: role.created_at,
+                updatedAt: role.updated_at,
+            };
+        }
+        /**
+         * 转换角色详情响应
+         */
+        toRoleDetailResponse(role) {
+            return {
+                ...this.toRoleResponse(role),
+                permissions: role.permissions?.map((rp) => ({
+                    id: rp.permission.id,
+                    code: rp.permission.code,
+                    name: rp.permission.name,
+                    resource: rp.permission.resource,
+                    action: rp.permission.action,
+                })) ?? [],
+            };
+        }
+        // ──────────────────────────────────────────────
+        // API Key 管理 (Admin)
+        // ──────────────────────────────────────────────
+        /**
+         * 查询 API Key 列表（分页）
+         */
+        async listApiKeys(page, pageSize, search, isActive, userId) {
+            const skip = (page - 1) * pageSize;
+            const where = {};
+            if (userId) {
+                where.user_id = userId;
+            }
+            if (isActive !== undefined) {
+                where.is_active = isActive;
+            }
+            if (search) {
+                where.OR = [
+                    { key_prefix: { contains: search, mode: 'insensitive' } },
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { user: { email: { contains: search, mode: 'insensitive' } } },
+                ];
+            }
+            const { items, total } = await this.adminRepo.findApiKeys({ skip, take: pageSize, where });
+            return {
+                items: items.map((k) => this.toApiKeyResponse(k)),
+                total,
+                page,
+                pageSize,
+                totalPages: Math.ceil(total / pageSize),
+            };
+        }
+        /**
+         * 获取 API Key 详情
+         */
+        async getApiKey(id) {
+            const key = await this.adminRepo.findApiKeyById(id);
+            if (!key) {
+                throw new NotFoundException('API Key not found');
+            }
+            return this.toApiKeyResponse(key);
+        }
+        /**
+         * 切换 API Key 状态
+         */
+        async toggleApiKey(id) {
+            const key = await this.adminRepo.findApiKeyById(id);
+            if (!key) {
+                throw new NotFoundException('API Key not found');
+            }
+            const updated = await this.adminRepo.updateApiKey(id, {
+                is_active: !key.is_active,
+            });
+            this.logger.log(`API Key ${updated.is_active ? 'enabled' : 'disabled'}: ${id}`);
+            return this.toApiKeyResponse(updated);
+        }
+        /**
+         * 删除 API Key
+         */
+        async deleteApiKey(id) {
+            const key = await this.adminRepo.findApiKeyById(id);
+            if (!key) {
+                throw new NotFoundException('API Key not found');
+            }
+            await this.adminRepo.deleteApiKey(id);
+            this.logger.log(`API Key deleted: ${id}`);
+        }
+        /**
+         * 转换 API Key 响应
+         */
+        toApiKeyResponse(key) {
+            return {
+                id: key.id,
+                userId: key.user_id,
+                userEmail: key.user?.email ?? 'Unknown',
+                userName: key.user?.display_name ?? null,
+                keyPrefix: key.key_prefix,
+                name: key.name,
+                isActive: key.is_active,
+                expiresAt: key.expires_at?.toISOString() ?? null,
+                rateLimit: key.rate_limit,
+                tokenLimit: key.token_limit,
+                modelLimit: key.model_limit,
+                ipWhitelist: key.ip_whitelist,
+                lastUsedAt: key.last_used_at?.toISOString() ?? null,
+                totalRequests: key.total_requests,
+                createdAt: key.created_at.toISOString(),
+                updatedAt: key.updated_at.toISOString(),
+            };
+        }
+        // ──────────────────────────────────────────────
         // Provider 管理
         // ──────────────────────────────────────────────
         /**

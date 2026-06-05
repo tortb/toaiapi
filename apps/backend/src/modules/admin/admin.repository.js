@@ -535,6 +535,246 @@ let AdminRepository = (() => {
             }
             return `${local.slice(0, 3)}***@${domain}`;
         }
+        // ──────────────────────────────────────────────
+        // UserGroup
+        // ──────────────────────────────────────────────
+        /**
+         * 查询用户组列表（分页）
+         */
+        async findUserGroups(params) {
+            const [items, total] = await Promise.all([
+                this.prisma.userGroup.findMany({
+                    where: params.where,
+                    skip: params.skip,
+                    take: params.take,
+                    orderBy: params.orderBy ?? { price_multiplier: 'asc' },
+                    include: {
+                        _count: { select: { users: true } },
+                    },
+                }),
+                this.prisma.userGroup.count({ where: params.where }),
+            ]);
+            return { items, total };
+        }
+        /**
+         * 根据 ID 查询用户组
+         */
+        async findUserGroupById(id) {
+            return this.prisma.userGroup.findUnique({
+                where: { id },
+                include: {
+                    _count: { select: { users: true } },
+                },
+            });
+        }
+        /**
+         * 根据名称查询用户组
+         */
+        async findUserGroupByName(name) {
+            return this.prisma.userGroup.findUnique({
+                where: { name },
+            });
+        }
+        /**
+         * 创建用户组
+         */
+        async createUserGroup(data) {
+            return this.prisma.userGroup.create({
+                data,
+                include: {
+                    _count: { select: { users: true } },
+                },
+            });
+        }
+        /**
+         * 更新用户组
+         */
+        async updateUserGroup(id, data) {
+            return this.prisma.userGroup.update({
+                where: { id },
+                data,
+                include: {
+                    _count: { select: { users: true } },
+                },
+            });
+        }
+        /**
+         * 删除用户组
+         */
+        async deleteUserGroup(id) {
+            return this.prisma.userGroup.delete({ where: { id } });
+        }
+        /**
+         * 检查用户组是否有关联用户
+         */
+        async countUsersInGroup(groupId) {
+            return this.prisma.user.count({
+                where: { group_id: groupId, deleted_at: null },
+            });
+        }
+        // ──────────────────────────────────────────────
+        // Role
+        // ──────────────────────────────────────────────
+        /**
+         * 查询角色列表
+         */
+        async findRoles(params) {
+            return this.prisma.role.findMany({
+                where: params.where,
+                orderBy: params.orderBy ?? { level: 'desc' },
+                include: {
+                    _count: {
+                        select: {
+                            permissions: true,
+                            user_roles: true,
+                        },
+                    },
+                },
+            });
+        }
+        /**
+         * 根据 ID 查询角色
+         */
+        async findRoleById(id) {
+            return this.prisma.role.findUnique({
+                where: { id },
+                include: {
+                    permissions: {
+                        include: {
+                            permission: true,
+                        },
+                    },
+                    _count: {
+                        select: {
+                            user_roles: true,
+                        },
+                    },
+                },
+            });
+        }
+        /**
+         * 根据编码查询角色
+         */
+        async findRoleByCode(code) {
+            return this.prisma.role.findUnique({ where: { code } });
+        }
+        /**
+         * 创建角色
+         */
+        async createRole(data) {
+            return this.prisma.role.create({ data });
+        }
+        /**
+         * 更新角色
+         */
+        async updateRole(id, data) {
+            return this.prisma.role.update({ where: { id }, data });
+        }
+        /**
+         * 删除角色
+         */
+        async deleteRole(id) {
+            return this.prisma.role.delete({ where: { id } });
+        }
+        /**
+         * 设置角色权限
+         */
+        async setRolePermissions(roleId, permissionIds) {
+            // 先删除旧权限
+            await this.prisma.rolePermission.deleteMany({ where: { role_id: roleId } });
+            // 添加新权限
+            if (permissionIds.length > 0) {
+                await this.prisma.rolePermission.createMany({
+                    data: permissionIds.map((pid) => ({
+                        role_id: roleId,
+                        permission_id: pid,
+                    })),
+                });
+            }
+        }
+        // ──────────────────────────────────────────────
+        // Permission
+        // ──────────────────────────────────────────────
+        /**
+         * 查询所有权限
+         */
+        async findPermissions() {
+            return this.prisma.permission.findMany({
+                orderBy: [{ resource: 'asc' }, { action: 'asc' }],
+            });
+        }
+        /**
+         * 根据 ID 列表查询权限
+         */
+        async findPermissionsByIds(ids) {
+            return this.prisma.permission.findMany({
+                where: { id: { in: ids } },
+            });
+        }
+        // ──────────────────────────────────────────────
+        // API Key (Admin)
+        // ──────────────────────────────────────────────
+        /**
+         * 查询 API Key 列表（分页，含用户信息）
+         */
+        async findApiKeys(params) {
+            const [items, total] = await Promise.all([
+                this.prisma.apiKey.findMany({
+                    where: params.where,
+                    skip: params.skip,
+                    take: params.take,
+                    orderBy: params.orderBy ?? { created_at: 'desc' },
+                    include: {
+                        user: {
+                            select: { id: true, email: true, display_name: true },
+                        },
+                    },
+                }),
+                this.prisma.apiKey.count({ where: params.where }),
+            ]);
+            return { items, total };
+        }
+        /**
+         * 根据 ID 查询 API Key
+         */
+        async findApiKeyById(id) {
+            return this.prisma.apiKey.findUnique({
+                where: { id },
+                include: {
+                    user: {
+                        select: { id: true, email: true, display_name: true },
+                    },
+                },
+            });
+        }
+        /**
+         * 更新 API Key
+         */
+        async updateApiKey(id, data) {
+            return this.prisma.apiKey.update({
+                where: { id },
+                data,
+                include: {
+                    user: {
+                        select: { id: true, email: true, display_name: true },
+                    },
+                },
+            });
+        }
+        /**
+         * 删除 API Key
+         */
+        async deleteApiKey(id) {
+            return this.prisma.apiKey.delete({ where: { id } });
+        }
+        /**
+         * 统计用户的 API Key 数量
+         */
+        async countUserApiKeys(userId) {
+            return this.prisma.apiKey.count({
+                where: { user_id: userId },
+            });
+        }
     };
     return AdminRepository = _classThis;
 })();

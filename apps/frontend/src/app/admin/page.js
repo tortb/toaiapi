@@ -23,6 +23,12 @@ const sidebarSections = [
         ],
     },
     {
+        title: "权限管理",
+        items: [
+            { icon: <IconUserGroup size={18}/>, label: "角色管理", href: "/admin/roles" },
+        ],
+    },
+    {
         title: "订单与财务",
         items: [
             { icon: <IconOrders size={18}/>, label: "订单管理", href: "/admin/orders" },

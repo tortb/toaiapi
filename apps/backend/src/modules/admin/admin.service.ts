@@ -435,6 +435,113 @@ export class AdminService {
   }
 
   // ──────────────────────────────────────────────
+  // API Key 管理 (Admin)
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询 API Key 列表（分页）
+   */
+  async listApiKeys(
+    page: number,
+    pageSize: number,
+    search?: string,
+    isActive?: boolean,
+    userId?: string,
+  ): Promise<PaginatedResult<Record<string, unknown>>> {
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.ApiKeyWhereInput = {};
+
+    if (userId) {
+      where.user_id = userId;
+    }
+    if (isActive !== undefined) {
+      where.is_active = isActive;
+    }
+    if (search) {
+      where.OR = [
+        { key_prefix: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const { items, total } = await this.adminRepo.findApiKeys({ skip, take: pageSize, where });
+
+    return {
+      items: items.map((k) => this.toApiKeyResponse(k)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  /**
+   * 获取 API Key 详情
+   */
+  async getApiKey(id: string): Promise<Record<string, unknown>> {
+    const key = await this.adminRepo.findApiKeyById(id);
+    if (!key) {
+      throw new NotFoundException('API Key not found');
+    }
+    return this.toApiKeyResponse(key);
+  }
+
+  /**
+   * 切换 API Key 状态
+   */
+  async toggleApiKey(id: string): Promise<Record<string, unknown>> {
+    const key = await this.adminRepo.findApiKeyById(id);
+    if (!key) {
+      throw new NotFoundException('API Key not found');
+    }
+
+    const updated = await this.adminRepo.updateApiKey(id, {
+      is_active: !key.is_active,
+    });
+
+    this.logger.log(`API Key ${updated.is_active ? 'enabled' : 'disabled'}: ${id}`);
+    return this.toApiKeyResponse(updated);
+  }
+
+  /**
+   * 删除 API Key
+   */
+  async deleteApiKey(id: string): Promise<void> {
+    const key = await this.adminRepo.findApiKeyById(id);
+    if (!key) {
+      throw new NotFoundException('API Key not found');
+    }
+
+    await this.adminRepo.deleteApiKey(id);
+    this.logger.log(`API Key deleted: ${id}`);
+  }
+
+  /**
+   * 转换 API Key 响应
+   */
+  private toApiKeyResponse(key: any): Record<string, unknown> {
+    return {
+      id: key.id,
+      userId: key.user_id,
+      userEmail: key.user?.email ?? 'Unknown',
+      userName: key.user?.display_name ?? null,
+      keyPrefix: key.key_prefix,
+      name: key.name,
+      isActive: key.is_active,
+      expiresAt: key.expires_at?.toISOString() ?? null,
+      rateLimit: key.rate_limit,
+      tokenLimit: key.token_limit,
+      modelLimit: key.model_limit,
+      ipWhitelist: key.ip_whitelist,
+      lastUsedAt: key.last_used_at?.toISOString() ?? null,
+      totalRequests: key.total_requests,
+      createdAt: key.created_at.toISOString(),
+      updatedAt: key.updated_at.toISOString(),
+    };
+  }
+
+  // ──────────────────────────────────────────────
   // Provider 管理
   // ──────────────────────────────────────────────
 

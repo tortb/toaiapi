@@ -54,6 +54,23 @@ let AdminController = (() => {
     let _classThis;
     let _instanceExtraInitializers = [];
     let _getDashboard_decorators;
+    let _listUserGroups_decorators;
+    let _createUserGroup_decorators;
+    let _getUserGroup_decorators;
+    let _updateUserGroup_decorators;
+    let _toggleUserGroup_decorators;
+    let _deleteUserGroup_decorators;
+    let _listRoles_decorators;
+    let _createRole_decorators;
+    let _getRole_decorators;
+    let _updateRole_decorators;
+    let _deleteRole_decorators;
+    let _setRolePermissions_decorators;
+    let _listPermissions_decorators;
+    let _listApiKeys_decorators;
+    let _getApiKey_decorators;
+    let _toggleApiKey_decorators;
+    let _deleteApiKey_decorators;
     let _listProviders_decorators;
     let _createProvider_decorators;
     let _getProvider_decorators;
@@ -91,6 +108,23 @@ let AdminController = (() => {
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(null) : void 0;
             _getDashboard_decorators = [Get('dashboard'), ApiOperation({ summary: '获取 Dashboard 数据', description: '返回系统概览、调用统计、模型分布等' }), ApiOkResponse({ type: DashboardResponseDto })];
+            _listUserGroups_decorators = [Get('user-groups'), ApiOperation({ summary: '获取用户组列表', description: '分页查询，支持搜索和状态筛选' }), ApiOkResponse()];
+            _createUserGroup_decorators = [Post('user-groups'), Roles('admin'), ApiOperation({ summary: '创建用户组' }), ApiCreatedResponse()];
+            _getUserGroup_decorators = [Get('user-groups/:id'), ApiOperation({ summary: '获取用户组详情' }), ApiOkResponse()];
+            _updateUserGroup_decorators = [Patch('user-groups/:id'), Roles('admin'), ApiOperation({ summary: '更新用户组' }), ApiOkResponse()];
+            _toggleUserGroup_decorators = [Patch('user-groups/:id/toggle'), Roles('admin'), ApiOperation({ summary: '切换用户组状态' }), ApiOkResponse()];
+            _deleteUserGroup_decorators = [Delete('user-groups/:id'), Roles('admin'), HttpCode(HttpStatus.NO_CONTENT), ApiOperation({ summary: '删除用户组', description: '有关联用户时拒绝删除' }), ApiNoContentResponse()];
+            _listRoles_decorators = [Get('roles'), ApiOperation({ summary: '获取角色列表' }), ApiOkResponse()];
+            _createRole_decorators = [Post('roles'), Roles('super_admin'), ApiOperation({ summary: '创建角色' }), ApiCreatedResponse()];
+            _getRole_decorators = [Get('roles/:id'), ApiOperation({ summary: '获取角色详情' }), ApiOkResponse()];
+            _updateRole_decorators = [Patch('roles/:id'), Roles('super_admin'), ApiOperation({ summary: '更新角色' }), ApiOkResponse()];
+            _deleteRole_decorators = [Delete('roles/:id'), Roles('super_admin'), HttpCode(HttpStatus.NO_CONTENT), ApiOperation({ summary: '删除角色', description: '系统角色不可删除' }), ApiNoContentResponse()];
+            _setRolePermissions_decorators = [Put('roles/:id/permissions'), Roles('super_admin'), ApiOperation({ summary: '设置角色权限' }), ApiOkResponse()];
+            _listPermissions_decorators = [Get('permissions'), ApiOperation({ summary: '获取所有权限点' }), ApiOkResponse()];
+            _listApiKeys_decorators = [Get('api-keys'), ApiOperation({ summary: '获取 API Key 列表', description: '分页查询，支持搜索和筛选' }), ApiOkResponse()];
+            _getApiKey_decorators = [Get('api-keys/:id'), ApiOperation({ summary: '获取 API Key 详情' }), ApiOkResponse()];
+            _toggleApiKey_decorators = [Patch('api-keys/:id/toggle'), Roles('admin'), ApiOperation({ summary: '切换 API Key 状态' }), ApiOkResponse()];
+            _deleteApiKey_decorators = [Delete('api-keys/:id'), Roles('admin'), HttpCode(HttpStatus.NO_CONTENT), ApiOperation({ summary: '删除 API Key' }), ApiNoContentResponse()];
             _listProviders_decorators = [Get('providers'), ApiOperation({ summary: '获取 Provider 列表', description: '分页查询所有 Provider' }), ApiOkResponse({ type: [ProviderResponseDto] })];
             _createProvider_decorators = [Post('providers'), ApiOperation({ summary: '创建 Provider' }), ApiCreatedResponse({ type: ProviderResponseDto })];
             _getProvider_decorators = [Get('providers/:id'), ApiOperation({ summary: '获取 Provider 详情' }), ApiOkResponse({ type: ProviderResponseDto })];
@@ -127,6 +161,23 @@ let AdminController = (() => {
             _testSmtpConnection_decorators = [Post('smtp-config/test-connection'), ApiOperation({ summary: '测试SMTP连接' }), ApiOkResponse()];
             _sendTestEmail_decorators = [Post('smtp-config/send-test'), ApiOperation({ summary: '发送测试邮件' }), ApiOkResponse()];
             __esDecorate(this, null, _getDashboard_decorators, { kind: "method", name: "getDashboard", static: false, private: false, access: { has: obj => "getDashboard" in obj, get: obj => obj.getDashboard }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _listUserGroups_decorators, { kind: "method", name: "listUserGroups", static: false, private: false, access: { has: obj => "listUserGroups" in obj, get: obj => obj.listUserGroups }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _createUserGroup_decorators, { kind: "method", name: "createUserGroup", static: false, private: false, access: { has: obj => "createUserGroup" in obj, get: obj => obj.createUserGroup }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _getUserGroup_decorators, { kind: "method", name: "getUserGroup", static: false, private: false, access: { has: obj => "getUserGroup" in obj, get: obj => obj.getUserGroup }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _updateUserGroup_decorators, { kind: "method", name: "updateUserGroup", static: false, private: false, access: { has: obj => "updateUserGroup" in obj, get: obj => obj.updateUserGroup }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _toggleUserGroup_decorators, { kind: "method", name: "toggleUserGroup", static: false, private: false, access: { has: obj => "toggleUserGroup" in obj, get: obj => obj.toggleUserGroup }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _deleteUserGroup_decorators, { kind: "method", name: "deleteUserGroup", static: false, private: false, access: { has: obj => "deleteUserGroup" in obj, get: obj => obj.deleteUserGroup }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _listRoles_decorators, { kind: "method", name: "listRoles", static: false, private: false, access: { has: obj => "listRoles" in obj, get: obj => obj.listRoles }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _createRole_decorators, { kind: "method", name: "createRole", static: false, private: false, access: { has: obj => "createRole" in obj, get: obj => obj.createRole }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _getRole_decorators, { kind: "method", name: "getRole", static: false, private: false, access: { has: obj => "getRole" in obj, get: obj => obj.getRole }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _updateRole_decorators, { kind: "method", name: "updateRole", static: false, private: false, access: { has: obj => "updateRole" in obj, get: obj => obj.updateRole }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _deleteRole_decorators, { kind: "method", name: "deleteRole", static: false, private: false, access: { has: obj => "deleteRole" in obj, get: obj => obj.deleteRole }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _setRolePermissions_decorators, { kind: "method", name: "setRolePermissions", static: false, private: false, access: { has: obj => "setRolePermissions" in obj, get: obj => obj.setRolePermissions }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _listPermissions_decorators, { kind: "method", name: "listPermissions", static: false, private: false, access: { has: obj => "listPermissions" in obj, get: obj => obj.listPermissions }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _listApiKeys_decorators, { kind: "method", name: "listApiKeys", static: false, private: false, access: { has: obj => "listApiKeys" in obj, get: obj => obj.listApiKeys }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _getApiKey_decorators, { kind: "method", name: "getApiKey", static: false, private: false, access: { has: obj => "getApiKey" in obj, get: obj => obj.getApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _toggleApiKey_decorators, { kind: "method", name: "toggleApiKey", static: false, private: false, access: { has: obj => "toggleApiKey" in obj, get: obj => obj.toggleApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _deleteApiKey_decorators, { kind: "method", name: "deleteApiKey", static: false, private: false, access: { has: obj => "deleteApiKey" in obj, get: obj => obj.deleteApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _listProviders_decorators, { kind: "method", name: "listProviders", static: false, private: false, access: { has: obj => "listProviders" in obj, get: obj => obj.listProviders }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _createProvider_decorators, { kind: "method", name: "createProvider", static: false, private: false, access: { has: obj => "createProvider" in obj, get: obj => obj.createProvider }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _getProvider_decorators, { kind: "method", name: "getProvider", static: false, private: false, access: { has: obj => "getProvider" in obj, get: obj => obj.getProvider }, metadata: _metadata }, null, _instanceExtraInitializers);
@@ -173,6 +224,69 @@ let AdminController = (() => {
         // ──────────────────────────────────────────────
         async getDashboard(startDate, endDate) {
             return this.adminService.getDashboard(startDate, endDate);
+        }
+        // ──────────────────────────────────────────────
+        // UserGroup 管理
+        // ──────────────────────────────────────────────
+        async listUserGroups(pagination, search, isActive) {
+            return this.adminService.listUserGroups(pagination.page, pagination.pageSize, search, isActive);
+        }
+        async createUserGroup(dto) {
+            return this.adminService.createUserGroup(dto);
+        }
+        async getUserGroup(id) {
+            return this.adminService.getUserGroup(id);
+        }
+        async updateUserGroup(id, dto) {
+            return this.adminService.updateUserGroup(id, dto);
+        }
+        async toggleUserGroup(id) {
+            return this.adminService.toggleUserGroup(id);
+        }
+        async deleteUserGroup(id) {
+            await this.adminService.deleteUserGroup(id);
+        }
+        // ──────────────────────────────────────────────
+        // Role 管理
+        // ──────────────────────────────────────────────
+        async listRoles() {
+            return this.adminService.listRoles();
+        }
+        async createRole(dto) {
+            return this.adminService.createRole(dto);
+        }
+        async getRole(id) {
+            return this.adminService.getRole(id);
+        }
+        async updateRole(id, dto) {
+            return this.adminService.updateRole(id, dto);
+        }
+        async deleteRole(id) {
+            await this.adminService.deleteRole(id);
+        }
+        async setRolePermissions(id, dto) {
+            return this.adminService.setRolePermissions(id, dto);
+        }
+        // ──────────────────────────────────────────────
+        // Permission 管理
+        // ──────────────────────────────────────────────
+        async listPermissions() {
+            return this.adminService.listPermissions();
+        }
+        // ──────────────────────────────────────────────
+        // API Key 管理 (Admin)
+        // ──────────────────────────────────────────────
+        async listApiKeys(pagination, search, isActive, userId) {
+            return this.adminService.listApiKeys(pagination.page, pagination.pageSize, search, isActive, userId);
+        }
+        async getApiKey(id) {
+            return this.adminService.getApiKey(id);
+        }
+        async toggleApiKey(id) {
+            return this.adminService.toggleApiKey(id);
+        }
+        async deleteApiKey(id) {
+            await this.adminService.deleteApiKey(id);
         }
         // ──────────────────────────────────────────────
         // Provider 管理

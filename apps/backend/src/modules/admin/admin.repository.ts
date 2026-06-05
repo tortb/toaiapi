@@ -753,4 +753,79 @@ export class AdminRepository {
       where: { id: { in: ids } },
     });
   }
+
+  // ──────────────────────────────────────────────
+  // API Key (Admin)
+  // ──────────────────────────────────────────────
+
+  /**
+   * 查询 API Key 列表（分页，含用户信息）
+   */
+  async findApiKeys(params: {
+    skip?: number;
+    take?: number;
+    where?: Prisma.ApiKeyWhereInput;
+    orderBy?: Prisma.ApiKeyOrderByWithRelationInput;
+  }) {
+    const [items, total] = await Promise.all([
+      this.prisma.apiKey.findMany({
+        where: params.where,
+        skip: params.skip,
+        take: params.take,
+        orderBy: params.orderBy ?? { created_at: 'desc' },
+        include: {
+          user: {
+            select: { id: true, email: true, display_name: true },
+          },
+        },
+      }),
+      this.prisma.apiKey.count({ where: params.where }),
+    ]);
+    return { items, total };
+  }
+
+  /**
+   * 根据 ID 查询 API Key
+   */
+  async findApiKeyById(id: string) {
+    return this.prisma.apiKey.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { id: true, email: true, display_name: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * 更新 API Key
+   */
+  async updateApiKey(id: string, data: Prisma.ApiKeyUpdateInput) {
+    return this.prisma.apiKey.update({
+      where: { id },
+      data,
+      include: {
+        user: {
+          select: { id: true, email: true, display_name: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * 删除 API Key
+   */
+  async deleteApiKey(id: string) {
+    return this.prisma.apiKey.delete({ where: { id } });
+  }
+
+  /**
+   * 统计用户的 API Key 数量
+   */
+  async countUserApiKeys(userId: string): Promise<number> {
+    return this.prisma.apiKey.count({
+      where: { user_id: userId },
+    });
+  }
 }
