@@ -58,6 +58,12 @@ export default function LoginPage() {
       }
       if (!window.initAliyunCaptcha) return;
 
+      for (let i = 0; i < 50; i++) {
+        if (document.querySelector("#captcha-element")) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      if (!document.querySelector("#captcha-element")) return;
+
       window.initAliyunCaptcha({
         SceneId: config.captcha_login_scene_id,
         mode: "embed",

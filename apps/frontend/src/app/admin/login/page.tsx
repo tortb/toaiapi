@@ -62,6 +62,13 @@ export default function AdminLoginPage() {
       }
       if (!window.initAliyunCaptcha) return;
 
+      // 等待 DOM 元素渲染完成
+      for (let i = 0; i < 50; i++) {
+        if (document.querySelector("#admin-captcha-element")) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      if (!document.querySelector("#admin-captcha-element")) return;
+
       window.initAliyunCaptcha({
         SceneId: config.captcha_login_scene_id,
         mode: "embed",
