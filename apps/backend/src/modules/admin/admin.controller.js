@@ -40,6 +40,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { ProviderResponseDto } from './dto/provider-response.dto';
 import { ChannelResponseDto } from './dto/channel-response.dto';
 import { ModelResponseDto } from './dto/model-response.dto';
+import { DashboardResponseDto } from './dto/dashboard-response.dto';
 /**
  * Admin 管理控制器
  *
@@ -52,6 +53,7 @@ let AdminController = (() => {
     let _classExtraInitializers = [];
     let _classThis;
     let _instanceExtraInitializers = [];
+    let _getDashboard_decorators;
     let _listProviders_decorators;
     let _createProvider_decorators;
     let _getProvider_decorators;
@@ -64,6 +66,7 @@ let AdminController = (() => {
     let _enableChannel_decorators;
     let _disableChannel_decorators;
     let _deleteChannel_decorators;
+    let _testChannel_decorators;
     let _listModels_decorators;
     let _createModel_decorators;
     let _getModel_decorators;
@@ -87,6 +90,7 @@ let AdminController = (() => {
         static { _classThis = this; }
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(null) : void 0;
+            _getDashboard_decorators = [Get('dashboard'), ApiOperation({ summary: '获取 Dashboard 数据', description: '返回系统概览、调用统计、模型分布等' }), ApiOkResponse({ type: DashboardResponseDto })];
             _listProviders_decorators = [Get('providers'), ApiOperation({ summary: '获取 Provider 列表', description: '分页查询所有 Provider' }), ApiOkResponse({ type: [ProviderResponseDto] })];
             _createProvider_decorators = [Post('providers'), ApiOperation({ summary: '创建 Provider' }), ApiCreatedResponse({ type: ProviderResponseDto })];
             _getProvider_decorators = [Get('providers/:id'), ApiOperation({ summary: '获取 Provider 详情' }), ApiOkResponse({ type: ProviderResponseDto })];
@@ -99,13 +103,17 @@ let AdminController = (() => {
             _enableChannel_decorators = [Patch('channels/:id/enable'), ApiOperation({ summary: '启用渠道' }), ApiOkResponse({ type: ChannelResponseDto })];
             _disableChannel_decorators = [Patch('channels/:id/disable'), ApiOperation({ summary: '禁用渠道' }), ApiOkResponse({ type: ChannelResponseDto })];
             _deleteChannel_decorators = [Delete('channels/:id'), HttpCode(HttpStatus.NO_CONTENT), ApiOperation({ summary: '删除渠道' }), ApiNoContentResponse()];
+            _testChannel_decorators = [Post('channels/:id/test'), ApiOperation({
+                    summary: '测试渠道连通性',
+                    description: '向渠道发送一个简单的测试请求，验证 API Key 和 Base URL 是否有效',
+                }), ApiOkResponse()];
             _listModels_decorators = [Get('models'), ApiOperation({ summary: '获取模型列表', description: '分页查询所有模型（含定价）' }), ApiOkResponse({ type: [ModelResponseDto] })];
             _createModel_decorators = [Post('models'), ApiOperation({ summary: '创建模型' }), ApiCreatedResponse({ type: ModelResponseDto })];
             _getModel_decorators = [Get('models/:id'), ApiOperation({ summary: '获取模型详情' }), ApiOkResponse({ type: ModelResponseDto })];
             _updateModel_decorators = [Patch('models/:id'), ApiOperation({ summary: '更新模型' }), ApiOkResponse({ type: ModelResponseDto })];
             _deleteModel_decorators = [Delete('models/:id'), HttpCode(HttpStatus.NO_CONTENT), ApiOperation({ summary: '删除模型' }), ApiNoContentResponse()];
             _upsertPricing_decorators = [Put('models/:id/pricing'), ApiOperation({ summary: '设置/更新模型定价', description: '如果无定价则创建，已有则更新' }), ApiOkResponse({ type: ModelResponseDto })];
-            _listUsers_decorators = [Get('users'), ApiOperation({ summary: '获取用户列表', description: '分页查询，支持按角色/状态筛选' }), ApiOkResponse()];
+            _listUsers_decorators = [Get('users'), ApiOperation({ summary: '获取用户列表', description: '分页查询，支持按角色/状态/关键字筛选' }), ApiOkResponse()];
             _getUser_decorators = [Get('users/:id'), ApiOperation({ summary: '获取用户详情', description: '含余额和统计信息' }), ApiOkResponse()];
             _updateUserRole_decorators = [Patch('users/:id/role'), Roles('super_admin'), ApiOperation({ summary: '修改用户角色', description: '仅 super_admin 可执行' }), ApiOkResponse()];
             _updateUserStatus_decorators = [Patch('users/:id/status'), ApiOperation({ summary: '修改用户状态', description: '禁用/封禁/启用用户' }), ApiOkResponse()];
@@ -118,6 +126,7 @@ let AdminController = (() => {
             _toggleSmtpConfig_decorators = [Patch('smtp-config/toggle'), ApiOperation({ summary: '切换SMTP配置启用状态' }), ApiOkResponse()];
             _testSmtpConnection_decorators = [Post('smtp-config/test-connection'), ApiOperation({ summary: '测试SMTP连接' }), ApiOkResponse()];
             _sendTestEmail_decorators = [Post('smtp-config/send-test'), ApiOperation({ summary: '发送测试邮件' }), ApiOkResponse()];
+            __esDecorate(this, null, _getDashboard_decorators, { kind: "method", name: "getDashboard", static: false, private: false, access: { has: obj => "getDashboard" in obj, get: obj => obj.getDashboard }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _listProviders_decorators, { kind: "method", name: "listProviders", static: false, private: false, access: { has: obj => "listProviders" in obj, get: obj => obj.listProviders }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _createProvider_decorators, { kind: "method", name: "createProvider", static: false, private: false, access: { has: obj => "createProvider" in obj, get: obj => obj.createProvider }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _getProvider_decorators, { kind: "method", name: "getProvider", static: false, private: false, access: { has: obj => "getProvider" in obj, get: obj => obj.getProvider }, metadata: _metadata }, null, _instanceExtraInitializers);
@@ -130,6 +139,7 @@ let AdminController = (() => {
             __esDecorate(this, null, _enableChannel_decorators, { kind: "method", name: "enableChannel", static: false, private: false, access: { has: obj => "enableChannel" in obj, get: obj => obj.enableChannel }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _disableChannel_decorators, { kind: "method", name: "disableChannel", static: false, private: false, access: { has: obj => "disableChannel" in obj, get: obj => obj.disableChannel }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _deleteChannel_decorators, { kind: "method", name: "deleteChannel", static: false, private: false, access: { has: obj => "deleteChannel" in obj, get: obj => obj.deleteChannel }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _testChannel_decorators, { kind: "method", name: "testChannel", static: false, private: false, access: { has: obj => "testChannel" in obj, get: obj => obj.testChannel }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _listModels_decorators, { kind: "method", name: "listModels", static: false, private: false, access: { has: obj => "listModels" in obj, get: obj => obj.listModels }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _createModel_decorators, { kind: "method", name: "createModel", static: false, private: false, access: { has: obj => "createModel" in obj, get: obj => obj.createModel }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _getModel_decorators, { kind: "method", name: "getModel", static: false, private: false, access: { has: obj => "getModel" in obj, get: obj => obj.getModel }, metadata: _metadata }, null, _instanceExtraInitializers);
@@ -157,6 +167,12 @@ let AdminController = (() => {
         adminService = __runInitializers(this, _instanceExtraInitializers);
         constructor(adminService) {
             this.adminService = adminService;
+        }
+        // ──────────────────────────────────────────────
+        // Dashboard
+        // ──────────────────────────────────────────────
+        async getDashboard(startDate, endDate) {
+            return this.adminService.getDashboard(startDate, endDate);
         }
         // ──────────────────────────────────────────────
         // Provider 管理
@@ -200,6 +216,9 @@ let AdminController = (() => {
         async deleteChannel(id) {
             await this.adminService.deleteChannel(id);
         }
+        async testChannel(id) {
+            return this.adminService.testChannel(id);
+        }
         // ──────────────────────────────────────────────
         // Model 管理
         // ──────────────────────────────────────────────
@@ -224,8 +243,8 @@ let AdminController = (() => {
         // ──────────────────────────────────────────────
         // User 管理
         // ──────────────────────────────────────────────
-        async listUsers(pagination, role, status) {
-            return this.adminService.listUsers(pagination.page, pagination.pageSize, role, status);
+        async listUsers(pagination, role, status, search) {
+            return this.adminService.listUsers(pagination.page, pagination.pageSize, role, status, search);
         }
         async getUser(id) {
             return this.adminService.getUser(id);

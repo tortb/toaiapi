@@ -181,19 +181,35 @@ let BillingService = (() => {
          * @param userId - 用户 ID
          * @param page - 页码（从 1 开始）
          * @param pageSize - 每页数量（1-100）
+         * @param filters - 可选过滤条件
          * @returns 分页交易记录
          */
-        async getTransactions(userId, page = 1, pageSize = 20) {
+        async getTransactions(userId, page = 1, pageSize = 20, filters) {
             // 校验分页参数
             const validPage = Math.max(1, Math.floor(page));
             const validPageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
             const skip = (validPage - 1) * validPageSize;
+            // 构建过滤条件
+            const where = { user_id: userId };
+            if (filters?.type) {
+                where['type'] = filters.type;
+            }
+            if (filters?.startDate || filters?.endDate) {
+                where['created_at'] = {};
+                if (filters.startDate) {
+                    where['created_at']['gte'] = filters.startDate;
+                }
+                if (filters.endDate) {
+                    where['created_at']['lte'] = filters.endDate;
+                }
+            }
             const [transactions, total] = await Promise.all([
                 this.billingRepo.getTransactions(userId, {
                     skip,
                     take: validPageSize,
+                    where,
                 }),
-                this.billingRepo.countTransactions(userId),
+                this.billingRepo.countTransactions(userId, where),
             ]);
             return {
                 items: transactions.map((tx) => ({

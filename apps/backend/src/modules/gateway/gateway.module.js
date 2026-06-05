@@ -39,6 +39,7 @@ import { GatewayController } from './gateway.controller';
 import { GatewayService } from './gateway.service';
 import { ChannelService } from './channel/channel.service';
 import { ChannelRepository } from './channel/channel.repository';
+import { ApiKeyModule } from '../api-key/api-key.module';
 import { BillingModule } from '../billing/billing.module';
 import { RequestLogModule } from '../request-log/request-log.module';
 let GatewayModule = (() => {
@@ -46,6 +47,7 @@ let GatewayModule = (() => {
             imports: [
                 forwardRef(() => BillingModule),
                 forwardRef(() => RequestLogModule),
+                ApiKeyModule,
                 ThrottlerModule.forRoot([
                     {
                         name: 'gateway',

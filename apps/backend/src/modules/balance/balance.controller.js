@@ -37,8 +37,44 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiOkResponse, } from '@nestjs/sw
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { IsInt, Min, IsString, IsNotEmpty, IsOptional, Max } from 'class-validator';
+import { PaginationDto } from '../../common/dto/pagination.dto';
+import { IsInt, Min, IsString, IsNotEmpty, IsOptional, Max, IsEnum, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TransactionType } from '@prisma/client';
+/**
+ * 交易流水查询 DTO
+ */
+let TransactionQueryDto = (() => {
+    let _classSuper = PaginationDto;
+    let _type_decorators;
+    let _type_initializers = [];
+    let _type_extraInitializers = [];
+    let _startDate_decorators;
+    let _startDate_initializers = [];
+    let _startDate_extraInitializers = [];
+    let _endDate_decorators;
+    let _endDate_initializers = [];
+    let _endDate_extraInitializers = [];
+    return class TransactionQueryDto extends _classSuper {
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _type_decorators = [ApiPropertyOptional({ description: '交易类型', enum: TransactionType }), IsOptional(), IsEnum(TransactionType)];
+            _startDate_decorators = [ApiPropertyOptional({ description: '开始日期（ISO 格式）', example: '2026-06-01' }), IsOptional(), IsDateString()];
+            _endDate_decorators = [ApiPropertyOptional({ description: '结束日期（ISO 格式）', example: '2026-06-05' }), IsOptional(), IsDateString()];
+            __esDecorate(null, null, _type_decorators, { kind: "field", name: "type", static: false, private: false, access: { has: obj => "type" in obj, get: obj => obj.type, set: (obj, value) => { obj.type = value; } }, metadata: _metadata }, _type_initializers, _type_extraInitializers);
+            __esDecorate(null, null, _startDate_decorators, { kind: "field", name: "startDate", static: false, private: false, access: { has: obj => "startDate" in obj, get: obj => obj.startDate, set: (obj, value) => { obj.startDate = value; } }, metadata: _metadata }, _startDate_initializers, _startDate_extraInitializers);
+            __esDecorate(null, null, _endDate_decorators, { kind: "field", name: "endDate", static: false, private: false, access: { has: obj => "endDate" in obj, get: obj => obj.endDate, set: (obj, value) => { obj.endDate = value; } }, metadata: _metadata }, _endDate_initializers, _endDate_extraInitializers);
+            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+        }
+        type = __runInitializers(this, _type_initializers, void 0);
+        startDate = (__runInitializers(this, _type_extraInitializers), __runInitializers(this, _startDate_initializers, void 0));
+        endDate = (__runInitializers(this, _startDate_extraInitializers), __runInitializers(this, _endDate_initializers, void 0));
+        constructor() {
+            super(...arguments);
+            __runInitializers(this, _endDate_extraInitializers);
+        }
+    };
+})();
 /**
  * 充值请求 DTO
  */
@@ -133,8 +169,12 @@ let BalanceController = (() => {
         /**
          * 获取交易流水
          */
-        async getTransactions(user, pagination) {
-            return this.balanceService.getTransactions(user.id, pagination.page, pagination.pageSize);
+        async getTransactions(user, query) {
+            return this.balanceService.getTransactions(user.id, query.page, query.pageSize, {
+                type: query.type,
+                startDate: query.startDate ? new Date(query.startDate) : undefined,
+                endDate: query.endDate ? new Date(query.endDate) : undefined,
+            });
         }
         /**
          * 获取请求日志

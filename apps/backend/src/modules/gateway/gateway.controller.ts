@@ -71,7 +71,7 @@ export class GatewayController {
    * 支持同步和流式两种模式。
    * SECURITY: 流式模式下捕获所有错误，确保发送 [DONE] 标记
    */
-  @Post('v1/chat/completions')
+  @Post('chat/completions')
   @UseGuards(ThrottlerGuard, ApiKeyAuthGuard)
   @Throttle({ gateway: { limit: 60, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
@@ -197,7 +197,7 @@ export class GatewayController {
    *
    * GET /v1/models
    */
-  @Get('v1/models')
+  @Get('models')
   @UseGuards(ThrottlerGuard, ApiKeyAuthGuard)
   @Throttle({ gateway: { limit: 60, ttl: 60000 } })
   @ApiSecurity('api-key')
@@ -234,7 +234,7 @@ export class GatewayController {
    * GET /v1/models/public
    * 返回模型名、定价、能力等公开信息。
    */
-  @Get('v1/models/public')
+  @Get('models/public')
   @ApiOperation({
     summary: '公开模型列表',
     description: '获取所有可用模型的公开信息（含定价和能力），无需认证',
@@ -279,7 +279,7 @@ export class GatewayController {
    * GET /v1/status
    * 返回所有活跃渠道的运行状态。
    */
-  @Get('v1/status')
+  @Get('status')
   @ApiOperation({
     summary: '服务状态',
     description: '获取所有活跃渠道的运行状态，无需认证',

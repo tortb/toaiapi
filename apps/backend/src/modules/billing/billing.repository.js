@@ -151,7 +151,10 @@ let BillingRepository = (() => {
          */
         async getTransactions(userId, params) {
             return this.prisma.userTransaction.findMany({
-                where: { user_id: userId },
+                where: {
+                    user_id: userId,
+                    ...params.where,
+                },
                 skip: params.skip,
                 take: params.take,
                 orderBy: params.orderBy || { created_at: 'desc' },
@@ -160,9 +163,12 @@ let BillingRepository = (() => {
         /**
          * 统计用户交易数量
          */
-        async countTransactions(userId) {
+        async countTransactions(userId, where) {
             return this.prisma.userTransaction.count({
-                where: { user_id: userId },
+                where: {
+                    user_id: userId,
+                    ...where,
+                },
             });
         }
         /**

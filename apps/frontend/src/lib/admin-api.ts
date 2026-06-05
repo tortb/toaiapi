@@ -8,6 +8,7 @@
 import { getAccessToken, refreshTokens, clearAuthData } from "./auth-api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_PREFIX = "/api/v1";
 
 // ──────────────────────────────────────────────
 // 类型定义
@@ -134,7 +135,17 @@ async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  return res.json() as Promise<T>;
+  const json = await res.json();
+
+  // 后端返回格式: { code, message, data }
+  if (json && typeof json === "object" && "code" in json && "data" in json) {
+    if (json.code !== 0) {
+      throw new Error(json.message || "API Error");
+    }
+    return json.data as T;
+  }
+
+  return json as T;
 }
 
 // ──────────────────────────────────────────────
@@ -150,7 +161,7 @@ export async function getDashboard(startDate?: string, endDate?: string): Promis
   if (endDate) params.set("endDate", endDate);
 
   const query = params.toString();
-  return adminFetch<DashboardData>(`/admin/dashboard${query ? `?${query}` : ""}`);
+  return adminFetch<DashboardData>(`${API_PREFIX}/admin/dashboard${query ? `?${query}` : ""}`);
 }
 
 // ──────────────────────────────────────────────
@@ -195,7 +206,7 @@ export async function getUsers(params: UserListParams = {}): Promise<PaginatedRe
   if (params.search) searchParams.set("search", params.search);
 
   const query = searchParams.toString();
-  return adminFetch<PaginatedResponse<UserData>>(`/admin/users${query ? `?${query}` : ""}`);
+  return adminFetch<PaginatedResponse<UserData>>(`${API_PREFIX}/admin/users${query ? `?${query}` : ""}`);
 }
 
 /**
@@ -206,7 +217,7 @@ export async function updateUserStatus(
   status: "ACTIVE" | "SUSPENDED" | "BANNED",
   reason?: string,
 ): Promise<UserData> {
-  return adminFetch<UserData>(`/admin/users/${userId}/status`, {
+  return adminFetch<UserData>(`${API_PREFIX}/admin/users/${userId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status, reason }),
   });
@@ -219,7 +230,7 @@ export async function updateUserRole(
   userId: string,
   role: string,
 ): Promise<UserData> {
-  return adminFetch<UserData>(`/admin/users/${userId}/role`, {
+  return adminFetch<UserData>(`${API_PREFIX}/admin/users/${userId}/role`, {
     method: "PATCH",
     body: JSON.stringify({ role }),
   });

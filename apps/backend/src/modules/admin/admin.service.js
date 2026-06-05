@@ -34,7 +34,7 @@ var __runInitializers = (this && this.__runInitializers) || function (thisArg, i
 };
 import { Injectable, Logger, NotFoundException, ConflictException, ForbiddenException, } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import { encrypt, maskApiKey } from '../../common/utils/crypto.util';
+import { encrypt, decrypt, maskApiKey } from '../../common/utils/crypto.util';
 /**
  * Admin 管理服务
  *
@@ -66,6 +66,54 @@ let AdminService = (() => {
             this.paymentConfigService = paymentConfigService;
             this.smtpConfigService = smtpConfigService;
             this.emailService = emailService;
+        }
+        // ──────────────────────────────────────────────
+        // Dashboard
+        // ──────────────────────────────────────────────
+        /**
+         * 获取 Dashboard 数据
+         */
+        async getDashboard(startDate, endDate) {
+            // 默认最近 7 天
+            const end = endDate ? new Date(endDate) : new Date();
+            const start = startDate
+                ? new Date(startDate)
+                : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+            // 并行查询所有数据
+            const [userStats, rechargeStats, consumptionStats, requestStats, totalBalance, callStats, modelDistribution, recentOrders, channelStatus,] = await Promise.all([
+                this.adminRepo.getUserStats(start, end),
+                this.adminRepo.getRechargeStats(start, end),
+                this.adminRepo.getConsumptionStats(start, end),
+                this.adminRepo.getRequestStats(start, end),
+                this.adminRepo.getTotalBalance(),
+                this.adminRepo.getCallStatsByDay(start, end),
+                this.adminRepo.getModelDistribution(start, end),
+                this.adminRepo.getRecentOrders(10),
+                this.adminRepo.getChannelStatus(),
+            ]);
+            // 计算增长率
+            const calcGrowth = (current, previous) => {
+                if (previous === 0)
+                    return current > 0 ? 100 : 0;
+                return Math.round(((current - previous) / previous) * 100 * 10) / 10;
+            };
+            return {
+                metrics: {
+                    totalUsers: userStats.totalUsers,
+                    totalUsersGrowth: calcGrowth(userStats.totalUsers, userStats.previousPeriodUsers),
+                    totalRecharge: rechargeStats.totalRecharge,
+                    totalRechargeGrowth: calcGrowth(rechargeStats.totalRecharge, rechargeStats.previousRecharge),
+                    totalConsumption: consumptionStats.totalConsumption,
+                    totalConsumptionGrowth: calcGrowth(consumptionStats.totalConsumption, consumptionStats.previousConsumption),
+                    totalRequests: requestStats.totalRequests,
+                    totalRequestsGrowth: calcGrowth(requestStats.totalRequests, requestStats.previousRequests),
+                    totalBalance,
+                },
+                callStats,
+                modelDistribution,
+                recentOrders,
+                channelStatus,
+            };
         }
         // ──────────────────────────────────────────────
         // Provider 管理
@@ -254,6 +302,56 @@ let AdminService = (() => {
             await this.adminRepo.deleteChannel(id);
             this.logger.log(`Channel deleted: ${id} (${existing.name})`);
         }
+        /**
+         * 测试渠道连通性
+         *
+         * 向渠道发送一个简单的 models 列表请求，验证配置是否正确。
+         */
+        async testChannel(id) {
+            const channel = await this.adminRepo.findChannelById(id);
+            if (!channel) {
+                throw new NotFoundException('Channel not found');
+            }
+            const startTime = Date.now();
+            try {
+                // 解密 API Key
+                const apiKey = decrypt(channel.api_key);
+                // 发送简单的 models 列表请求
+                const response = await fetch(`${channel.base_url}/v1/models`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    signal: AbortSignal.timeout(10000),
+                });
+                const latencyMs = Date.now() - startTime;
+                if (response.ok) {
+                    return {
+                        success: true,
+                        latencyMs,
+                        message: `连接成功 (HTTP ${response.status})`,
+                    };
+                }
+                else {
+                    const errorText = await response.text().catch(() => '');
+                    return {
+                        success: false,
+                        latencyMs,
+                        message: `HTTP ${response.status}: ${errorText.substring(0, 200)}`,
+                    };
+                }
+            }
+            catch (error) {
+                const latencyMs = Date.now() - startTime;
+                const message = error instanceof Error ? error.message : String(error);
+                return {
+                    success: false,
+                    latencyMs,
+                    message: `连接失败: ${message}`,
+                };
+            }
+        }
         // ──────────────────────────────────────────────
         // Model 管理
         // ──────────────────────────────────────────────
@@ -364,14 +462,24 @@ let AdminService = (() => {
          * @param pageSize - 每页数量
          * @param role - 角色筛选（UserRole 枚举值）
          * @param status - 状态筛选（UserStatus 枚举值）
+         * @param search - 搜索关键字（ID/用户名/邮箱）
          */
-        async listUsers(page, pageSize, role, status) {
+        async listUsers(page, pageSize, role, status, search) {
             const skip = (page - 1) * pageSize;
-            const where = {};
+            const where = { deleted_at: null };
             if (role)
                 where['role'] = role;
             if (status)
                 where['status'] = status;
+            // 搜索：ID / 用户名 / 邮箱
+            if (search && search.trim()) {
+                const keyword = search.trim();
+                where['OR'] = [
+                    { id: { contains: keyword, mode: 'insensitive' } },
+                    { display_name: { contains: keyword, mode: 'insensitive' } },
+                    { email: { contains: keyword, mode: 'insensitive' } },
+                ];
+            }
             const { items, total } = await this.adminRepo.findUsers({ skip, take: pageSize, where });
             return {
                 items: items.map((u) => ({
@@ -491,7 +599,10 @@ let AdminService = (() => {
          */
         toChannelResponse(channel, plainApiKey) {
             // 用于脱敏显示的 API Key
-            const displayKey = plainApiKey || channel['api_key'] || '';
+            // 仅创建/更新时传入明文，查询时不显示加密密文
+            const displayKey = plainApiKey
+                ? maskApiKey(plainApiKey)
+                : 'sk-****';
             return {
                 id: channel['id'],
                 providerId: channel['provider_id'],
@@ -502,7 +613,7 @@ let AdminService = (() => {
                 } : undefined,
                 name: channel['name'],
                 baseUrl: channel['base_url'],
-                keyPrefix: maskApiKey(displayKey),
+                keyPrefix: displayKey,
                 weight: channel['weight'],
                 priority: channel['priority'],
                 isActive: channel['is_active'],

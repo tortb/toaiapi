@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { ProviderError } from './provider-error';
 /**
  * Google Gemini 适配器
  *
@@ -35,7 +36,7 @@ export class GeminiAdapter {
         if (!response.ok) {
             const errorText = await response.text();
             this.logger.error(`Gemini error: ${response.status} ${response.statusText}`);
-            throw new Error(`Gemini returned ${response.status}: ${errorText}`);
+            throw new ProviderError(`Gemini returned ${response.status}: ${errorText}`, response.status, this.name);
         }
         const data = (await response.json());
         return this.normalizeResponse(data, request.model);
@@ -58,7 +59,7 @@ export class GeminiAdapter {
         if (!response.ok) {
             const errorText = await response.text();
             this.logger.error(`Gemini stream error: ${response.status} ${response.statusText}`);
-            throw new Error(`Gemini returned ${response.status}: ${errorText}`);
+            throw new ProviderError(`Gemini returned ${response.status}: ${errorText}`, response.status, this.name);
         }
         const reader = response.body?.getReader();
         if (!reader) {

@@ -85,7 +85,7 @@ let UserRepository = (() => {
          */
         async update(id, data) {
             return this.prisma.user.update({
-                where: { id },
+                where: { id, deleted_at: null },
                 data,
             });
         }

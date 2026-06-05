@@ -69,6 +69,12 @@ let ApiKeyResponseDto = (() => {
     let _ipWhitelist_decorators;
     let _ipWhitelist_initializers = [];
     let _ipWhitelist_extraInitializers = [];
+    let _lastUsedAt_decorators;
+    let _lastUsedAt_initializers = [];
+    let _lastUsedAt_extraInitializers = [];
+    let _totalRequests_decorators;
+    let _totalRequests_initializers = [];
+    let _totalRequests_extraInitializers = [];
     let _createdAt_decorators;
     let _createdAt_initializers = [];
     let _createdAt_extraInitializers = [];
@@ -88,6 +94,8 @@ let ApiKeyResponseDto = (() => {
             _tokenLimit_decorators = [ApiPropertyOptional({ description: 'Token 限制（token/分钟）' })];
             _modelLimit_decorators = [ApiProperty({ description: '允许的模型列表', type: [String] })];
             _ipWhitelist_decorators = [ApiProperty({ description: 'IP 白名单', type: [String] })];
+            _lastUsedAt_decorators = [ApiPropertyOptional({ description: '最后使用时间' })];
+            _totalRequests_decorators = [ApiProperty({ description: '累计请求数' })];
             _createdAt_decorators = [ApiProperty({ description: '创建时间' })];
             __esDecorate(null, null, _id_decorators, { kind: "field", name: "id", static: false, private: false, access: { has: obj => "id" in obj, get: obj => obj.id, set: (obj, value) => { obj.id = value; } }, metadata: _metadata }, _id_initializers, _id_extraInitializers);
             __esDecorate(null, null, _name_decorators, { kind: "field", name: "name", static: false, private: false, access: { has: obj => "name" in obj, get: obj => obj.name, set: (obj, value) => { obj.name = value; } }, metadata: _metadata }, _name_initializers, _name_extraInitializers);
@@ -99,6 +107,8 @@ let ApiKeyResponseDto = (() => {
             __esDecorate(null, null, _tokenLimit_decorators, { kind: "field", name: "tokenLimit", static: false, private: false, access: { has: obj => "tokenLimit" in obj, get: obj => obj.tokenLimit, set: (obj, value) => { obj.tokenLimit = value; } }, metadata: _metadata }, _tokenLimit_initializers, _tokenLimit_extraInitializers);
             __esDecorate(null, null, _modelLimit_decorators, { kind: "field", name: "modelLimit", static: false, private: false, access: { has: obj => "modelLimit" in obj, get: obj => obj.modelLimit, set: (obj, value) => { obj.modelLimit = value; } }, metadata: _metadata }, _modelLimit_initializers, _modelLimit_extraInitializers);
             __esDecorate(null, null, _ipWhitelist_decorators, { kind: "field", name: "ipWhitelist", static: false, private: false, access: { has: obj => "ipWhitelist" in obj, get: obj => obj.ipWhitelist, set: (obj, value) => { obj.ipWhitelist = value; } }, metadata: _metadata }, _ipWhitelist_initializers, _ipWhitelist_extraInitializers);
+            __esDecorate(null, null, _lastUsedAt_decorators, { kind: "field", name: "lastUsedAt", static: false, private: false, access: { has: obj => "lastUsedAt" in obj, get: obj => obj.lastUsedAt, set: (obj, value) => { obj.lastUsedAt = value; } }, metadata: _metadata }, _lastUsedAt_initializers, _lastUsedAt_extraInitializers);
+            __esDecorate(null, null, _totalRequests_decorators, { kind: "field", name: "totalRequests", static: false, private: false, access: { has: obj => "totalRequests" in obj, get: obj => obj.totalRequests, set: (obj, value) => { obj.totalRequests = value; } }, metadata: _metadata }, _totalRequests_initializers, _totalRequests_extraInitializers);
             __esDecorate(null, null, _createdAt_decorators, { kind: "field", name: "createdAt", static: false, private: false, access: { has: obj => "createdAt" in obj, get: obj => obj.createdAt, set: (obj, value) => { obj.createdAt = value; } }, metadata: _metadata }, _createdAt_initializers, _createdAt_extraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         }
@@ -112,7 +122,9 @@ let ApiKeyResponseDto = (() => {
         tokenLimit = (__runInitializers(this, _rateLimit_extraInitializers), __runInitializers(this, _tokenLimit_initializers, void 0));
         modelLimit = (__runInitializers(this, _tokenLimit_extraInitializers), __runInitializers(this, _modelLimit_initializers, void 0));
         ipWhitelist = (__runInitializers(this, _modelLimit_extraInitializers), __runInitializers(this, _ipWhitelist_initializers, void 0));
-        createdAt = (__runInitializers(this, _ipWhitelist_extraInitializers), __runInitializers(this, _createdAt_initializers, void 0));
+        lastUsedAt = (__runInitializers(this, _ipWhitelist_extraInitializers), __runInitializers(this, _lastUsedAt_initializers, void 0));
+        totalRequests = (__runInitializers(this, _lastUsedAt_extraInitializers), __runInitializers(this, _totalRequests_initializers, void 0));
+        createdAt = (__runInitializers(this, _totalRequests_extraInitializers), __runInitializers(this, _createdAt_initializers, void 0));
         constructor() {
             __runInitializers(this, _createdAt_extraInitializers);
         }

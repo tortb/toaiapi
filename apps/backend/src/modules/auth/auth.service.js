@@ -122,10 +122,18 @@ let AuthService = (() => {
          * @throws UnauthorizedException 凭证无效或账号未激活
          */
         async login(dto) {
+            // SECURITY: 暴力破解防护 - 检查登录失败次数
+            const failKey = `login-fail:${dto.email}`;
+            const failCount = await this.redis.getCounter(failKey);
+            if (failCount >= 5) {
+                const lockoutSeconds = Math.min(Math.pow(2, failCount - 5) * 60, 3600);
+                throw new UnauthorizedException(`登录失败次数过多，请 ${lockoutSeconds} 秒后再试`);
+            }
             const user = await this.prisma.user.findUnique({
                 where: { email: dto.email, deleted_at: null },
             });
             if (!user) {
+                await this.recordLoginFail(dto.email);
                 throw new UnauthorizedException('邮箱或密码错误');
             }
             if (user.status !== 'ACTIVE') {
@@ -133,8 +141,11 @@ let AuthService = (() => {
             }
             const valid = await verifyPassword(user.password_hash, dto.password);
             if (!valid) {
+                await this.recordLoginFail(dto.email);
                 throw new UnauthorizedException('邮箱或密码错误');
             }
+            // 登录成功，清除失败计数
+            await this.redis.del(failKey);
             const tokens = await this.generateTokens(user.id, user.email, user.role);
             this.logger.log(`User logged in: ${user.id}`);
             return {
@@ -292,6 +303,15 @@ let AuthService = (() => {
             await this.redis.del(tokenKey);
             await this.redis.del(`refresh:${userId}`);
             this.logger.log(`Password reset for user: ${userId}`);
+        }
+        /**
+         * 记录登录失败（指数退避）
+         * 失败计数 15 分钟后自动过期
+         */
+        async recordLoginFail(email) {
+            const failKey = `login-fail:${email}`;
+            await this.redis.incr(failKey);
+            await this.redis.expire(failKey, 900);
         }
         /**
          * 生成 JWT Token 对并将 Refresh Token 指纹存入 Redis

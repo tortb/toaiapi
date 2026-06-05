@@ -54,6 +54,7 @@ let ApiKeyController = (() => {
     let _disableApiKey_decorators;
     let _enableApiKey_decorators;
     let _deleteApiKey_decorators;
+    let _rotateApiKey_decorators;
     var ApiKeyController = class {
         static { _classThis = this; }
         static {
@@ -67,12 +68,17 @@ let ApiKeyController = (() => {
             _disableApiKey_decorators = [Patch(':id/disable'), HttpCode(HttpStatus.OK), ApiOperation({ summary: '禁用 API Key' }), ApiOkResponse({ type: ApiKeyResponseDto })];
             _enableApiKey_decorators = [Patch(':id/enable'), HttpCode(HttpStatus.OK), ApiOperation({ summary: '启用 API Key' }), ApiOkResponse({ type: ApiKeyResponseDto })];
             _deleteApiKey_decorators = [Delete(':id'), HttpCode(HttpStatus.NO_CONTENT), ApiOperation({ summary: '删除 API Key' }), ApiNoContentResponse()];
+            _rotateApiKey_decorators = [Post(':id/rotate'), ApiOperation({
+                    summary: '轮换 API Key',
+                    description: '生成新的 key 值，保留原有配置。旧 key 立即失效。完整 key 只在此次返回。',
+                }), ApiOkResponse({ type: ApiKeyResponseDto })];
             __esDecorate(this, null, _createApiKey_decorators, { kind: "method", name: "createApiKey", static: false, private: false, access: { has: obj => "createApiKey" in obj, get: obj => obj.createApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _listApiKeys_decorators, { kind: "method", name: "listApiKeys", static: false, private: false, access: { has: obj => "listApiKeys" in obj, get: obj => obj.listApiKeys }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _updateApiKey_decorators, { kind: "method", name: "updateApiKey", static: false, private: false, access: { has: obj => "updateApiKey" in obj, get: obj => obj.updateApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _disableApiKey_decorators, { kind: "method", name: "disableApiKey", static: false, private: false, access: { has: obj => "disableApiKey" in obj, get: obj => obj.disableApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _enableApiKey_decorators, { kind: "method", name: "enableApiKey", static: false, private: false, access: { has: obj => "enableApiKey" in obj, get: obj => obj.enableApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _deleteApiKey_decorators, { kind: "method", name: "deleteApiKey", static: false, private: false, access: { has: obj => "deleteApiKey" in obj, get: obj => obj.deleteApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _rotateApiKey_decorators, { kind: "method", name: "rotateApiKey", static: false, private: false, access: { has: obj => "rotateApiKey" in obj, get: obj => obj.rotateApiKey }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
             ApiKeyController = _classThis = _classDescriptor.value;
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
@@ -117,6 +123,14 @@ let ApiKeyController = (() => {
          */
         async deleteApiKey(user, keyId) {
             await this.apiKeyService.deleteApiKey(user.id, keyId);
+        }
+        /**
+         * 轮换 API Key
+         *
+         * 生成新的 key 值，保留原有配置。旧 key 立即失效。
+         */
+        async rotateApiKey(user, keyId) {
+            return this.apiKeyService.rotateApiKey(user.id, keyId);
         }
     };
     return ApiKeyController = _classThis;

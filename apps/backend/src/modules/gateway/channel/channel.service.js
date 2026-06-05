@@ -158,6 +158,13 @@ let ChannelService = (() => {
             this.logger.warn(`Channel ${channelId} marked as ERROR`);
         }
         /**
+         * 标记渠道为限流状态
+         */
+        async markChannelRateLimited(channelId) {
+            await this.channelRepo.markChannelRateLimited(channelId);
+            this.logger.warn(`Channel ${channelId} marked as RATE_LIMITED`);
+        }
+        /**
          * 获取可用模型列表
          */
         async getAvailableModels() {

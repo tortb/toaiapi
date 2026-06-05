@@ -87,9 +87,10 @@ let BalanceService = (() => {
          * @param userId - 用户 ID
          * @param page - 页码（从 1 开始）
          * @param pageSize - 每页数量（1-100）
+         * @param filters - 可选过滤条件
          */
-        async getTransactions(userId, page, pageSize) {
-            return this.billingService.getTransactions(userId, page, pageSize);
+        async getTransactions(userId, page, pageSize, filters) {
+            return this.billingService.getTransactions(userId, page, pageSize, filters);
         }
         /**
          * 获取请求日志

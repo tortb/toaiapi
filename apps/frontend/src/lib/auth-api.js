@@ -1,0 +1,167 @@
+/**
+ * Admin 认证 API 客户端
+ *
+ * 处理登录、登出、Token 刷新等认证相关请求。
+ * Token 存储在 localStorage，自动附加到请求头。
+ */
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_PREFIX = "/api/v1";
+// ──────────────────────────────────────────────
+// Token 存储
+// ──────────────────────────────────────────────
+const TOKEN_KEY = "toaiapi_access_token";
+const REFRESH_TOKEN_KEY = "toaiapi_refresh_token";
+const USER_KEY = "toaiapi_user";
+export function getAccessToken() {
+    if (typeof window === "undefined")
+        return null;
+    return localStorage.getItem(TOKEN_KEY);
+}
+export function getRefreshToken() {
+    if (typeof window === "undefined")
+        return null;
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+export function getStoredUser() {
+    if (typeof window === "undefined")
+        return null;
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw)
+        return null;
+    try {
+        return JSON.parse(raw);
+    }
+    catch {
+        return null;
+    }
+}
+export function setAuthData(auth) {
+    localStorage.setItem(TOKEN_KEY, auth.tokens.accessToken);
+    localStorage.setItem(REFRESH_TOKEN_KEY, auth.tokens.refreshToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(auth.user));
+}
+export function clearAuthData() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+}
+// ──────────────────────────────────────────────
+// HTTP 请求封装
+// ──────────────────────────────────────────────
+function buildUrl(path) {
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    // 优先使用环境变量配置的 API 地址
+    if (API_BASE && API_BASE.length > 0) {
+        return `${API_BASE.replace(/\/$/, "")}${cleanPath}`;
+    }
+    // 浏览器环境：使用当前域名的不同端口（后端默认 3001）
+    if (typeof window !== "undefined") {
+        const { protocol, hostname } = window.location;
+        return `${protocol}//${hostname}:3001${cleanPath}`;
+    }
+    // 服务端环境
+    return `http://localhost:3001${cleanPath}`;
+}
+async function authFetch(path, init) {
+    const url = buildUrl(path);
+    const token = getAccessToken();
+    const headers = {
+        "Content-Type": "application/json",
+        ...init?.headers,
+    };
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+    const res = await fetch(url, {
+        ...init,
+        headers,
+        credentials: "include",
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`API Error ${res.status}: ${text}`);
+    }
+    // 204 No Content
+    if (res.status === 204) {
+        return undefined;
+    }
+    const json = await res.json();
+    // 后端返回格式: { code, message, data }
+    if (json && typeof json === "object" && "code" in json && "data" in json) {
+        if (json.code !== 0) {
+            throw new Error(json.message || "API Error");
+        }
+        return json.data;
+    }
+    return json;
+}
+// ──────────────────────────────────────────────
+// Auth API
+// ──────────────────────────────────────────────
+/**
+ * 管理员登录
+ */
+export async function login(payload) {
+    const data = await authFetch(`${API_PREFIX}/auth/login`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+    // 验证是否为管理员角色
+    const adminRoles = ["admin", "super_admin"];
+    if (!adminRoles.includes(data.user.role.toLowerCase())) {
+        throw new Error("权限不足：仅管理员可访问后台");
+    }
+    setAuthData(data);
+    return data;
+}
+/**
+ * 登出
+ */
+export async function logout() {
+    try {
+        await authFetch(`${API_PREFIX}/auth/logout`, {
+            method: "POST",
+        });
+    }
+    finally {
+        clearAuthData();
+    }
+}
+/**
+ * 刷新 Token
+ */
+export async function refreshTokens() {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+        throw new Error("No refresh token available");
+    }
+    const data = await authFetch(`${API_PREFIX}/auth/refresh`, {
+        method: "POST",
+        body: JSON.stringify({ refreshToken }),
+    });
+    localStorage.setItem(TOKEN_KEY, data.accessToken);
+    localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+    return data;
+}
+/**
+ * 获取当前用户信息（从本地存储）
+ */
+export function getCurrentUser() {
+    return getStoredUser();
+}
+/**
+ * 检查是否已登录
+ */
+export function isAuthenticated() {
+    return !!getAccessToken();
+}
+/**
+ * 检查是否为管理员
+ */
+export function isAdmin() {
+    const user = getStoredUser();
+    if (!user)
+        return false;
+    return ["admin", "super_admin"].includes(user.role.toLowerCase());
+}
+//# sourceMappingURL=auth-api.js.map

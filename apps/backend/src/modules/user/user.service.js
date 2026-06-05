@@ -59,9 +59,11 @@ let UserService = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         userRepo;
+        redis;
         logger = new Logger(UserService.name);
-        constructor(userRepo) {
+        constructor(userRepo, redis) {
             this.userRepo = userRepo;
+            this.redis = redis;
         }
         /**
          * 创建用户（注册）
@@ -148,6 +150,8 @@ let UserService = (() => {
         async deleteUser(id) {
             await this.findById(id);
             await this.userRepo.softDelete(id);
+            // SECURITY: 软删除后撤销所有 Refresh Token，强制下线
+            await this.redis.del(`refresh:${id}`);
             this.logger.log(`User soft-deleted: ${id}`);
         }
     };

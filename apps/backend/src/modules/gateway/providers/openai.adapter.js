@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { ProviderError } from './provider-error';
 /**
  * OpenAI 兼容适配器
  *
@@ -49,7 +50,7 @@ export class OpenAIAdapter {
         if (!response.ok) {
             const errorText = await response.text();
             this.logger.error(`Provider error: ${response.status} ${response.statusText} - ${errorText}`);
-            throw new Error(`Provider returned ${response.status}: ${errorText}`);
+            throw new ProviderError(`Provider returned ${response.status}: ${errorText}`, response.status, this.name);
         }
         const data = (await response.json());
         const latency = Date.now() - startTime;
@@ -89,7 +90,7 @@ export class OpenAIAdapter {
         if (!response.ok) {
             const errorText = await response.text();
             this.logger.error(`Provider stream error: ${response.status} ${response.statusText} - ${errorText}`);
-            throw new Error(`Provider returned ${response.status}: ${errorText}`);
+            throw new ProviderError(`Provider returned ${response.status}: ${errorText}`, response.status, this.name);
         }
         const reader = response.body?.getReader();
         if (!reader) {

@@ -32,7 +32,8 @@ var __runInitializers = (this && this.__runInitializers) || function (thisArg, i
     }
     return useValue ? value : void 0;
 };
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, HttpException } from '@nestjs/common';
+import { ProviderError } from './providers/provider-error';
 /**
  * 网关业务服务
  *
@@ -69,13 +70,15 @@ let GatewayService = (() => {
         channelService;
         billingService;
         requestLogService;
+        apiKeyRepository;
         logger = new Logger(GatewayService.name);
         /** 最大重试次数 */
         MAX_RETRIES = 2;
-        constructor(channelService, billingService, requestLogService) {
+        constructor(channelService, billingService, requestLogService, apiKeyRepository) {
             this.channelService = channelService;
             this.billingService = billingService;
             this.requestLogService = requestLogService;
+            this.apiKeyRepository = apiKeyRepository;
         }
         /**
          * 处理聊天补全请求（同步模式）
@@ -126,6 +129,8 @@ let GatewayService = (() => {
                         statusCode: 200,
                         latencyMs,
                     });
+                    // 记录 API Key 使用统计（异步，不阻塞响应）
+                    this.apiKeyRepository.recordUsage(apiKey.id).catch(() => { });
                     return response;
                 }
                 catch (error) {
@@ -133,13 +138,20 @@ let GatewayService = (() => {
                     this.logger.warn(`Channel ${channel.channelId} failed: ${lastError.message}`);
                     // 更新渠道统计（失败）
                     await this.channelService.updateChannelStats(channel.channelId, Date.now() - startTime, false);
+                    // 如果是限流错误，标记渠道为 RATE_LIMITED
+                    if (error instanceof ProviderError && error.isRateLimited) {
+                        await this.channelService.markChannelRateLimited(channel.channelId);
+                    }
                     // 如果是最后一个渠道，抛出错误
                     if (i === channels.length - 1) {
                         break;
                     }
                 }
             }
-            // 所有渠道都失败
+            // 所有渠道都失败 - 保留原始 HTTP 状态码
+            if (lastError instanceof ProviderError) {
+                throw new HttpException(lastError.message, lastError.statusCode);
+            }
             throw lastError || new Error('All channels failed');
         }
         /**
@@ -284,6 +296,8 @@ let GatewayService = (() => {
                 statusCode: 200,
                 latencyMs,
             });
+            // 记录 API Key 使用统计（异步，不阻塞）
+            this.apiKeyRepository.recordUsage(apiKey.id).catch(() => { });
         }
         /**
          * 检查模型是否在 API Key 的白名单中
@@ -316,9 +330,23 @@ let GatewayService = (() => {
             let asciiCount = 0;
             let otherCount = 0;
             for (const char of text) {
-                const code = char.charCodeAt(0);
-                // CJK 统一表意文字 + 扩展
-                if (code >= 0x4e00 && code <= 0x9fff) {
+                const code = char.codePointAt(0) ?? 0;
+                // CJK 统一表意文字（含扩展 A/B）、兼容表意文字
+                if ((code >= 0x4e00 && code <= 0x9fff) || // CJK Unified Ideographs
+                    (code >= 0x3400 && code <= 0x4dbf) || // CJK Extension A
+                    (code >= 0xf900 && code <= 0xfaff) || // CJK Compatibility Ideographs
+                    (code >= 0x20000 && code <= 0x2a6df) || // CJK Extension B
+                    (code >= 0x2a700 && code <= 0x2ceaf) // CJK Extensions C-F
+                ) {
+                    cjkCount++;
+                }
+                else if ((code >= 0x3040 && code <= 0x309f) || // Hiragana
+                    (code >= 0x30a0 && code <= 0x30ff) || // Katakana
+                    (code >= 0xac00 && code <= 0xd7af) || // Hangul Syllables
+                    (code >= 0x1100 && code <= 0x11ff) || // Hangul Jamo
+                    (code >= 0xff00 && code <= 0xffef) // Fullwidth Forms
+                ) {
+                    // CJK 邻近文字（日文假名、韩文、全角字符）
                     cjkCount++;
                 }
                 else if (code >= 0x0020 && code <= 0x007e) {

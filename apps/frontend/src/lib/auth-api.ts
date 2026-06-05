@@ -6,6 +6,7 @@
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_PREFIX = "/api/v1";
 
 // ──────────────────────────────────────────────
 // 类型定义
@@ -127,7 +128,17 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  return res.json() as Promise<T>;
+  const json = await res.json();
+
+  // 后端返回格式: { code, message, data }
+  if (json && typeof json === "object" && "code" in json && "data" in json) {
+    if (json.code !== 0) {
+      throw new Error(json.message || "API Error");
+    }
+    return json.data as T;
+  }
+
+  return json as T;
 }
 
 // ──────────────────────────────────────────────
@@ -138,7 +149,7 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
  * 管理员登录
  */
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  const data = await authFetch<AuthResponse>("/auth/login", {
+  const data = await authFetch<AuthResponse>(`${API_PREFIX}/auth/login`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -158,7 +169,7 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
  */
 export async function logout(): Promise<void> {
   try {
-    await authFetch<void>("/auth/logout", {
+    await authFetch<void>(`${API_PREFIX}/auth/logout`, {
       method: "POST",
     });
   } finally {
@@ -175,7 +186,7 @@ export async function refreshTokens(): Promise<TokenResponse> {
     throw new Error("No refresh token available");
   }
 
-  const data = await authFetch<TokenResponse>("/auth/refresh", {
+  const data = await authFetch<TokenResponse>(`${API_PREFIX}/auth/refresh`, {
     method: "POST",
     body: JSON.stringify({ refreshToken }),
   });

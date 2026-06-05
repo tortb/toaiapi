@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { ProviderError } from './provider-error';
 /**
  * Anthropic 适配器
  *
@@ -34,7 +35,7 @@ export class AnthropicAdapter {
         if (!response.ok) {
             const errorText = await response.text();
             this.logger.error(`Anthropic error: ${response.status} ${response.statusText} - ${errorText}`);
-            throw new Error(`Anthropic returned ${response.status}: ${errorText}`);
+            throw new ProviderError(`Anthropic returned ${response.status}: ${errorText}`, response.status, this.name);
         }
         const data = (await response.json());
         return this.normalizeResponse(data, request.model);
@@ -57,7 +58,7 @@ export class AnthropicAdapter {
         if (!response.ok) {
             const errorText = await response.text();
             this.logger.error(`Anthropic stream error: ${response.status} ${response.statusText} - ${errorText}`);
-            throw new Error(`Anthropic returned ${response.status}: ${errorText}`);
+            throw new ProviderError(`Anthropic returned ${response.status}: ${errorText}`, response.status, this.name);
         }
         const reader = response.body?.getReader();
         if (!reader) {
@@ -114,9 +115,7 @@ export class AnthropicAdapter {
                                     choices: [{
                                             index: 0,
                                             delta: {},
-                                            finish_reason: event.delta?.stop_reason === 'end_turn'
-                                                ? 'stop'
-                                                : 'length',
+                                            finish_reason: this.mapStopReason(event.delta?.stop_reason || 'end_turn', []),
                                         }],
                                     usage: {
                                         prompt_tokens: totalInputTokens,

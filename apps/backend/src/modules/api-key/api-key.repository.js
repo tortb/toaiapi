@@ -120,6 +120,19 @@ let ApiKeyRepository = (() => {
                 where: { user_id: userId },
             });
         }
+        /**
+         * 记录 API Key 使用（原子操作）
+         * 更新最后使用时间并自增请求计数
+         */
+        async recordUsage(keyId) {
+            await this.prisma.apiKey.update({
+                where: { id: keyId },
+                data: {
+                    last_used_at: new Date(),
+                    total_requests: { increment: 1 },
+                },
+            });
+        }
     };
     return ApiKeyRepository = _classThis;
 })();

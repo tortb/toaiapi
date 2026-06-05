@@ -86,10 +86,12 @@ let GatewayController = (() => {
         }
         gatewayService = __runInitializers(this, _instanceExtraInitializers);
         channelService;
+        redis;
         logger = new Logger(GatewayController.name);
-        constructor(gatewayService, channelService) {
+        constructor(gatewayService, channelService, redis) {
             this.gatewayService = gatewayService;
             this.channelService = channelService;
+            this.redis = redis;
         }
         /**
          * OpenAI 兼容的聊天补全接口
@@ -105,7 +107,7 @@ let GatewayController = (() => {
                 model: dto.model,
                 messages: dto.messages.map((m) => ({
                     role: m.role,
-                    content: m.content,
+                    content: m.content ?? '',
                     tool_call_id: m.tool_call_id,
                 })),
                 temperature: dto.temperature,
@@ -198,8 +200,13 @@ let GatewayController = (() => {
          * GET /v1/models
          */
         async listModels() {
+            // 缓存模型列表 30 秒，减少数据库压力
+            const cacheKey = 'gateway:models:list';
+            const cached = await this.redis.getJson(cacheKey);
+            if (cached)
+                return cached;
             const models = await this.channelService.getAvailableModels();
-            return {
+            const result = {
                 object: 'list',
                 data: models.map((model) => ({
                     id: model.name,
@@ -208,6 +215,8 @@ let GatewayController = (() => {
                     owned_by: model.provider_id,
                 })),
             };
+            await this.redis.setJson(cacheKey, result, 30);
+            return result;
         }
         /**
          * 公开模型列表（营销页面用，无需认证）
@@ -216,8 +225,13 @@ let GatewayController = (() => {
          * 返回模型名、定价、能力等公开信息。
          */
         async listPublicModels() {
+            // 缓存公开模型列表 60 秒
+            const cacheKey = 'gateway:models:public';
+            const cached = await this.redis.getJson(cacheKey);
+            if (cached)
+                return cached;
             const models = await this.channelService.getAvailableModels();
-            return {
+            const result = {
                 data: models.map((model) => ({
                     id: model.name,
                     displayName: model.display_name,
@@ -237,6 +251,8 @@ let GatewayController = (() => {
                         : null,
                 })),
             };
+            await this.redis.setJson(cacheKey, result, 60);
+            return result;
         }
         /**
          * 公开渠道状态（服务状态页用，无需认证）

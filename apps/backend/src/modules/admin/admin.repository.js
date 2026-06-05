@@ -293,6 +293,248 @@ let AdminRepository = (() => {
                 select: { id: true, email: true, status: true },
             });
         }
+        // ──────────────────────────────────────────────
+        // Dashboard
+        // ──────────────────────────────────────────────
+        /**
+         * 获取用户统计
+         */
+        async getUserStats(startDate, endDate) {
+            const [totalUsers, previousPeriodUsers] = await Promise.all([
+                this.prisma.user.count({
+                    where: {
+                        created_at: { gte: startDate, lte: endDate },
+                        deleted_at: null,
+                    },
+                }),
+                this.prisma.user.count({
+                    where: {
+                        created_at: {
+                            gte: new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime())),
+                            lt: startDate,
+                        },
+                        deleted_at: null,
+                    },
+                }),
+            ]);
+            return { totalUsers, previousPeriodUsers };
+        }
+        /**
+         * 获取充值统计
+         */
+        async getRechargeStats(startDate, endDate) {
+            const [current, previous] = await Promise.all([
+                this.prisma.order.aggregate({
+                    _sum: { amount: true },
+                    where: {
+                        status: 'PAID',
+                        created_at: { gte: startDate, lte: endDate },
+                    },
+                }),
+                this.prisma.order.aggregate({
+                    _sum: { amount: true },
+                    where: {
+                        status: 'PAID',
+                        created_at: {
+                            gte: new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime())),
+                            lt: startDate,
+                        },
+                    },
+                }),
+            ]);
+            return {
+                totalRecharge: current._sum.amount ?? 0,
+                previousRecharge: previous._sum.amount ?? 0,
+            };
+        }
+        /**
+         * 获取消费统计
+         */
+        async getConsumptionStats(startDate, endDate) {
+            const [current, previous] = await Promise.all([
+                this.prisma.userTransaction.aggregate({
+                    _sum: { amount: true },
+                    where: {
+                        type: 'DEDUCT',
+                        created_at: { gte: startDate, lte: endDate },
+                    },
+                }),
+                this.prisma.userTransaction.aggregate({
+                    _sum: { amount: true },
+                    where: {
+                        type: 'DEDUCT',
+                        created_at: {
+                            gte: new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime())),
+                            lt: startDate,
+                        },
+                    },
+                }),
+            ]);
+            return {
+                totalConsumption: current._sum.amount ?? 0,
+                previousConsumption: previous._sum.amount ?? 0,
+            };
+        }
+        /**
+         * 获取调用统计
+         */
+        async getRequestStats(startDate, endDate) {
+            const [current, previous] = await Promise.all([
+                this.prisma.requestLog.count({
+                    where: { created_at: { gte: startDate, lte: endDate } },
+                }),
+                this.prisma.requestLog.count({
+                    where: {
+                        created_at: {
+                            gte: new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime())),
+                            lt: startDate,
+                        },
+                    },
+                }),
+            ]);
+            return { totalRequests: current, previousRequests: previous };
+        }
+        /**
+         * 获取总余额
+         */
+        async getTotalBalance() {
+            const result = await this.prisma.userBalance.aggregate({
+                _sum: { amount: true },
+            });
+            return result._sum.amount ?? 0;
+        }
+        /**
+         * 获取调用统计（按天分组）
+         */
+        async getCallStatsByDay(startDate, endDate) {
+            const logs = await this.prisma.requestLog.findMany({
+                where: { created_at: { gte: startDate, lte: endDate } },
+                select: {
+                    created_at: true,
+                    total_tokens: true,
+                    cost: true,
+                },
+            });
+            // 按天分组
+            const statsMap = new Map();
+            for (const log of logs) {
+                const date = log.created_at;
+                const label = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                const existing = statsMap.get(label) ?? { requests: 0, tokens: 0, cost: 0 };
+                existing.requests++;
+                existing.tokens += log.total_tokens;
+                existing.cost += log.cost;
+                statsMap.set(label, existing);
+            }
+            // 填充空日期
+            const result = [];
+            const current = new Date(startDate);
+            while (current <= endDate) {
+                const label = `${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+                const stats = statsMap.get(label) ?? { requests: 0, tokens: 0, cost: 0 };
+                result.push({ label, ...stats });
+                current.setDate(current.getDate() + 1);
+            }
+            return result;
+        }
+        /**
+         * 获取模型分布
+         */
+        async getModelDistribution(startDate, endDate) {
+            const distribution = await this.prisma.requestLog.groupBy({
+                by: ['model_id'],
+                _count: { id: true },
+                where: { created_at: { gte: startDate, lte: endDate } },
+                orderBy: { _count: { id: 'desc' } },
+                take: 5,
+            });
+            const totalCount = await this.prisma.requestLog.count({
+                where: { created_at: { gte: startDate, lte: endDate } },
+            });
+            // 获取模型名称
+            const modelIds = distribution.map((d) => d.model_id).filter(Boolean);
+            const models = await this.prisma.model.findMany({
+                where: { id: { in: modelIds } },
+                select: { id: true, display_name: true, name: true },
+            });
+            const modelMap = new Map(models.map((m) => [m.id, m.display_name ?? m.name]));
+            return distribution.map((d) => ({
+                name: modelMap.get(d.model_id ?? '') ?? 'Unknown',
+                count: d._count.id,
+                percentage: totalCount > 0 ? Math.round((d._count.id / totalCount) * 1000) / 10 : 0,
+            }));
+        }
+        /**
+         * 获取最近订单
+         */
+        async getRecentOrders(limit = 10) {
+            const orders = await this.prisma.order.findMany({
+                take: limit,
+                orderBy: { created_at: 'desc' },
+                include: {
+                    user: {
+                        select: { email: true },
+                    },
+                    payment: {
+                        select: { method: true },
+                    },
+                },
+            });
+            return orders.map((o) => ({
+                id: o.id,
+                orderNo: o.order_no,
+                userEmail: this.maskEmail(o.user.email),
+                amount: o.amount,
+                paymentMethod: o.payment?.method ?? null,
+                status: o.status,
+                createdAt: o.created_at.toISOString(),
+            }));
+        }
+        /**
+         * 获取渠道状态
+         */
+        async getChannelStatus() {
+            const channels = await this.prisma.channel.findMany({
+                take: 10,
+                orderBy: { created_at: 'desc' },
+                select: {
+                    id: true,
+                    name: true,
+                    status: true,
+                },
+            });
+            // 获取今日每个渠道的调用次数
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const result = await Promise.all(channels.map(async (ch) => {
+                const todayRequests = await this.prisma.requestLog.count({
+                    where: {
+                        channel_id: ch.id,
+                        created_at: { gte: today },
+                    },
+                });
+                return {
+                    id: ch.id,
+                    name: ch.name,
+                    status: ch.status,
+                    avgLatency: 0, // TODO: 需要从 RequestLog 计算平均延迟
+                    todayRequests,
+                };
+            }));
+            return result;
+        }
+        /**
+         * 邮箱脱敏
+         */
+        maskEmail(email) {
+            const [local = '', domain = ''] = email.split('@');
+            if (!local || !domain)
+                return email;
+            if (local.length <= 3) {
+                return `${local[0]}***@${domain}`;
+            }
+            return `${local.slice(0, 3)}***@${domain}`;
+        }
     };
     return AdminRepository = _classThis;
 })();
