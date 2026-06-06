@@ -333,6 +333,174 @@ async function seedSmtpConfig() {
     });
     console.log('   ✓ Default SMTP config created');
 }
+const SYSTEM_SETTINGS = [
+    {
+        category: 'basic',
+        settings: [
+            { key: 'site_name', value: 'ToAIAPI' },
+            { key: 'site_subtitle', value: '企业级 AI API 网关' },
+            { key: 'logo_url', value: '' },
+            { key: 'favicon_url', value: '' },
+            { key: 'copyright', value: '© 2026 ToAIAPI. All rights reserved.' },
+            { key: 'icp_number', value: '' },
+            { key: 'contact_email', value: '' },
+            { key: 'support_email', value: '' },
+            { key: 'default_language', value: 'zh-CN' },
+            { key: 'default_timezone', value: 'Asia/Shanghai' },
+        ],
+    },
+    {
+        category: 'website',
+        settings: [
+            { key: 'maintenance_mode', value: 'false', type: 'boolean' },
+            { key: 'maintenance_notice', value: '' },
+            { key: 'home_notice', value: '' },
+            { key: 'login_notice', value: '' },
+            { key: 'register_notice', value: '' },
+            { key: 'footer_content', value: '' },
+            { key: 'seo_title', value: 'ToAIAPI - 企业级 AI API 网关' },
+            { key: 'seo_description', value: '一站式 AI API 代理平台，支持 OpenAI、Anthropic、Google 等主流模型' },
+            { key: 'seo_keywords', value: 'AI API,OpenAI,Claude,GPT,API代理' },
+        ],
+    },
+    {
+        category: 'user',
+        settings: [
+            { key: 'allow_register', value: 'true', type: 'boolean' },
+            { key: 'allow_delete_account', value: 'false', type: 'boolean' },
+            { key: 'allow_change_email', value: 'true', type: 'boolean' },
+            { key: 'allow_change_username', value: 'true', type: 'boolean' },
+            { key: 'allow_create_api_key', value: 'true', type: 'boolean' },
+            { key: 'allow_delete_api_key', value: 'true', type: 'boolean' },
+            { key: 'allow_webhook', value: 'false', type: 'boolean' },
+            { key: 'allow_organization', value: 'false', type: 'boolean' },
+        ],
+    },
+    {
+        category: 'register',
+        settings: [
+            { key: 'email_verify', value: 'false', type: 'boolean' },
+            { key: 'captcha_enabled', value: 'false', type: 'boolean' },
+            { key: 'invite_code_required', value: 'false', type: 'boolean' },
+            { key: 'whitelist_enabled', value: 'false', type: 'boolean' },
+            { key: 'default_balance', value: '500', type: 'number' },
+            { key: 'default_quota', value: '1000000', type: 'number' },
+            { key: 'default_group', value: 'default' },
+            { key: 'default_role', value: 'USER' },
+        ],
+    },
+    {
+        category: 'finance',
+        settings: [
+            { key: 'min_recharge', value: '100', type: 'number' },
+            { key: 'max_recharge', value: '10000000', type: 'number' },
+            { key: 'gift_ratio', value: '0', type: 'number' },
+            { key: 'refund_enabled', value: 'false', type: 'boolean' },
+            { key: 'withdraw_enabled', value: 'false', type: 'boolean' },
+            { key: 'auto_refund', value: 'false', type: 'boolean' },
+            { key: 'invoice_enabled', value: 'true', type: 'boolean' },
+        ],
+    },
+    {
+        category: 'rate_limit',
+        settings: [
+            { key: 'rpm', value: '60', type: 'number' },
+            { key: 'rph', value: '1000', type: 'number' },
+            { key: 'rpd', value: '10000', type: 'number' },
+            { key: 'ip_limit', value: '100', type: 'number' },
+            { key: 'key_limit', value: '100', type: 'number' },
+            { key: 'token_limit', value: '1000000', type: 'number' },
+            { key: 'concurrent_limit', value: '10', type: 'number' },
+        ],
+    },
+    {
+        category: 'security',
+        settings: [
+            { key: 'login_lock_enabled', value: 'true', type: 'boolean' },
+            { key: 'login_max_attempts', value: '5', type: 'number' },
+            { key: 'login_lock_duration', value: '1800', type: 'number' },
+            { key: 'two_factor_enabled', value: 'false', type: 'boolean' },
+            { key: 'password_min_length', value: '8', type: 'number' },
+            { key: 'password_require_uppercase', value: 'true', type: 'boolean' },
+            { key: 'password_require_number', value: 'true', type: 'boolean' },
+            { key: 'password_require_special', value: 'false', type: 'boolean' },
+            { key: 'session_expire', value: '86400', type: 'number' },
+            { key: 'jwt_access_expire', value: '900', type: 'number' },
+            { key: 'jwt_refresh_expire', value: '604800', type: 'number' },
+            { key: 'ip_whitelist', value: '' },
+            { key: 'ip_blacklist', value: '' },
+        ],
+    },
+    {
+        category: 'api',
+        settings: [
+            { key: 'api_prefix', value: '/api/v1' },
+            { key: 'api_version', value: 'v1' },
+            { key: 'request_timeout', value: '300000', type: 'number' },
+            { key: 'max_concurrent', value: '100', type: 'number' },
+            { key: 'max_tokens', value: '128000', type: 'number' },
+            { key: 'cache_enabled', value: 'true', type: 'boolean' },
+            { key: 'stream_enabled', value: 'true', type: 'boolean' },
+        ],
+    },
+    {
+        category: 'notification',
+        settings: [
+            { key: 'email_enabled', value: 'true', type: 'boolean' },
+            { key: 'webhook_enabled', value: 'false', type: 'boolean' },
+            { key: 'webhook_url', value: '' },
+            { key: 'notify_recharge_success', value: 'true', type: 'boolean' },
+            { key: 'notify_low_balance', value: 'true', type: 'boolean' },
+            { key: 'notify_low_balance_threshold', value: '1000', type: 'number' },
+            { key: 'notify_provider_error', value: 'true', type: 'boolean' },
+            { key: 'notify_system_error', value: 'true', type: 'boolean' },
+            { key: 'notify_invoice_request', value: 'true', type: 'boolean' },
+        ],
+    },
+    {
+        category: 'storage',
+        settings: [
+            { key: 'upload_enabled', value: 'true', type: 'boolean' },
+            { key: 'max_file_size', value: '10', type: 'number' },
+            { key: 'allowed_file_types', value: 'jpg,jpeg,png,gif,pdf' },
+        ],
+    },
+    {
+        category: 'developer',
+        settings: [
+            { key: 'debug_mode', value: 'false', type: 'boolean' },
+            { key: 'log_level', value: 'info' },
+            { key: 'system_monitor', value: 'true', type: 'boolean' },
+        ],
+    },
+];
+async function seedSystemSettings() {
+    console.log('\n⚙️  Seeding System Settings...');
+    let created = 0;
+    let updated = 0;
+    for (const { category, settings } of SYSTEM_SETTINGS) {
+        for (const { key, value, type } of settings) {
+            const existing = await prisma.systemSetting.findUnique({ where: { key } });
+            if (existing) {
+                // 仅更新值为空的情况，不覆盖用户已配置的值
+                if (!existing.value && value) {
+                    await prisma.systemSetting.update({
+                        where: { key },
+                        data: { value, type: type ?? 'string' },
+                    });
+                    updated++;
+                }
+            }
+            else {
+                await prisma.systemSetting.create({
+                    data: { category, key, value, type: type ?? 'string' },
+                });
+                created++;
+            }
+        }
+    }
+    console.log(`   ✓ System settings: ${created} created, ${updated} updated`);
+}
 const USER_GROUPS = [
     {
         name: 'free',
@@ -623,6 +791,8 @@ async function main() {
         await seedPaymentConfigs();
         // 7. SMTP Config（无依赖）
         await seedSmtpConfig();
+        // 8. System Settings（无依赖）
+        await seedSystemSettings();
         console.log('\n' + '='.repeat(50));
         console.log('✅ Database seeding completed successfully!');
         console.log('='.repeat(50));

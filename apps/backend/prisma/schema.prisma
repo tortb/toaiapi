@@ -442,6 +442,23 @@ model SmtpConfig {
   updated_at   DateTime @updatedAt
 }
 
+/// 短信配置表
+/// 存储阿里云短信服务配置
+/// SECURITY: access_key_secret 使用 AES-256-GCM 加密存储
+model SmsConfig {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  display_name      String
+  is_enabled        Boolean  @default(false)
+  access_key_id     String?
+  access_key_secret String?
+  sign_name         String?
+  template_code     String?
+  extra_config      Json?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+}
+
 enum UserRole {
   USER
   VIP

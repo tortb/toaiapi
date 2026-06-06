@@ -1309,6 +1309,83 @@ export async function sendTestEmail(email: string): Promise<SmtpTestResult> {
 }
 
 // ──────────────────────────────────────────────
+// 短信配置 (SMS)
+// ──────────────────────────────────────────────
+
+export interface SmsConfigData {
+  id: string;
+  name: string;
+  display_name: string;
+  is_enabled: boolean;
+  access_key_id: string | null;
+  access_key_secret: string | null;
+  sign_name: string | null;
+  template_code: string | null;
+  extra_config: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateSmsConfigPayload {
+  is_enabled?: boolean;
+  display_name?: string;
+  access_key_id?: string;
+  access_key_secret?: string;
+  sign_name?: string;
+  template_code?: string;
+}
+
+export interface SmsTestResult {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * 获取短信配置
+ */
+export async function getSmsConfig(): Promise<SmsConfigData | null> {
+  return adminFetch<SmsConfigData | null>(`${API_PREFIX}/admin/sms-config`);
+}
+
+/**
+ * 更新短信配置
+ */
+export async function updateSmsConfig(payload: UpdateSmsConfigPayload): Promise<SmsConfigData> {
+  return adminFetch<SmsConfigData>(`${API_PREFIX}/admin/sms-config`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 切换短信启用状态
+ */
+export async function toggleSmsConfig(): Promise<SmsConfigData> {
+  return adminFetch<SmsConfigData>(`${API_PREFIX}/admin/sms-config/toggle`, {
+    method: "PATCH",
+  });
+}
+
+/**
+ * 测试短信配置连接
+ */
+export async function testSmsConnection(): Promise<SmsTestResult> {
+  return adminFetch<SmsTestResult>(`${API_PREFIX}/admin/sms-config/test-connection`, {
+    method: "POST",
+  });
+}
+
+/**
+ * 发送测试短信
+ */
+export async function sendTestSms(phone: string, templateCode?: string, templateParam?: string): Promise<SmsTestResult> {
+  return adminFetch<SmsTestResult>(`${API_PREFIX}/admin/sms-config/send-test`, {
+    method: "POST",
+    body: JSON.stringify({ phone, templateCode, templateParam }),
+  });
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 

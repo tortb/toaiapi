@@ -41,6 +41,7 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
 import { UpdateSmtpConfigDto, SendTestEmailDto } from './dto/smtp-config.dto';
+import { UpdateSmsConfigDto, SendTestSmsDto } from './dto/sms-config.dto';
 import { DashboardResponseDto } from './dto/dashboard-response.dto';
 import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
@@ -544,6 +545,49 @@ export class AdminController {
   @ApiOkResponse()
   async sendTestEmail(@Body() dto: SendTestEmailDto) {
     return this.adminService.sendTestEmail(dto.email);
+  }
+
+  // ──────────────────────────────────────────────
+  // 短信配置管理
+  // ──────────────────────────────────────────────
+
+  @Get('sms-config')
+  @ApiOperation({ summary: '获取短信配置' })
+  @ApiOkResponse()
+  async getSmsConfig() {
+    return this.adminService.getSmsConfig();
+  }
+
+  @Put('sms-config')
+  @Roles('admin')
+  @ApiOperation({ summary: '更新短信配置' })
+  @ApiOkResponse()
+  async updateSmsConfig(@Body() dto: UpdateSmsConfigDto) {
+    return this.adminService.updateSmsConfig(dto);
+  }
+
+  @Patch('sms-config/toggle')
+  @Roles('admin')
+  @ApiOperation({ summary: '切换短信配置启用状态' })
+  @ApiOkResponse()
+  async toggleSmsConfig() {
+    return this.adminService.toggleSmsConfig();
+  }
+
+  @Post('sms-config/test-connection')
+  @Roles('admin')
+  @ApiOperation({ summary: '测试短信配置连接', description: '验证阿里云 AccessKey 凭证是否有效' })
+  @ApiOkResponse()
+  async testSmsConnection() {
+    return this.adminService.testSmsConnection();
+  }
+
+  @Post('sms-config/send-test')
+  @Roles('admin')
+  @ApiOperation({ summary: '发送测试短信' })
+  @ApiOkResponse()
+  async sendTestSms(@Body() dto: SendTestSmsDto) {
+    return this.adminService.sendTestSms(dto);
   }
 
   // ──────────────────────────────────────────────

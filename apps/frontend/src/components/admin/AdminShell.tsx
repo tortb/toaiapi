@@ -93,6 +93,7 @@ const sidebarSections: SidebarSection[] = [
     items: [
       { icon: <IconSystem size={18} />, label: "系统设置", href: "/admin/settings" },
       { icon: <IconShield size={18} />, label: "验证码配置", href: "/admin/captcha" },
+      { icon: <IconShield size={18} />, label: "短信管理", href: "/admin/sms" },
     ],
   },
 ];
