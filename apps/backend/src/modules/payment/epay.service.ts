@@ -128,29 +128,24 @@ export class EPayService {
   async createPayUrl(params: EPayCreateOrderParams): Promise<string> {
     const config = await this.getConfig();
 
-    // 构建参数（仅包含非空值，符合 EPay 规范）
+    // 构建完整参数（notify_url/return_url 始终传递，签名时自动过滤空值）
     const submitParams: Record<string, any> = {
       pid: config.pid,
       type: params.type,
       out_trade_no: params.outTradeNo,
+      notify_url: config['notifyUrl'] || '',
+      return_url: config['returnUrl'] || '',
       name: params.name,
       money: params.money,
     };
 
-    // notify_url 和 return_url 仅在非空时添加（EPay 规范：空值不参与签名）
-    if (config['notifyUrl']) {
-      submitParams['notify_url'] = config['notifyUrl'];
-    }
-    if (config['returnUrl']) {
-      submitParams['return_url'] = config['returnUrl'];
-    }
-
-    // 生成签名
+    // 生成签名（generateSign 会自动过滤空值和 sign/sign_type）
     const sign = this.generateSign(submitParams, config.key);
 
-    // 构建支付链接（去除末尾斜杠避免双斜杠）
+    // 构建支付链接
     const endpoint = config.apiEndpoint.replace(/\/+$/, '');
-    const queryString = Object.entries({ ...submitParams, sign, sign_type: 'MD5' })
+    const allParams = { ...submitParams, sign, sign_type: 'MD5' };
+    const queryString = Object.entries(allParams)
       .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
       .join('&');
 
