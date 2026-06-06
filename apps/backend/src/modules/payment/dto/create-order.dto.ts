@@ -7,7 +7,6 @@ import { ApiProperty } from '@nestjs/swagger';
 export enum PaymentMethodDto {
   EPAY_ALIPAY = 'EPAY_ALIPAY',
   EPAY_WECHAT = 'EPAY_WECHAT',
-  EPAY_QQ = 'EPAY_QQ',
   ALIPAY = 'ALIPAY',
   WECHAT_PAY = 'WECHAT_PAY',
 }

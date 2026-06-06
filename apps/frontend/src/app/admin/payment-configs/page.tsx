@@ -40,7 +40,6 @@ const GATEWAY_INFO: Record<string, { label: string; icon: string; color: string;
       { key: "return_url", label: "同步跳转地址", type: "url", placeholder: "https://your-domain.com/recharge?success=true" },
       { key: "extra_config.enable_alipay", label: "启用支付宝", type: "boolean", tip: "通过易支付使用支付宝支付" },
       { key: "extra_config.enable_wxpay", label: "启用微信支付", type: "boolean", tip: "通过易支付使用微信支付" },
-      { key: "extra_config.enable_qqpay", label: "启用QQ支付", type: "boolean", tip: "通过易支付使用QQ钱包支付" },
     ],
   },
   alipay: {

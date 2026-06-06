@@ -30,7 +30,6 @@ function PaymentIcon({ method }: { method: string }) {
   const icons: Record<string, string> = {
     EPAY_ALIPAY: "💙",
     EPAY_WECHAT: "💚",
-    EPAY_QQ: "🐧",
     ALIPAY: "💙",
     WECHAT_PAY: "💚",
   };

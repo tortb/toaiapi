@@ -618,7 +618,6 @@ export function getPaymentMethodLabel(method: string | null): string {
     ALIPAY: "支付宝",
     EPAY_ALIPAY: "易支付-支付宝",
     EPAY_WECHAT: "易支付-微信",
-    EPAY_QQ: "易支付-QQ",
     BALANCE: "余额支付",
   };
   return map[method] ?? method;

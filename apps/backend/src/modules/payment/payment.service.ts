@@ -150,14 +150,6 @@ export class PaymentService implements OnModuleInit {
           money: this.epayService.fenToYuan(order.amount),
         });
 
-      case PaymentMethodDto.EPAY_QQ:
-        return this.epayService.createPayUrl({
-          outTradeNo: order.order_no,
-          type: 'qqpay',
-          name: order.product_name,
-          money: this.epayService.fenToYuan(order.amount),
-        });
-
       case PaymentMethodDto.ALIPAY:
         return this.alipayService.createPagePayForm({
           outTradeNo: order.order_no,
@@ -185,7 +177,6 @@ export class PaymentService implements OnModuleInit {
     const mapping: Record<PaymentMethodDto, PaymentMethod> = {
       [PaymentMethodDto.EPAY_ALIPAY]: 'EPAY_ALIPAY',
       [PaymentMethodDto.EPAY_WECHAT]: 'EPAY_WECHAT',
-      [PaymentMethodDto.EPAY_QQ]: 'EPAY_QQ',
       [PaymentMethodDto.ALIPAY]: 'ALIPAY',
       [PaymentMethodDto.WECHAT_PAY]: 'WECHAT_PAY',
     };
@@ -532,10 +523,8 @@ export class PaymentService implements OnModuleInit {
           const extra = config.extra_config as Record<string, any> | null;
           const enableAlipay = extra?.['enable_alipay'] !== false; // 默认启用
           const enableWxpay = extra?.['enable_wxpay'] !== false;
-          const enableQqpay = extra?.['enable_qqpay'] !== false;
           if (enableAlipay) methods.push({ name: 'EPAY_ALIPAY', displayName: '易支付-支付宝' });
           if (enableWxpay) methods.push({ name: 'EPAY_WECHAT', displayName: '易支付-微信' });
-          if (enableQqpay) methods.push({ name: 'EPAY_QQ', displayName: '易支付-QQ' });
           break;
         }
         case 'alipay':
@@ -548,6 +537,16 @@ export class PaymentService implements OnModuleInit {
     }
 
     return methods;
+  }
+
+  /**
+   * 验证易支付同步跳转
+   */
+  async verifyEpayReturn(params: Record<string, any>): Promise<{
+    valid: boolean;
+    orderNo?: string;
+  }> {
+    return this.epayService.verifyReturn(params);
   }
 
   /**
