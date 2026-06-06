@@ -20,6 +20,7 @@ export class RedisService implements OnModuleDestroy {
       password: this.configService.get<string>('REDIS_PASSWORD'),
       db: this.configService.get<number>('REDIS_DB', 0),
       maxRetriesPerRequest: 3,
+      lazyConnect: true,
       retryStrategy(times: number): number | null {
         if (times > 3) {
           return null;
@@ -52,10 +53,14 @@ export class RedisService implements OnModuleDestroy {
    * 设置键值对
    */
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
-    if (ttlSeconds != null && ttlSeconds > 0) {
-      await this.client.set(key, value, 'EX', ttlSeconds);
-    } else {
-      await this.client.set(key, value);
+    try {
+      if (ttlSeconds != null && ttlSeconds > 0) {
+        await this.client.set(key, value, 'EX', ttlSeconds);
+      } else {
+        await this.client.set(key, value);
+      }
+    } catch {
+      // Redis unavailable, silently ignore
     }
   }
 
@@ -70,7 +75,11 @@ export class RedisService implements OnModuleDestroy {
    * 删除键
    */
   async del(key: string): Promise<void> {
-    await this.client.del(key);
+    try {
+      await this.client.del(key);
+    } catch {
+      // Redis unavailable, silently ignore
+    }
   }
 
   /**
@@ -85,14 +94,22 @@ export class RedisService implements OnModuleDestroy {
    * 设置过期时间
    */
   async expire(key: string, seconds: number): Promise<void> {
-    await this.client.expire(key, seconds);
+    try {
+      await this.client.expire(key, seconds);
+    } catch {
+      // Redis unavailable, silently ignore
+    }
   }
 
   /**
    * 自增
    */
   async incr(key: string): Promise<number> {
-    return this.client.incr(key);
+    try {
+      return await this.client.incr(key);
+    } catch {
+      return 0;
+    }
   }
 
   /**
@@ -106,8 +123,12 @@ export class RedisService implements OnModuleDestroy {
    * 获取自增值
    */
   async getCounter(key: string): Promise<number> {
-    const value = await this.client.get(key);
-    return value ? parseInt(value, 10) : 0;
+    try {
+      const value = await this.client.get(key);
+      return value ? parseInt(value, 10) : 0;
+    } catch {
+      return 0;
+    }
   }
 
   /**

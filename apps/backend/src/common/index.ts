@@ -25,7 +25,9 @@ export type { PaginatedResult } from './dto/pagination.dto';
 export { ConfigEncryptionService } from './services/config-encryption.service';
 export { PaymentConfigService } from './services/payment-config.service';
 export { SmtpConfigService } from './services/smtp-config.service';
+export { SmsConfigService } from './services/sms-config.service';
 export { EmailService } from './services/email.service';
+export { SmsService } from './services/sms.service';
 
 // Modules
 export { ConfigModule } from './services/config.module';

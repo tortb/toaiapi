@@ -23,6 +23,7 @@ import { UpdatePaymentConfigDto } from './dto/payment-config.dto';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto';
 import { CreateInvoiceDto, ReviewInvoiceDto, IssueInvoiceDto } from './dto/invoice.dto';
 import { UpdateSmtpConfigDto } from './dto/smtp-config.dto';
+import { UpdateSmsConfigDto, SendTestSmsDto } from './dto/sms-config.dto';
 import { CreateUserGroupDto, UpdateUserGroupDto } from './dto/user-group.dto';
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/role.dto';
 import { ProviderResponseDto } from './dto/provider-response.dto';
@@ -32,6 +33,8 @@ import { DashboardResponseDto } from './dto/dashboard-response.dto';
 import type { PaginatedResult } from '../../common/dto/pagination.dto';
 import { PaymentConfigService } from '../../common/services/payment-config.service';
 import { SmtpConfigService } from '../../common/services/smtp-config.service';
+import { SmsConfigService } from '../../common/services/sms-config.service';
+import { SmsService } from '../../common/services/sms.service';
 import { EmailService } from '../../common/services/email.service';
 import { SystemSettingService } from '../../common/services/system-setting.service';
 
@@ -50,6 +53,8 @@ export class AdminService {
     private readonly adminRepo: AdminRepository,
     private readonly paymentConfigService: PaymentConfigService,
     private readonly smtpConfigService: SmtpConfigService,
+    private readonly smsConfigService: SmsConfigService,
+    private readonly smsService: SmsService,
     private readonly emailService: EmailService,
     private readonly systemSettingService: SystemSettingService,
   ) {}
@@ -1419,6 +1424,61 @@ export class AdminService {
    */
   async sendTestEmail(email: string) {
     return this.emailService.sendTestEmail(email);
+  }
+
+  // ──────────────────────────────────────────────
+  // 短信配置管理
+  // ──────────────────────────────────────────────
+
+  /**
+   * 获取短信配置
+   */
+  async getSmsConfig() {
+    return this.smsConfigService.getConfig();
+  }
+
+  /**
+   * 更新短信配置
+   */
+  async updateSmsConfig(dto: UpdateSmsConfigDto) {
+    const result = await this.smsConfigService.update(dto);
+    // 刷新短信服务状态
+    await this.smsService.refreshState();
+    return result;
+  }
+
+  /**
+   * 切换短信配置启用状态
+   */
+  async toggleSmsConfig() {
+    const result = await this.smsConfigService.toggle();
+    // 刷新短信服务状态
+    await this.smsService.refreshState();
+    return result;
+  }
+
+  /**
+   * 测试短信配置连接
+   */
+  async testSmsConnection() {
+    return this.smsService.testConnection();
+  }
+
+  /**
+   * 发送测试短信
+   */
+  async sendTestSms(dto: SendTestSmsDto) {
+    const result = await this.smsService.sendSms(
+      dto.phone,
+      dto.templateCode,
+      dto.templateParam || JSON.stringify({ code: '000000' }),
+    );
+    return {
+      success: result.success,
+      message: result.success
+        ? `发送成功 (RequestId: ${result.requestId})`
+        : `发送失败: [${result.code}] ${result.message}`,
+    };
   }
 
   // ──────────────────────────────────────────────
