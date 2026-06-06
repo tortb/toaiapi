@@ -8,6 +8,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { buildApiUrl } from "@/lib/http";
 
 export interface PublicConfig {
   site_name: string;
@@ -118,20 +119,7 @@ const PublicConfigContext = createContext<PublicConfigContextType>({
   refresh: async () => {},
 });
 
-const CONFIG_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
-
-function buildPublicConfigUrl(): string {
-  const path = "/api/v1/public-config";
-  if (CONFIG_BASE && CONFIG_BASE.length > 0) {
-    return `${CONFIG_BASE.replace(/\/$/, "")}${path}`;
-  }
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    return `${protocol}//${hostname}:3001${path}`;
-  }
-  return `http://localhost:3001${path}`;
-}
+const PUBLIC_CONFIG_PATH = "/api/v1/public-config";
 
 export function PublicConfigProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<PublicConfig>(DEFAULT_CONFIG);
@@ -139,7 +127,7 @@ export function PublicConfigProvider({ children }: { children: React.ReactNode }
 
   const fetchConfig = useCallback(async () => {
     try {
-      const url = buildPublicConfigUrl();
+      const url = buildApiUrl(PUBLIC_CONFIG_PATH);
       const res = await fetch(url, {
         method: "GET",
         headers: { "Content-Type": "application/json" },

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/providers/auth-provider";
 import { PublicConfigProvider } from "@/providers/public-config-provider";
+import { buildApiUrl } from "@/lib/http";
 import "./globals.css";
 
 /** 服务端获取 SEO 配置 */
 async function fetchSeoConfig() {
-  const base = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
-  const url = `${base.replace(/\/$/, "") || "http://localhost:3001"}/api/v1/public-config`;
+  const url = buildApiUrl("/api/v1/public-config");
   try {
     const res = await fetch(url, {
       next: { revalidate: 60 },

@@ -6,24 +6,12 @@
  */
 
 import { getAccessToken, refreshTokens, clearAuthData } from "./auth-api";
+import { buildApiUrl } from "./http";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
 const API_PREFIX = "/api/v1";
 
-function buildUrl(path: string): string {
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  if (API_BASE && API_BASE.length > 0) {
-    return `${API_BASE.replace(/\/$/, "")}${cleanPath}`;
-  }
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    return `${protocol}//${hostname}:3001${cleanPath}`;
-  }
-  return `http://localhost:3001${cleanPath}`;
-}
-
 async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = buildUrl(path);
+  const url = buildApiUrl(path);
   let token = getAccessToken();
   if (!token) throw new Error("未登录");
 
@@ -168,7 +156,7 @@ export async function getBalanceStats(): Promise<BalanceStats> {
 
 /** 获取可用支付方式 */
 export async function getPaymentMethods(): Promise<PaymentMethod[]> {
-  const res = await fetch(buildUrl(`${API_PREFIX}/payment/methods`));
+  const res = await fetch(buildApiUrl(`${API_PREFIX}/payment/methods`));
   const json = await res.json();
   if (json && typeof json === "object" && "code" in json && "data" in json) {
     return json.data;
@@ -179,7 +167,7 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
 /** 获取当前有效的充值活动 */
 export async function getActivePromotions(amount?: number): Promise<ActivePromotion[]> {
   const params = amount ? `?amount=${amount}` : "";
-  const res = await fetch(buildUrl(`${API_PREFIX}/payment/promotions${params}`));
+  const res = await fetch(buildApiUrl(`${API_PREFIX}/payment/promotions${params}`));
   const json = await res.json();
   if (json && typeof json === "object" && "code" in json && "data" in json) {
     return json.data;

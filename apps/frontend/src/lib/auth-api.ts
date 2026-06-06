@@ -5,7 +5,8 @@
  * Token 存储在 localStorage，自动附加到请求头。
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+import { buildApiUrl } from "./http";
+
 const API_PREFIX = "/api/v1";
 
 // ──────────────────────────────────────────────
@@ -90,26 +91,8 @@ export function clearAuthData(): void {
 // HTTP 请求封装
 // ──────────────────────────────────────────────
 
-function buildUrl(path: string): string {
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-
-  // 优先使用环境变量配置的 API 地址
-  if (API_BASE && API_BASE.length > 0) {
-    return `${API_BASE.replace(/\/$/, "")}${cleanPath}`;
-  }
-
-  // 浏览器环境：使用当前域名的不同端口（后端默认 3001）
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    return `${protocol}//${hostname}:3001${cleanPath}`;
-  }
-
-  // 服务端环境
-  return `http://localhost:3001${cleanPath}`;
-}
-
 async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = buildUrl(path);
+  const url = buildApiUrl(path);
   const token = getAccessToken();
 
   const headers: Record<string, string> = {

@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePublicConfig } from "@/providers/public-config-provider";
 import { withCaptchaHeaders } from "@/components/AliyunCaptcha";
+import { buildApiUrl } from "@/lib/http";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -93,8 +94,7 @@ export default function AdminLoginPage() {
 
     setIsSubmitting(true);
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
-      const url = `${API_BASE.replace(/\/$/, "") || "http://localhost:3001"}/api/v1/auth/login`;
+      const url = buildApiUrl("/api/v1/auth/login");
       const res = await fetch(url, {
         method: "POST",
         headers: {

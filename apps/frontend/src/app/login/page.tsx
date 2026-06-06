@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePublicConfig } from "@/providers/public-config-provider";
 import { withCaptchaHeaders } from "@/components/AliyunCaptcha";
 import { useAuthStore } from "@/stores/auth-store";
+import { buildApiUrl } from "@/lib/http";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -88,8 +89,7 @@ export default function LoginPage() {
     clearError();
     setIsSubmitting(true);
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
-      const url = `${API_BASE.replace(/\/$/, "") || "http://localhost:3001"}/api/v1/auth/login`;
+      const url = buildApiUrl("/api/v1/auth/login");
       const res = await fetch(url, {
         method: "POST",
         headers: {

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePublicConfig } from "@/providers/public-config-provider";
 import { withCaptchaHeaders } from "@/components/AliyunCaptcha";
+import { buildApiUrl } from "@/lib/http";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -90,8 +91,7 @@ export default function RegisterPage() {
 
     setIsSubmitting(true);
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL ?? "";
-      const url = `${API_BASE.replace(/\/$/, "") || "http://localhost:3001"}/api/v1/auth/register`;
+      const url = buildApiUrl("/api/v1/auth/register");
       const res = await fetch(url, {
         method: "POST",
         headers: {
