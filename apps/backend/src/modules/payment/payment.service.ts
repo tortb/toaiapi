@@ -42,12 +42,22 @@ export class PaymentService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    // 每 5 分钟清理超时订单（30 分钟未支付）
+    // 每 5 分钟：先验证 PENDING 订单状态，再清理超时订单
     setInterval(() => {
+      this.verifyPendingOrders().catch((err) => {
+        this.logger.error(`Pending order verification failed: ${err}`);
+      });
       this.cancelStaleOrders(30).catch((err) => {
         this.logger.error(`Stale order cleanup failed: ${err}`);
       });
     }, 5 * 60 * 1000);
+
+    // 启动后 30 秒立即执行一次验证（给回调留时间）
+    setTimeout(() => {
+      this.verifyPendingOrders().catch((err) => {
+        this.logger.error(`Initial pending order verification failed: ${err}`);
+      });
+    }, 30_000);
   }
 
   /**
@@ -369,99 +379,7 @@ export class PaymentService implements OnModuleInit {
     const isPaid = this.isPaymentSuccess(result.status, method);
 
     if (isPaid) {
-      // 使用事务处理支付成功
-      await this.prisma.$transaction(async (tx) => {
-        // 更新订单状态
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            status: 'PAID',
-            paid_amount: order.amount,
-            paid_at: new Date(),
-          },
-        });
-
-        // 创建支付记录
-        await tx.payment.create({
-          data: {
-            order_id: order.id,
-            method: order.payment_method || 'EPAY_ALIPAY',
-            amount: order.amount,
-            trade_no: result.tradeNo,
-            buyer_id: result.buyerId,
-            status: 'SUCCESS',
-            paid_at: new Date(),
-          },
-        });
-
-        // 增加用户余额（充值金额）
-        await tx.userBalance.upsert({
-          where: { user_id: order.user_id },
-          update: { amount: { increment: order.amount } },
-          create: { user_id: order.user_id, amount: order.amount },
-        });
-
-        // 记录充值交易流水
-        const balance = await tx.userBalance.findUnique({
-          where: { user_id: order.user_id },
-        });
-
-        await tx.userTransaction.create({
-          data: {
-            user_id: order.user_id,
-            type: 'RECHARGE',
-            amount: order.amount,
-            balance_after: balance?.amount || 0,
-            order_id: order.id,
-            remark: `充值 - ${order.product_name}`,
-          },
-        });
-
-        // 查询匹配的赠送活动
-        const now = new Date();
-        const promos = await tx.rechargePromotion.findMany({
-          where: {
-            is_active: true,
-            start_at: { lte: now },
-            OR: [{ end_at: null }, { end_at: { gte: now } }],
-            min_amount: { lte: order.amount },
-          },
-          orderBy: { min_amount: 'desc' },
-          take: 1,
-        });
-
-        // 应用赠送活动（取最高档位）
-        if (promos.length > 0) {
-          const promo = promos[0]!;
-          const bonus = this.calculateBonus(promo, order.amount);
-          if (bonus > 0) {
-            // 增加赠送余额
-            await tx.userBalance.update({
-              where: { user_id: order.user_id },
-              data: { amount: { increment: bonus } },
-            });
-
-            // 记录赠送交易流水
-            const updatedBalance = await tx.userBalance.findUnique({
-              where: { user_id: order.user_id },
-            });
-
-            await tx.userTransaction.create({
-              data: {
-                user_id: order.user_id,
-                type: 'GIFT',
-                amount: bonus,
-                balance_after: updatedBalance?.amount || 0,
-                order_id: order.id,
-                remark: `充值赠送 - ${promo.name}`,
-              },
-            });
-
-            this.logger.log(`Applied promotion "${promo.name}" bonus ${bonus} fen for order ${result.orderNo}`);
-          }
-        }
-      });
-
+      await this.processSuccessfulPayment(order, result.tradeNo);
       this.logger.log(`Payment successful for order: ${result.orderNo}`);
     } else {
       // 更新订单状态为失败
@@ -583,6 +501,204 @@ export class PaymentService implements OnModuleInit {
       startAt: p.start_at,
       endAt: p.end_at,
     }));
+  }
+
+  /**
+   * 主动验证并恢复单个订单
+   *
+   * 向支付平台查询订单状态，如果已支付则补单（更新状态 + 充值余额）。
+   * 用于：管理员手动补单、自动对账、回调失败后的恢复。
+   *
+   * @param orderNo - 商户订单号
+   * @returns 处理结果
+   */
+  async verifyAndRecoverOrder(orderNo: string): Promise<{
+    success: boolean;
+    message: string;
+    orderStatus?: string;
+  }> {
+    // 查找订单
+    const order = await this.prisma.order.findUnique({
+      where: { order_no: orderNo },
+    });
+
+    if (!order) {
+      return { success: false, message: '订单不存在' };
+    }
+
+    if (order.status === 'PAID') {
+      return { success: true, message: '订单已支付，无需处理', orderStatus: 'PAID' };
+    }
+
+    if (order.status !== 'PENDING') {
+      return { success: false, message: `订单状态为 ${order.status}，无法验证`, orderStatus: order.status };
+    }
+
+    // 根据支付方式调用对应的查询 API
+    let queryResult: { success: boolean; tradeNo?: string; status?: string; amount?: number; error?: string };
+
+    if (order.payment_method === 'EPAY_ALIPAY' || order.payment_method === 'EPAY_WECHAT') {
+      queryResult = await this.epayService.queryOrder(orderNo);
+    } else {
+      return { success: false, message: `不支持的支付方式: ${order.payment_method}` };
+    }
+
+    if (!queryResult.success) {
+      return { success: false, message: `查询失败: ${queryResult.error}` };
+    }
+
+    // 判断是否支付成功
+    const isPaid = queryResult.status === 'TRADE_SUCCESS' || queryResult.status === 'TRADE_FINISHED';
+
+    if (!isPaid) {
+      return {
+        success: true,
+        message: `订单在 EPay 状态为 ${queryResult.status}，尚未支付`,
+        orderStatus: queryResult.status,
+      };
+    }
+
+    // 支付成功 — 执行补单逻辑（与 handlePaymentNotify 相同）
+    try {
+      await this.processSuccessfulPayment(order, queryResult.tradeNo);
+      this.logger.log(`Order ${orderNo} verified and recovered successfully via query API`);
+      return { success: true, message: '补单成功！订单已更新为已支付，余额已充值', orderStatus: 'PAID' };
+    } catch (error) {
+      this.logger.error(`Order ${orderNo} recovery failed: ${error instanceof Error ? error.message : error}`);
+      return { success: false, message: `补单失败: ${error instanceof Error ? error.message : error}` };
+    }
+  }
+
+  /**
+   * 批量验证所有 PENDING 订单
+   *
+   * 定时任务：查询 EPay 确认 PENDING 订单的真实状态，
+   * 防止因回调失败导致掉单。
+   */
+  async verifyPendingOrders(): Promise<void> {
+    // 只查询最近 2 小时内的 PENDING 订单（避免查询太旧的订单）
+    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+    const pendingOrders = await this.prisma.order.findMany({
+      where: {
+        status: 'PENDING',
+        created_at: { gte: cutoff },
+        payment_method: { in: ['EPAY_ALIPAY', 'EPAY_WECHAT'] },
+      },
+      select: { order_no: true },
+    });
+
+    if (pendingOrders.length === 0) return;
+
+    this.logger.log(`Verifying ${pendingOrders.length} pending EPay orders...`);
+
+    for (const order of pendingOrders) {
+      try {
+        const result = await this.verifyAndRecoverOrder(order.order_no);
+        if (result.orderStatus === 'PAID') {
+          this.logger.log(`Auto-recovered order: ${order.order_no}`);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to verify order ${order.order_no}: ${err}`);
+      }
+    }
+  }
+
+  /**
+   * 处理支付成功逻辑（统一的补单/回调处理）
+   *
+   * @param order - 订单记录
+   * @param tradeNo - 支付平台交易号
+   */
+  private async processSuccessfulPayment(order: { id: string; user_id: string; amount: number; payment_method: string | null; product_name: string }, tradeNo?: string) {
+    await this.prisma.$transaction(async (tx) => {
+      // 更新订单状态
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'PAID',
+          paid_amount: order.amount,
+          paid_at: new Date(),
+        },
+      });
+
+      // 创建支付记录
+      await tx.payment.create({
+        data: {
+          order_id: order.id,
+          method: (order.payment_method || 'EPAY_ALIPAY') as any,
+          amount: order.amount,
+          trade_no: tradeNo,
+          status: 'SUCCESS',
+          paid_at: new Date(),
+        },
+      });
+
+      // 增加用户余额
+      await tx.userBalance.upsert({
+        where: { user_id: order.user_id },
+        update: { amount: { increment: order.amount } },
+        create: { user_id: order.user_id, amount: order.amount },
+      });
+
+      // 记录充值交易流水
+      const balance = await tx.userBalance.findUnique({
+        where: { user_id: order.user_id },
+      });
+
+      await tx.userTransaction.create({
+        data: {
+          user_id: order.user_id,
+          type: 'RECHARGE',
+          amount: order.amount,
+          balance_after: balance?.amount || 0,
+          order_id: order.id,
+          remark: `充值 - ${order.product_name}`,
+        },
+      });
+
+      // 查询匹配的赠送活动
+      const now = new Date();
+      const promos = await tx.rechargePromotion.findMany({
+        where: {
+          is_active: true,
+          start_at: { lte: now },
+          OR: [{ end_at: null }, { end_at: { gte: now } }],
+          min_amount: { lte: order.amount },
+        },
+        orderBy: { min_amount: 'desc' },
+        take: 1,
+      });
+
+      // 应用赠送活动
+      if (promos.length > 0) {
+        const promo = promos[0]!;
+        const bonus = this.calculateBonus(promo, order.amount);
+        if (bonus > 0) {
+          await tx.userBalance.update({
+            where: { user_id: order.user_id },
+            data: { amount: { increment: bonus } },
+          });
+
+          const updatedBalance = await tx.userBalance.findUnique({
+            where: { user_id: order.user_id },
+          });
+
+          await tx.userTransaction.create({
+            data: {
+              user_id: order.user_id,
+              type: 'GIFT',
+              amount: bonus,
+              balance_after: updatedBalance?.amount || 0,
+              order_id: order.id,
+              remark: `充值赠送 - ${promo.name}`,
+            },
+          });
+
+          this.logger.log(`Applied promotion "${promo.name}" bonus ${bonus} fen`);
+        }
+      }
+    });
   }
 
   /**

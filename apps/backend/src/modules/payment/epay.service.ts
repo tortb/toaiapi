@@ -321,6 +321,57 @@ export class EPayService {
     };
   }
 
+  /**
+   * 查询订单状态（主动向 EPay 查询）
+   *
+   * API: GET /api.php?act=order&pid=...&key=...&out_trade_no=...
+   *
+   * @param orderNo - 商户订单号
+   * @returns 订单状态信息
+   */
+  async queryOrder(orderNo: string): Promise<{
+    success: boolean;
+    tradeNo?: string;
+    status?: string;
+    amount?: number;
+    error?: string;
+  }> {
+    try {
+      const config = await this.getConfig();
+      const url = `${config.apiEndpoint.replace(/\/+$/, '')}/api.php?act=order&pid=${config.pid}&key=${config.key}&out_trade_no=${orderNo}`;
+
+      this.logger.log(`Querying EPay order: ${orderNo}`);
+
+      const response = await fetch(url, { method: 'GET' });
+      const text = await response.text();
+
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        this.logger.error(`EPay query response is not JSON: ${text}`);
+        return { success: false, error: `Invalid response: ${text}` };
+      }
+
+      if (data.code !== 1) {
+        this.logger.warn(`EPay query returned code ${data.code}: ${data.msg || 'unknown'}`);
+        return { success: false, error: data.msg || `EPay returned code ${data.code}` };
+      }
+
+      this.logger.log(`EPay order ${orderNo} status: ${data.status}, trade_no: ${data.trade_no}`);
+
+      return {
+        success: true,
+        tradeNo: data.trade_no,
+        status: data.status,
+        amount: data.money ? this.yuanToFen(data.money) : undefined,
+      };
+    } catch (error) {
+      this.logger.error(`EPay query order failed: ${error instanceof Error ? error.message : error}`);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   fenToYuan(fen: number): string {
     return (fen / 100).toFixed(2);
   }

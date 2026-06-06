@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminRepository } from './admin.repository';
+import { PaymentModule } from '../payment/payment.module';
 
 /**
  * Admin 管理模块
@@ -10,6 +11,7 @@ import { AdminRepository } from './admin.repository';
  * 所有端点需要 admin 角色。
  */
 @Module({
+  imports: [PaymentModule],
   controllers: [AdminController],
   providers: [AdminService, AdminRepository],
   exports: [AdminService, AdminRepository],

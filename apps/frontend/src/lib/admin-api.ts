@@ -595,6 +595,19 @@ export async function getOrder(id: string): Promise<OrderAdminData> {
 }
 
 /**
+ * 验证并补单
+ *
+ * 向支付平台查询订单状态，如果已支付则补单。
+ * 用于处理回调失败导致的掉单问题。
+ */
+export async function verifyOrder(orderNo: string): Promise<{ success: boolean; message: string; orderStatus?: string }> {
+  return adminFetch<{ success: boolean; message: string; orderStatus?: string }>(
+    `${API_PREFIX}/admin/orders/${orderNo}/verify`,
+    { method: "POST" }
+  );
+}
+
+/**
  * 订单状态映射
  */
 export function getOrderStatusLabel(status: string): { label: string; color: string; dotColor: string } {

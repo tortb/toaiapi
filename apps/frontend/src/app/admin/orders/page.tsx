@@ -3,12 +3,13 @@
 /**
  * 订单管理页面
  *
- * 展示所有订单，支持搜索、筛选、分页。
+ * 展示所有订单，支持搜索、筛选、分页、补单。
  */
 
 import * as React from "react";
 import {
   getOrders,
+  verifyOrder,
   formatDate,
   formatAmount,
   getOrderStatusLabel,
@@ -29,6 +30,10 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [pageSize] = React.useState(20);
+
+  // 补单状态
+  const [verifyingOrderNo, setVerifyingOrderNo] = React.useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = React.useState<{ success: boolean; message: string } | null>(null);
 
   // 加载订单列表
   const fetchOrders = React.useCallback(async () => {
@@ -63,6 +68,24 @@ export default function OrdersPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  // 补单
+  const handleVerify = async (orderNo: string) => {
+    setVerifyingOrderNo(orderNo);
+    setVerifyResult(null);
+    try {
+      const result = await verifyOrder(orderNo);
+      setVerifyResult(result);
+      if (result.success) {
+        // 刷新列表
+        fetchOrders();
+      }
+    } catch (err) {
+      setVerifyResult({ success: false, message: err instanceof Error ? err.message : "补单失败" });
+    } finally {
+      setVerifyingOrderNo(null);
+    }
+  };
+
   return (
     <AdminShell title="订单管理">
       {/* 错误提示 */}
@@ -71,6 +94,20 @@ export default function OrdersPage() {
           <span className="text-sm text-red-600">{error}</span>
           <button onClick={fetchOrders} className="text-sm text-primary hover:underline">
             重试
+          </button>
+        </div>
+      )}
+
+      {/* 补单结果提示 */}
+      {verifyResult && (
+        <div className={`mb-4 p-4 rounded-lg flex items-center justify-between ${
+          verifyResult.success ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"
+        }`}>
+          <span className={`text-sm ${verifyResult.success ? "text-green-700" : "text-red-600"}`}>
+            {verifyResult.success ? "✅ " : "❌ "}{verifyResult.message}
+          </span>
+          <button onClick={() => setVerifyResult(null)} className="text-sm text-gray-500 hover:text-gray-700">
+            关闭
           </button>
         </div>
       )}
@@ -135,11 +172,11 @@ export default function OrdersPage() {
                   <tr className="border-b border-gray-100 text-gray-500">
                     <th className="text-left font-normal px-4 py-3">订单号</th>
                     <th className="text-left font-normal px-4 py-3">用户</th>
-                    <th className="text-left font-normal px-4 py-3">产品</th>
                     <th className="text-right font-normal px-4 py-3">金额</th>
                     <th className="text-left font-normal px-4 py-3">支付方式</th>
                     <th className="text-left font-normal px-4 py-3">状态</th>
                     <th className="text-left font-normal px-4 py-3">时间</th>
+                    <th className="text-right font-normal px-4 py-3">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -155,10 +192,6 @@ export default function OrdersPage() {
                           {o.userName && (
                             <div className="text-[11px] text-gray-500">{o.userName}</div>
                           )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-gray-900">{o.productName}</div>
-                          <div className="text-[11px] text-gray-500">{o.productType}</div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="font-medium text-gray-900">¥ {formatAmount(o.amount)}</div>
@@ -179,6 +212,17 @@ export default function OrdersPage() {
                         </td>
                         <td className="px-4 py-3 text-gray-500 text-[12px]">
                           {formatDate(o.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {o.status === "PENDING" && (
+                            <button
+                              onClick={() => handleVerify(o.orderNo)}
+                              disabled={verifyingOrderNo === o.orderNo}
+                              className="px-2 py-1 text-[11px] text-primary hover:bg-primary-50 rounded disabled:opacity-50"
+                            >
+                              {verifyingOrderNo === o.orderNo ? "验证中..." : "补单"}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

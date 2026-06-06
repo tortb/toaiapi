@@ -257,6 +257,13 @@ export class AdminController {
     return this.adminService.getOrder(id);
   }
 
+  @Post('orders/:orderNo/verify')
+  @ApiOperation({ summary: '验证并补单', description: '向支付平台查询订单状态，如果已支付则补单（防止掉单）' })
+  @ApiOkResponse()
+  async verifyOrder(@Param('orderNo') orderNo: string) {
+    return this.adminService.verifyOrder(orderNo);
+  }
+
   // ──────────────────────────────────────────────
   // Bill / Transaction 管理
   // ──────────────────────────────────────────────

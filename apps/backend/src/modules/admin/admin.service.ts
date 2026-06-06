@@ -37,6 +37,7 @@ import { SmsConfigService } from '../../common/services/sms-config.service';
 import { SmsService } from '../../common/services/sms.service';
 import { EmailService } from '../../common/services/email.service';
 import { SystemSettingService } from '../../common/services/system-setting.service';
+import { PaymentService } from '../payment/payment.service';
 
 /**
  * Admin 管理服务
@@ -52,6 +53,7 @@ export class AdminService {
   constructor(
     private readonly adminRepo: AdminRepository,
     private readonly paymentConfigService: PaymentConfigService,
+    private readonly paymentService: PaymentService,
     private readonly smtpConfigService: SmtpConfigService,
     private readonly smsConfigService: SmsConfigService,
     private readonly smsService: SmsService,
@@ -602,6 +604,21 @@ export class AdminService {
       throw new NotFoundException('Order not found');
     }
     return this.toOrderResponse(order);
+  }
+
+  /**
+   * 验证并补单
+   *
+   * 向支付平台查询订单状态，如果已支付则补单。
+   * 用于处理回调失败导致的掉单问题。
+   */
+  async verifyOrder(orderNo: string): Promise<Record<string, unknown>> {
+    const result = await this.paymentService.verifyAndRecoverOrder(orderNo);
+    return {
+      success: result.success,
+      message: result.message,
+      orderStatus: result.orderStatus,
+    };
   }
 
   /**
