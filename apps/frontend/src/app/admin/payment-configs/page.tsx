@@ -7,6 +7,7 @@
  */
 
 import * as React from "react";
+import { AdminShell } from "@/components/admin/AdminShell";
 import {
   getPaymentConfigs,
   updatePaymentConfig,
@@ -195,7 +196,7 @@ export default function PaymentConfigsPage() {
   }
 
   return (
-    <div>
+    <AdminShell title="支付配置">
       <div className="mb-6">
         <h1 className="text-[20px] font-bold text-gray-900">支付配置</h1>
         <p className="text-sm text-gray-500 mt-1">管理支付网关的商户信息和密钥配置</p>
@@ -297,6 +298,6 @@ export default function PaymentConfigsPage() {
           }}
         />
       )}
-    </div>
+    </AdminShell>
   );
 }
