@@ -522,12 +522,28 @@ export class PaymentService implements OnModuleInit {
    * 获取可用支付方式
    */
   async getAvailableMethods() {
-    const methods = await this.paymentConfigService.getEnabledMethods();
+    const configs = await this.paymentConfigService.getEnabledMethods();
+    const methods: Array<{ name: string; displayName: string }> = [];
 
-    return methods.map((m) => ({
-      name: m.name,
-      displayName: m.display_name,
-    }));
+    for (const config of configs) {
+      switch (config.name) {
+        case 'epay':
+          methods.push(
+            { name: 'EPAY_ALIPAY', displayName: '易支付-支付宝' },
+            { name: 'EPAY_WECHAT', displayName: '易支付-微信' },
+            { name: 'EPAY_QQ', displayName: '易支付-QQ' },
+          );
+          break;
+        case 'alipay':
+          methods.push({ name: 'ALIPAY', displayName: '支付宝' });
+          break;
+        case 'wechatpay':
+          methods.push({ name: 'WECHAT_PAY', displayName: '微信支付' });
+          break;
+      }
+    }
+
+    return methods;
   }
 
   /**
