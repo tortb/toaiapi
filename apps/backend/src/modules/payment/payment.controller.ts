@@ -114,7 +114,7 @@ export class PaymentController {
 
   @Post('notify/epay')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '易支付异步通知' })
+  @ApiOperation({ summary: '易支付异步通知（RSA签名）' })
   async epayNotify(@Body() body: Record<string, any>) {
     await this.paymentService.handlePaymentNotify('epay', body);
     return 'success';

@@ -1,14 +1,18 @@
 /**
- * 易支付接口定义
+ * 易支付接口定义（V1 MD5 签名，与官方 SDK 一致）
  */
 
 /**
  * 易支付配置
+ *
+ * 字段映射：
+ * - merchant_id → pid（商户ID）
+ * - merchant_key → 密钥（MD5 签名密钥）
  */
 export interface EPayConfig {
   /** 商户ID */
   pid: string;
-  /** 商户密钥 */
+  /** 商户密钥（MD5） */
   key: string;
   /** API网关地址 */
   apiEndpoint: string;
@@ -47,10 +51,10 @@ export interface EPaySubmitParams {
   type: EPayType;
   out_trade_no: string;
   notify_url: string;
-  return_url: string;
+  return_url?: string;
   name: string;
   money: string;
-  sitename?: string;
+  clientip?: string;
   sign: string;
   sign_type: 'MD5';
 }
@@ -66,6 +70,7 @@ export interface EPayNotifyParams {
   name: string;
   money: string;
   trade_status: 'TRADE_SUCCESS' | 'TRADE_FINISHED';
+  param?: string;
   sign: string;
   sign_type: string;
 }

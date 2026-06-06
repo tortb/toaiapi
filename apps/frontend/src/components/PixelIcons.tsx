@@ -723,27 +723,25 @@ export const Isometric3DChart = () => (
 
 /* ============== 二维码占位 ============== */
 export const QRCode = ({ size = 80 }: { size?: number }) => {
-  // 生成 12x12 像素 QR 占位
-  const cells: boolean[][] = [];
-  for (let i = 0; i < 12; i++) {
-    cells[i] = [];
-    for (let j = 0; j < 12; j++) {
-      cells[i][j] = Math.random() > 0.5;
-    }
-  }
-  // 三个定位角
-  const setFinder = (r: number, c: number) => {
-    for (let i = 0; i < 3; i++)
-      for (let j = 0; j < 3; j++) cells[r + i][c + j] = true;
-    cells[r + 1][c + 1] = false;
-  };
-  setFinder(0, 0);
-  setFinder(0, 9);
-  setFinder(9, 0);
+  // 12x12 固定 QR 码占位图案（避免 Math.random 导致 SSR hydration 不匹配）
+  const pattern = [
+    [1,1,1,1,1,1,1,0,1,1,1,1],
+    [1,0,0,0,0,0,1,0,0,1,0,1],
+    [1,0,1,1,1,0,1,0,1,0,1,1],
+    [1,0,1,1,1,0,1,0,1,1,0,1],
+    [1,0,1,1,1,0,1,0,0,1,1,1],
+    [1,0,0,0,0,0,1,0,1,0,1,1],
+    [1,1,1,1,1,1,1,0,1,1,1,0],
+    [0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,1,1,0,1,1,1,0,1,1,1,1],
+    [1,0,1,0,1,0,1,0,0,1,1,1],
+    [1,1,1,0,1,1,1,0,1,0,1,1],
+    [0,0,0,0,0,0,0,0,1,1,1,1],
+  ];
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" style={{ shapeRendering: "crispEdges" }}>
       <rect width="12" height="12" fill="#fff" />
-      {cells.map((row, i) =>
+      {pattern.map((row, i) =>
         row.map((on, j) =>
           on ? <rect key={`${i}-${j}`} x={j} y={i} width="1" height="1" fill="#1A1D21" /> : null
         )

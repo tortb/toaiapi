@@ -31,11 +31,11 @@ const GATEWAY_INFO: Record<string, { label: string; icon: string; color: string;
     label: "易支付",
     icon: "💰",
     color: "bg-green-50 border-green-200",
-    description: "易支付第三方支付平台，支持支付宝、微信、QQ 支付",
+    description: "易支付第三方支付平台（MD5 签名），支持支付宝、微信、QQ 支付",
     fields: [
-      { key: "merchant_id", label: "商户 ID (PID)", type: "text", placeholder: "10001", required: true },
-      { key: "merchant_key", label: "商户密钥 (Key)", type: "password", placeholder: "输入商户密钥", required: true },
-      { key: "api_endpoint", label: "API 地址", type: "url", placeholder: "https://pay.example.com", required: true },
+      { key: "merchant_id", label: "商户 ID (PID)", type: "text", placeholder: "1008", required: true },
+      { key: "merchant_key", label: "商户密钥 (Key)", type: "password", placeholder: "输入商户MD5密钥", required: true, tip: "易支付后台 个人资料→API信息 页面获取「商户MD5密钥」" },
+      { key: "api_endpoint", label: "API 地址", type: "url", placeholder: "https://epay.fanstars.net", required: true },
       { key: "notify_url", label: "异步通知地址", type: "url", placeholder: "https://your-domain.com/api/v1/payment/notify/epay" },
       { key: "return_url", label: "同步跳转地址", type: "url", placeholder: "https://your-domain.com/recharge?success=true" },
       { key: "extra_config.enable_alipay", label: "启用支付宝", type: "boolean", tip: "通过易支付使用支付宝支付" },
@@ -315,10 +315,11 @@ export default function PaymentConfigsPage() {
       <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
         <h4 className="text-sm font-medium text-blue-800 mb-2">配置说明</h4>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>易支付</strong>：需要 PID、密钥和 API 地址，支持支付宝/微信/QQ 支付</li>
+          <li>• <strong>易支付</strong>：需要 PID、商户MD5密钥和 API 地址，使用 MD5 签名（与官方 SDK 一致）</li>
           <li>• <strong>支付宝</strong>：需要应用 ID、应用私钥和支付宝公钥（RSA2 签名）</li>
           <li>• <strong>微信支付</strong>：需要商户号、API 私钥和 API v3 密钥，需先在微信支付平台获取平台证书</li>
           <li>• 敏感字段（密钥、私钥）保存后会自动加密存储，页面显示脱敏值</li>
+          <li>• 易支付 MD5 密钥在易支付后台「个人资料→API信息」页面获取</li>
         </ul>
       </div>
 

@@ -9,7 +9,7 @@ import { WechatPayService } from './wechatpay.service';
  * 支付模块
  *
  * 提供统一的支付功能：
- * - 易支付（EPay）
+ * - 易支付（EPay V2 RSA）
  * - 支付宝
  * - 微信支付
  */

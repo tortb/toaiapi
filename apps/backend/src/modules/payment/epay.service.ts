@@ -5,20 +5,24 @@ import {
   EPayConfig,
   EPayType,
   EPayCreateOrderParams,
-  EPaySubmitParams,
   EPayNotifyParams,
 } from './interfaces/epay.interface';
 
 /**
- * 易支付服务
+ * 易支付服务（基于官方 Node.js SDK）
  *
- * 实现易支付（EPay）的签名生成、订单创建、回调验证。
- * 支持支付宝、微信支付、QQ钱包。
+ * 签名算法：MD5
+ * 接口地址：/mapi.php（API下单）, /submit.php（页面跳转）
+ *
+ * 配置字段映射：
+ * - merchant_id → pid（商户ID）
+ * - merchant_key → 密钥（MD5 签名密钥）
+ *
+ * SDK 参考：docs/sdk/epay/index.js
  *
  * SECURITY:
- * - 签名使用 MD5（易支付标准）
  * - 回调验签使用 timingSafeEqual 防止时序攻击
- * - 所有金额校验必须与订单金额一致
+ * - 金额校验必须与订单一致
  */
 @Injectable()
 export class EPayService {
@@ -37,7 +41,7 @@ export class EPayService {
     }
 
     if (!config.merchant_id || !config.merchant_key || !config.api_endpoint) {
-      throw new BadRequestException('易支付配置不完整');
+      throw new BadRequestException('易支付配置不完整（需要商户ID、密钥和API地址）');
     }
 
     return {
@@ -50,39 +54,76 @@ export class EPayService {
   }
 
   /**
-   * 生成签名
+   * PHP 风格的对象排序（与 SDK 一致）
+   *
+   * 按照 PHP ksort 的默认行为排序：
+   * - 数字键排在字母键之前
+   * - 字母键按字典序排列
+   * - 数字键按数值大小排列
+   */
+  private ksort(inputArr: Record<string, any>): Record<string, any> {
+    const keys = Object.keys(inputArr);
+
+    keys.sort((a, b) => {
+      const aFloat = parseFloat(a);
+      const bFloat = parseFloat(b);
+      const aNumeric = aFloat + '' === a;
+      const bNumeric = bFloat + '' === b;
+
+      if (aNumeric && bNumeric) {
+        return aFloat > bFloat ? 1 : aFloat < bFloat ? -1 : 0;
+      } else if (aNumeric && !bNumeric) {
+        return 1;
+      } else if (!aNumeric && bNumeric) {
+        return -1;
+      }
+      return a > b ? 1 : a < b ? -1 : 0;
+    });
+
+    const sorted: Record<string, any> = {};
+    for (const k of keys) {
+      sorted[k] = inputArr[k];
+    }
+    return sorted;
+  }
+
+  /**
+   * 生成签名（与官方 SDK 一致）
    *
    * 签名规则：
-   * 1. 将所有参数按key排序
-   * 2. 拼接成 key=value&key=value 格式
-   * 3. 末尾拼接密钥
-   * 4. MD5加密
+   * 1. 将所有参数按 PHP ksort 排序
+   * 2. 拼接 key=value&...（空值跳过）
+   * 3. 去掉末尾 &，拼接密钥
+   * 4. MD5 加密，小写
    *
-   * @param params - 参数对象
+   * @param params - 参数对象（不含 sign/sign_type）
    * @param key - 商户密钥
    * @returns MD5签名（小写）
    */
   generateSign(params: Record<string, any>, key: string): string {
-    // 过滤 sign/sign_type，保留空值（EPay 服务端可能将空字符串参与签名）
-    const filteredParams: Record<string, string> = {};
+    // 过滤 sign/sign_type
+    const filtered: Record<string, any> = {};
     for (const [k, v] of Object.entries(params)) {
       if (k !== 'sign' && k !== 'sign_type') {
-        filteredParams[k] = v === null || v === undefined ? '' : String(v);
+        filtered[k] = v;
       }
     }
 
-    // 按key排序（ASCII 码从小到大）
-    const sortedKeys = Object.keys(filteredParams).sort();
+    // 按 PHP ksort 规则排序
+    const sorted = this.ksort(filtered);
 
-    // 拼接字符串
-    const signStr = sortedKeys
-      .map((k) => `${k}=${filteredParams[k]}`)
-      .join('&');
+    // 拼接签名字符串（空值跳过，与 SDK 一致）
+    let signStr = '';
+    for (const [k, v] of Object.entries(sorted)) {
+      if (v !== '' && v !== null && v !== undefined) {
+        signStr += `${k}=${v}&`;
+      }
+    }
 
-    // 拼接密钥并MD5
-    const md5 = createHash('md5');
-    md5.update(signStr + key);
-    return md5.digest('hex');
+    // 去掉末尾 &，拼接密钥，MD5
+    signStr = signStr.substring(0, signStr.length - 1) + key;
+
+    return createHash('md5').update(signStr).digest('hex');
   }
 
   /**
@@ -103,7 +144,6 @@ export class EPayService {
 
     const expectedSign = this.generateSign(rest, key);
 
-    // 使用 timingSafeEqual 进行安全比较
     try {
       const signBuffer = Buffer.from(sign, 'utf8');
       const expectedBuffer = Buffer.from(expectedSign, 'utf8');
@@ -122,24 +162,26 @@ export class EPayService {
   /**
    * 创建支付链接
    *
+   * 使用 /submit.php 页面跳转方式（与 SDK pay 方法一致，但用 GET 跳转）
+   *
    * @param params - 订单参数
    * @returns 支付链接
    */
   async createPayUrl(params: EPayCreateOrderParams): Promise<string> {
     const config = await this.getConfig();
 
-    // 构建完整参数（notify_url/return_url 始终传递，签名时自动过滤空值）
+    // 构建完整参数（与 SDK 一致）
     const submitParams: Record<string, any> = {
       pid: config.pid,
       type: params.type,
       out_trade_no: params.outTradeNo,
-      notify_url: config['notifyUrl'] || '',
-      return_url: config['returnUrl'] || '',
+      notify_url: config.notifyUrl || '',
+      return_url: config.returnUrl || '',
       name: params.name,
       money: params.money,
     };
 
-    // 生成签名（generateSign 会自动过滤空值和 sign/sign_type）
+    // 生成签名
     const sign = this.generateSign(submitParams, config.key);
 
     // 构建支付链接
@@ -153,6 +195,69 @@ export class EPayService {
 
     this.logger.log(`Created EPay payment URL for order: ${params.outTradeNo}`);
     return payUrl;
+  }
+
+  /**
+   * API 下单（POST /mapi.php）
+   *
+   * 与 SDK pay 方法完全一致，返回 JSON（qrcode/payurl/urlscheme）
+   *
+   * @param params - 订单参数
+   * @param clientIp - 客户端 IP
+   * @returns API 响应
+   */
+  async createPayApi(params: EPayCreateOrderParams, clientIp: string): Promise<{
+    code: number;
+    msg?: string;
+    trade_no?: string;
+    payurl?: string;
+    qrcode?: string;
+    urlscheme?: string;
+  }> {
+    const config = await this.getConfig();
+
+    // 构建签名参数（与 SDK 一致，包含 clientip）
+    const signParams: Record<string, any> = {
+      pid: config.pid,
+      type: params.type,
+      out_trade_no: params.outTradeNo,
+      notify_url: config.notifyUrl || '',
+      name: params.name,
+      money: params.money,
+      clientip: clientIp,
+    };
+
+    // 生成签名
+    const sign = this.generateSign(signParams, config.key);
+
+    // 构建 POST body（与 SDK 一致）
+    const formData = new URLSearchParams({
+      pid: String(config.pid),
+      type: params.type,
+      out_trade_no: params.outTradeNo,
+      notify_url: config.notifyUrl || '',
+      name: params.name,
+      money: params.money,
+      clientip: clientIp,
+      sign,
+      sign_type: 'MD5',
+    });
+
+    // POST 到 /mapi.php
+    const endpoint = config.apiEndpoint.replace(/\/+$/, '');
+    const response = await fetch(`${endpoint}/mapi.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
+    });
+
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      this.logger.error(`EPay API response is not JSON: ${text}`);
+      return { code: -1, msg: 'Invalid response from EPay' };
+    }
   }
 
   /**
@@ -216,22 +321,10 @@ export class EPayService {
     };
   }
 
-  /**
-   * 将金额从分转换为元
-   *
-   * @param fen - 金额（分）
-   * @returns 金额（元，字符串）
-   */
   fenToYuan(fen: number): string {
     return (fen / 100).toFixed(2);
   }
 
-  /**
-   * 将金额从元转换为分
-   *
-   * @param yuan - 金额（元）
-   * @returns 金额（分）
-   */
   yuanToFen(yuan: string | number): number {
     return Math.round(Number(yuan) * 100);
   }
