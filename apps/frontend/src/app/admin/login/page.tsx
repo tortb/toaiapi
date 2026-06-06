@@ -9,6 +9,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePublicConfig } from "@/providers/public-config-provider";
+import { useAuthStore } from "@/stores/auth-store";
 import { withCaptchaHeaders } from "@/components/AliyunCaptcha";
 import { buildApiUrl } from "@/lib/http";
 
@@ -116,6 +117,8 @@ export default function AdminLoginPage() {
         localStorage.setItem("toaiapi_refresh_token", data.tokens.refreshToken);
         localStorage.setItem("toaiapi_user", JSON.stringify(data.user));
       }
+      // 同步 Zustand store 状态，避免跳转后 store 未更新导致无限循环
+      useAuthStore.getState().restoreSession();
       router.replace("/admin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");

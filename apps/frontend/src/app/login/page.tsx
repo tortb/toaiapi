@@ -108,6 +108,8 @@ export default function LoginPage() {
         localStorage.setItem("toaiapi_refresh_token", data.tokens.refreshToken);
         localStorage.setItem("toaiapi_user", JSON.stringify(data.user));
       }
+      // 同步 Zustand store 状态，避免跳转后 store 未更新导致无限循环
+      useAuthStore.getState().restoreSession();
       const role = data?.user?.role?.toLowerCase();
       router.replace(role === "admin" || role === "super_admin" ? "/admin" : "/dashboard");
     } catch (err) {

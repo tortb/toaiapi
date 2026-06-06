@@ -94,7 +94,7 @@ function getOrderStatusLabel(status: string): { label: string; color: string; do
 
 function OverviewContent() {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isAdmin } = useAuthStore();
   const toast = useToast();
 
   const [stats, setStats] = React.useState<BalanceStats | null>(null);
@@ -274,6 +274,18 @@ function OverviewContent() {
                 </svg>
               }
             />
+            {isAdmin && (
+              <QuickAction
+                href="/admin"
+                label="管理后台"
+                desc="系统管理与运营"
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                }
+              />
+            )}
           </div>
         </div>
       </div>
