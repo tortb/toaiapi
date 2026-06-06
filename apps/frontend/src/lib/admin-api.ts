@@ -614,9 +614,11 @@ export function getOrderStatusLabel(status: string): { label: string; color: str
   const map: Record<string, { label: string; color: string; dotColor: string }> = {
     PENDING: { label: "待支付", color: "text-warning", dotColor: "bg-warning" },
     PAID: { label: "已支付", color: "text-success", dotColor: "bg-success" },
+    SUCCESS: { label: "成功", color: "text-success", dotColor: "bg-success" },
     FAILED: { label: "支付失败", color: "text-red-500", dotColor: "bg-red-500" },
     REFUNDED: { label: "已退款", color: "text-gray-500", dotColor: "bg-gray-500" },
     CANCELLED: { label: "已取消", color: "text-gray-400", dotColor: "bg-gray-400" },
+    EXPIRED: { label: "已过期", color: "text-gray-400", dotColor: "bg-gray-400" },
   };
   return map[status] ?? { label: status, color: "text-gray-500", dotColor: "bg-gray-400" };
 }
@@ -1431,13 +1433,16 @@ export function formatNumber(num: number): string {
 /**
  * 格式化日期
  */
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '-';
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
   return date.toLocaleDateString("zh-CN", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Shanghai",
   });
 }
 

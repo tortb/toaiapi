@@ -504,7 +504,6 @@ enum PaymentMethod {
   ALIPAY
   EPAY_ALIPAY
   EPAY_WECHAT
-  EPAY_QQ
 }
 
 enum PaymentStatus {
