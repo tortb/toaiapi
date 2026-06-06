@@ -17,18 +17,26 @@ import {
 } from "@/lib/admin-api";
 
 /* ============== 网关显示信息 ============== */
-const GATEWAY_INFO: Record<string, { label: string; icon: string; color: string; description: string; fields: Array<{ key: string; label: string; type: "text" | "password" | "url"; placeholder: string; required?: boolean }> }> = {
+interface FieldDef {
+  key: string;
+  label: string;
+  type: "text" | "password" | "url";
+  placeholder: string;
+  required?: boolean;
+}
+
+const GATEWAY_INFO: Record<string, { label: string; icon: string; color: string; description: string; fields: FieldDef[] }> = {
   epay: {
     label: "易支付",
     icon: "💰",
     color: "bg-green-50 border-green-200",
     description: "易支付第三方支付平台，支持支付宝、微信、QQ 支付",
     fields: [
-      { key: "merchantId", label: "商户 ID (PID)", type: "text", placeholder: "10001", required: true },
-      { key: "merchantKey", label: "商户密钥 (Key)", type: "password", placeholder: "输入商户密钥", required: true },
-      { key: "apiEndpoint", label: "API 地址", type: "url", placeholder: "https://pay.example.com", required: true },
-      { key: "notifyUrl", label: "异步通知地址", type: "url", placeholder: "https://your-domain.com/api/v1/payment/notify/epay" },
-      { key: "returnUrl", label: "同步跳转地址", type: "url", placeholder: "https://your-domain.com/recharge?success=true" },
+      { key: "merchant_id", label: "商户 ID (PID)", type: "text", placeholder: "10001", required: true },
+      { key: "merchant_key", label: "商户密钥 (Key)", type: "password", placeholder: "输入商户密钥", required: true },
+      { key: "api_endpoint", label: "API 地址", type: "url", placeholder: "https://pay.example.com", required: true },
+      { key: "notify_url", label: "异步通知地址", type: "url", placeholder: "https://your-domain.com/api/v1/payment/notify/epay" },
+      { key: "return_url", label: "同步跳转地址", type: "url", placeholder: "https://your-domain.com/recharge?success=true" },
     ],
   },
   alipay: {
@@ -37,11 +45,11 @@ const GATEWAY_INFO: Record<string, { label: string; icon: string; color: string;
     color: "bg-blue-50 border-blue-200",
     description: "支付宝网页支付（电脑网站支付），使用 RSA2-SHA256 签名",
     fields: [
-      { key: "merchantId", label: "应用 ID (AppID)", type: "text", placeholder: "2021000000000000", required: true },
-      { key: "merchantSecret", label: "应用私钥", type: "password", placeholder: "输入应用私钥（RSA2）", required: true },
-      { key: "merchantKey", label: "支付宝公钥", type: "password", placeholder: "输入支付宝公钥（验签用）", required: true },
-      { key: "notifyUrl", label: "异步通知地址", type: "url", placeholder: "https://your-domain.com/api/v1/payment/notify/alipay" },
-      { key: "returnUrl", label: "同步跳转地址", type: "url", placeholder: "https://your-domain.com/recharge?success=true" },
+      { key: "merchant_id", label: "应用 ID (AppID)", type: "text", placeholder: "2021000000000000", required: true },
+      { key: "merchant_secret", label: "应用私钥", type: "password", placeholder: "输入应用私钥（RSA2）", required: true },
+      { key: "merchant_key", label: "支付宝公钥", type: "password", placeholder: "输入支付宝公钥（验签用）", required: true },
+      { key: "notify_url", label: "异步通知地址", type: "url", placeholder: "https://your-domain.com/api/v1/payment/notify/alipay" },
+      { key: "return_url", label: "同步跳转地址", type: "url", placeholder: "https://your-domain.com/recharge?success=true" },
     ],
   },
   wechatpay: {
@@ -50,11 +58,11 @@ const GATEWAY_INFO: Record<string, { label: string; icon: string; color: string;
     color: "bg-emerald-50 border-emerald-200",
     description: "微信支付 Native（扫码）和 H5 支付，使用 API v3",
     fields: [
-      { key: "merchantId", label: "商户号 (mchid)", type: "text", placeholder: "1900000000", required: true },
-      { key: "merchantSecret", label: "商户 API 私钥", type: "password", placeholder: "输入商户 API 私钥", required: true },
-      { key: "merchantKey", label: "API v3 密钥", type: "password", placeholder: "输入 API v3 密钥", required: true },
-      { key: "notifyUrl", label: "异步通知地址", type: "url", placeholder: "https://your-domain.com/api/v1/payment/notify/wechatpay" },
-      { key: "extraConfig.appId", label: "公众号/小程序 AppID", type: "text", placeholder: "wx1234567890abcdef" },
+      { key: "merchant_id", label: "商户号 (mchid)", type: "text", placeholder: "1900000000", required: true },
+      { key: "merchant_secret", label: "商户 API 私钥", type: "password", placeholder: "输入商户 API 私钥", required: true },
+      { key: "merchant_key", label: "API v3 密钥", type: "password", placeholder: "输入 API v3 密钥", required: true },
+      { key: "notify_url", label: "异步通知地址", type: "url", placeholder: "https://your-domain.com/api/v1/payment/notify/wechatpay" },
+      { key: "extra_config.appId", label: "公众号/小程序 AppID", type: "text", placeholder: "wx1234567890abcdef" },
     ],
   },
 };
@@ -77,12 +85,11 @@ function ConfigEditModal({
   React.useEffect(() => {
     const initial: Record<string, string> = {};
     for (const field of info.fields) {
-      if (field.key.startsWith("extraConfig.")) {
-        const subKey = field.key.replace("extraConfig.", "");
-        initial[field.key] = (config.extraConfig as any)?.[subKey] || "";
+      if (field.key.startsWith("extra_config.")) {
+        const subKey = field.key.replace("extra_config.", "");
+        initial[field.key] = (config.extra_config as any)?.[subKey] || "";
       } else {
-        const dbKey = field.key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-        initial[field.key] = (config as any)[dbKey] || (config as any)[field.key] || "";
+        initial[field.key] = (config as any)[field.key] || "";
       }
     }
     setForm(initial);
@@ -95,13 +102,12 @@ function ConfigEditModal({
       const payload: UpdatePaymentConfigPayload = {};
       for (const field of info.fields) {
         const value = form[field.key]?.trim() || "";
-        if (field.key.startsWith("extraConfig.")) {
-          if (!payload.extraConfig) payload.extraConfig = {};
-          const subKey = field.key.replace("extraConfig.", "");
-          payload.extraConfig[subKey] = value;
+        if (field.key.startsWith("extra_config.")) {
+          if (!payload.extra_config) payload.extra_config = {};
+          const subKey = field.key.replace("extra_config.", "");
+          payload.extra_config[subKey] = value;
         } else {
-          const dbKey = field.key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`) as keyof UpdatePaymentConfigPayload;
-          (payload as any)[dbKey] = value;
+          (payload as any)[field.key] = value;
         }
       }
       await updatePaymentConfig(config.name, payload);
@@ -189,9 +195,11 @@ export default function PaymentConfigsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
+      <AdminShell title="支付配置">
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AdminShell>
     );
   }
 
@@ -209,7 +217,7 @@ export default function PaymentConfigsPage() {
       <div className="space-y-4">
         {Object.entries(GATEWAY_INFO).map(([name, info]) => {
           const config = configs.find((c) => c.name === name);
-          const isEnabled = config?.isEnabled ?? false;
+          const isEnabled = config?.is_enabled ?? false;
 
           return (
             <div
@@ -247,20 +255,20 @@ export default function PaymentConfigsPage() {
               <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                 <div>
                   <span className="text-gray-500">商户 ID：</span>
-                  <span className="text-gray-800 font-mono">{config?.merchantId || "未配置"}</span>
+                  <span className="text-gray-800 font-mono">{config?.merchant_id || "未配置"}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">API 地址：</span>
-                  <span className="text-gray-800 font-mono text-xs">{config?.apiEndpoint || "-"}</span>
+                  <span className="text-gray-800 font-mono text-xs">{config?.api_endpoint || "-"}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">通知地址：</span>
-                  <span className="text-gray-800 font-mono text-xs">{config?.notifyUrl || "未配置"}</span>
+                  <span className="text-gray-800 font-mono text-xs">{config?.notify_url || "未配置"}</span>
                 </div>
                 <div>
                   <span className="text-gray-500">密钥状态：</span>
-                  <span className={config?.merchantKey ? "text-success" : "text-gray-400"}>
-                    {config?.merchantKey ? "已配置" : "未配置"}
+                  <span className={config?.merchant_key ? "text-success" : "text-gray-400"}>
+                    {config?.merchant_key ? "已配置" : "未配置"}
                   </span>
                 </div>
               </div>

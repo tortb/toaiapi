@@ -1354,29 +1354,29 @@ export function formatDate(dateStr: string): string {
 
 export interface PaymentConfigData {
   name: string;
-  displayName: string;
-  isEnabled: boolean;
-  merchantId: string | null;
-  merchantKey: string | null;
-  merchantSecret: string | null;
-  apiEndpoint: string | null;
-  notifyUrl: string | null;
-  returnUrl: string | null;
-  extraConfig: Record<string, any> | null;
-  createdAt: string;
-  updatedAt: string;
+  display_name: string;
+  is_enabled: boolean;
+  merchant_id: string | null;
+  merchant_key: string | null;
+  merchant_secret: string | null;
+  api_endpoint: string | null;
+  notify_url: string | null;
+  return_url: string | null;
+  extra_config: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface UpdatePaymentConfigPayload {
-  displayName?: string;
-  isEnabled?: boolean;
-  merchantId?: string;
-  merchantKey?: string;
-  merchantSecret?: string;
-  apiEndpoint?: string;
-  notifyUrl?: string;
-  returnUrl?: string;
-  extraConfig?: Record<string, any>;
+  display_name?: string;
+  is_enabled?: boolean;
+  merchant_id?: string;
+  merchant_key?: string;
+  merchant_secret?: string;
+  api_endpoint?: string;
+  notify_url?: string;
+  return_url?: string;
+  extra_config?: Record<string, any>;
 }
 
 /**
