@@ -35,12 +35,25 @@ const config: Config = {
           800: "#2E3744",
           900: "#1A1D21",
         },
-        success: "#4CAF50",
-        warning: "#FFC107",
+        success: "#10B981",
+        warning: "#F59E0B",
+        error: "#EF4444",
         purple: "#9C27B0",
         orange: "#FF9800",
-        info: "#03A9F4",
+        info: "#3B82F6",
       },
+      // ── 企业级 Dashboard Design System ──
+      bg: {
+        main: "#FFFFFF",
+        sub: "#FAFBFC",
+        soft: "#F5F7FA",
+      },
+      text: {
+        main: "#111827",
+        secondary: "#6B7280",
+        muted: "#9CA3AF",
+      },
+      border: "#E5E7EB",
       fontFamily: {
         sans: [
           "-apple-system",
