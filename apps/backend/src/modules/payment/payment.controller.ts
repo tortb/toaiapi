@@ -142,7 +142,7 @@ export class PaymentController {
     this.logger.log(`EPay notify received: ${JSON.stringify(params)}`);
     try {
       await this.paymentService.handlePaymentNotify('epay', params);
-      this.logger.log(`EPay notify processed successfully for order: ${params.out_trade_no}`);
+      this.logger.log(`EPay notify processed successfully for order: ${params['out_trade_no']}`);
     } catch (error) {
       this.logger.error(
         `EPay notify processing failed: ${error instanceof Error ? error.message : error}`,
