@@ -63,15 +63,15 @@ export class EPayService {
    * @returns MD5签名（小写）
    */
   generateSign(params: Record<string, any>, key: string): string {
-    // 过滤空值和签名相关参数
+    // 过滤 sign/sign_type，保留空值（EPay 服务端可能将空字符串参与签名）
     const filteredParams: Record<string, string> = {};
     for (const [k, v] of Object.entries(params)) {
-      if (v !== null && v !== undefined && v !== '' && k !== 'sign' && k !== 'sign_type') {
-        filteredParams[k] = String(v);
+      if (k !== 'sign' && k !== 'sign_type') {
+        filteredParams[k] = v === null || v === undefined ? '' : String(v);
       }
     }
 
-    // 按key排序
+    // 按key排序（ASCII 码从小到大）
     const sortedKeys = Object.keys(filteredParams).sort();
 
     // 拼接字符串
