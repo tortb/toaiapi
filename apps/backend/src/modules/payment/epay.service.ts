@@ -358,12 +358,20 @@ export class EPayService {
         return { success: false, error: data.msg || `EPay returned code ${data.code}` };
       }
 
-      this.logger.log(`EPay order ${orderNo} status: ${data.status}, trade_no: ${data.trade_no}`);
+      // EPay 查询 API 文档说 status 是 Int（0=未支付，1=已支付），
+      // 但实测该 EPay 实例可能返回字符串 "1" 或其它状态值（如 "2" = 等待支付）。
+      // 统一转为与异步通知一致的字符串格式，方便调用方统一判断。
+      const rawStatus = data.status;
+      const numericStatus = Number(rawStatus);
+      const normalizedStatus = numericStatus === 1 ? 'TRADE_SUCCESS' : 'WAIT_BUYER_PAY';
+      this.logger.log(
+        `EPay order ${orderNo} status: ${typeof rawStatus === 'string' ? `"${rawStatus}"` : rawStatus} (numeric: ${numericStatus}, normalized: ${normalizedStatus}), trade_no: ${data.trade_no}`,
+      );
 
       return {
         success: true,
         tradeNo: data.trade_no,
-        status: data.status,
+        status: normalizedStatus,
         amount: data.money ? this.yuanToFen(data.money) : undefined,
       };
     } catch (error) {

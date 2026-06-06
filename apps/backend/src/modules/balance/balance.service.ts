@@ -32,10 +32,11 @@ export class BalanceService {
    */
   async getBalance(userId: string) {
     const balance = await this.billingService.getBalance(userId);
+    // billingService.getBalance() 已返回元，不需要再次转换
     return {
-      amount: balance.amount / 100, // 将分转换为元
-      frozen: balance.frozen / 100,
-      available: balance.available / 100,
+      amount: balance.amount,
+      frozen: balance.frozen,
+      available: balance.available,
     };
   }
 
@@ -111,13 +112,15 @@ export class BalanceService {
     ]);
 
     return {
+      // billingService.getBalance() 已返回元，不需要转换
       balance: {
-        amount: balance.amount / 100, // 将分转换为元
-        frozen: balance.frozen / 100,
-        available: balance.available / 100,
+        amount: balance.amount,
+        frozen: balance.frozen,
+        available: balance.available,
       },
-      monthlySpend: Math.abs(monthlySpend._sum.amount || 0) / 100, // 将分转换为元
-      monthlyRecharge: (monthlyRecharge._sum.amount || 0) / 100, // 将分转换为元
+      // _sum.amount 来自 Prisma 原生聚合（单位：分），需除以 100 转为元
+      monthlySpend: Math.abs(monthlySpend._sum.amount || 0) / 100,
+      monthlyRecharge: (monthlyRecharge._sum.amount || 0) / 100,
       monthlyRequests: tokenStats._count,
       monthlyPromptTokens: tokenStats._sum.prompt_tokens || 0,
       monthlyCompletionTokens: tokenStats._sum.completion_tokens || 0,
