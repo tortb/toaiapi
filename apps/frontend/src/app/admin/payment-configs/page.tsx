@@ -20,9 +20,10 @@ import {
 interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "password" | "url";
-  placeholder: string;
+  type: "text" | "password" | "url" | "boolean";
+  placeholder?: string;
   required?: boolean;
+  tip?: string;
 }
 
 const GATEWAY_INFO: Record<string, { label: string; icon: string; color: string; description: string; fields: FieldDef[] }> = {
@@ -37,6 +38,9 @@ const GATEWAY_INFO: Record<string, { label: string; icon: string; color: string;
       { key: "api_endpoint", label: "API 地址", type: "url", placeholder: "https://pay.example.com", required: true },
       { key: "notify_url", label: "异步通知地址", type: "url", placeholder: "https://your-domain.com/api/v1/payment/notify/epay" },
       { key: "return_url", label: "同步跳转地址", type: "url", placeholder: "https://your-domain.com/recharge?success=true" },
+      { key: "extra_config.enable_alipay", label: "启用支付宝", type: "boolean", tip: "通过易支付使用支付宝支付" },
+      { key: "extra_config.enable_wxpay", label: "启用微信支付", type: "boolean", tip: "通过易支付使用微信支付" },
+      { key: "extra_config.enable_qqpay", label: "启用QQ支付", type: "boolean", tip: "通过易支付使用QQ钱包支付" },
     ],
   },
   alipay: {
@@ -87,7 +91,8 @@ function ConfigEditModal({
     for (const field of info.fields) {
       if (field.key.startsWith("extra_config.")) {
         const subKey = field.key.replace("extra_config.", "");
-        initial[field.key] = (config.extra_config as any)?.[subKey] || "";
+        const val = (config.extra_config as any)?.[subKey];
+        initial[field.key] = field.type === "boolean" ? (val === true || val === "true" ? "true" : "false") : (val || "");
       } else {
         initial[field.key] = (config as any)[field.key] || "";
       }
@@ -105,7 +110,7 @@ function ConfigEditModal({
         if (field.key.startsWith("extra_config.")) {
           if (!payload.extra_config) payload.extra_config = {};
           const subKey = field.key.replace("extra_config.", "");
-          payload.extra_config[subKey] = value;
+          payload.extra_config[subKey] = field.type === "boolean" ? value === "true" : value;
         } else {
           (payload as any)[field.key] = value;
         }
@@ -132,17 +137,39 @@ function ConfigEditModal({
         <div className="space-y-4">
           {info.fields.map((field) => (
             <div key={field.key}>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                {field.label}
-                {field.required && <span className="text-red-500 ml-0.5">*</span>}
-              </label>
-              <input
-                type={field.type}
-                value={form[field.key] || ""}
-                onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                placeholder={field.placeholder}
-                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
+              {field.type === "boolean" ? (
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">{field.label}</label>
+                    {field.tip && <p className="text-xs text-gray-400 mt-0.5">{field.tip}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, [field.key]: prev[field.key] === "true" ? "false" : "true" }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      form[field.key] === "true" ? "bg-primary" : "bg-gray-300"
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      form[field.key] === "true" ? "translate-x-6" : "translate-x-1"
+                    }`} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {field.label}
+                    {field.required && <span className="text-red-500 ml-0.5">*</span>}
+                  </label>
+                  <input
+                    type={field.type}
+                    value={form[field.key] || ""}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={field.placeholder}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </>
+              )}
             </div>
           ))}
         </div>

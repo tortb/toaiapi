@@ -128,27 +128,33 @@ export class EPayService {
   async createPayUrl(params: EPayCreateOrderParams): Promise<string> {
     const config = await this.getConfig();
 
-    // 构建参数
+    // 构建参数（仅包含非空值，符合 EPay 规范）
     const submitParams: Record<string, any> = {
       pid: config.pid,
       type: params.type,
       out_trade_no: params.outTradeNo,
-      notify_url: config.notifyUrl,
-      return_url: config.returnUrl,
       name: params.name,
       money: params.money,
-      sitename: params.sitename || 'ToAIAPI',
     };
+
+    // notify_url 和 return_url 仅在非空时添加（EPay 规范：空值不参与签名）
+    if (config['notifyUrl']) {
+      submitParams['notify_url'] = config['notifyUrl'];
+    }
+    if (config['returnUrl']) {
+      submitParams['return_url'] = config['returnUrl'];
+    }
 
     // 生成签名
     const sign = this.generateSign(submitParams, config.key);
 
-    // 构建支付链接
+    // 构建支付链接（去除末尾斜杠避免双斜杠）
+    const endpoint = config.apiEndpoint.replace(/\/+$/, '');
     const queryString = Object.entries({ ...submitParams, sign, sign_type: 'MD5' })
       .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
       .join('&');
 
-    const payUrl = `${config.apiEndpoint}/submit.php?${queryString}`;
+    const payUrl = `${endpoint}/submit.php?${queryString}`;
 
     this.logger.log(`Created EPay payment URL for order: ${params.outTradeNo}`);
     return payUrl;

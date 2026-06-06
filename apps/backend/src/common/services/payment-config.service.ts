@@ -142,10 +142,10 @@ export class PaymentConfigService {
   /**
    * 获取所有已启用的支付方式
    */
-  async getEnabledMethods(): Promise<Array<{ name: string; display_name: string }>> {
+  async getEnabledMethods(): Promise<Array<{ name: string; display_name: string; extra_config: any }>> {
     const configs = await this.prisma.paymentConfig.findMany({
       where: { is_enabled: true },
-      select: { name: true, display_name: true },
+      select: { name: true, display_name: true, extra_config: true },
     });
 
     return configs;

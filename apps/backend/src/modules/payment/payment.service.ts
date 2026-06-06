@@ -527,13 +527,17 @@ export class PaymentService implements OnModuleInit {
 
     for (const config of configs) {
       switch (config.name) {
-        case 'epay':
-          methods.push(
-            { name: 'EPAY_ALIPAY', displayName: '易支付-支付宝' },
-            { name: 'EPAY_WECHAT', displayName: '易支付-微信' },
-            { name: 'EPAY_QQ', displayName: '易支付-QQ' },
-          );
+        case 'epay': {
+          // 读取 extra_config 中的子支付方式开关
+          const extra = config.extra_config as Record<string, any> | null;
+          const enableAlipay = extra?.['enable_alipay'] !== false; // 默认启用
+          const enableWxpay = extra?.['enable_wxpay'] !== false;
+          const enableQqpay = extra?.['enable_qqpay'] !== false;
+          if (enableAlipay) methods.push({ name: 'EPAY_ALIPAY', displayName: '易支付-支付宝' });
+          if (enableWxpay) methods.push({ name: 'EPAY_WECHAT', displayName: '易支付-微信' });
+          if (enableQqpay) methods.push({ name: 'EPAY_QQ', displayName: '易支付-QQ' });
           break;
+        }
         case 'alipay':
           methods.push({ name: 'ALIPAY', displayName: '支付宝' });
           break;
