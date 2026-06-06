@@ -1347,3 +1347,70 @@ export function formatDate(dateStr: string): string {
     minute: "2-digit",
   });
 }
+
+// ──────────────────────────────────────────────
+// Payment Config API
+// ──────────────────────────────────────────────
+
+export interface PaymentConfigData {
+  name: string;
+  displayName: string;
+  isEnabled: boolean;
+  merchantId: string | null;
+  merchantKey: string | null;
+  merchantSecret: string | null;
+  apiEndpoint: string | null;
+  notifyUrl: string | null;
+  returnUrl: string | null;
+  extraConfig: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdatePaymentConfigPayload {
+  displayName?: string;
+  isEnabled?: boolean;
+  merchantId?: string;
+  merchantKey?: string;
+  merchantSecret?: string;
+  apiEndpoint?: string;
+  notifyUrl?: string;
+  returnUrl?: string;
+  extraConfig?: Record<string, any>;
+}
+
+/**
+ * 获取所有支付配置（脱敏）
+ */
+export async function getPaymentConfigs(): Promise<PaymentConfigData[]> {
+  return adminFetch<PaymentConfigData[]>(`${API_PREFIX}/admin/payment-configs`);
+}
+
+/**
+ * 获取单个支付配置（脱敏）
+ */
+export async function getPaymentConfig(name: string): Promise<PaymentConfigData> {
+  return adminFetch<PaymentConfigData>(`${API_PREFIX}/admin/payment-configs/${name}`);
+}
+
+/**
+ * 更新支付配置
+ */
+export async function updatePaymentConfig(
+  name: string,
+  payload: UpdatePaymentConfigPayload,
+): Promise<PaymentConfigData> {
+  return adminFetch<PaymentConfigData>(`${API_PREFIX}/admin/payment-configs/${name}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 切换支付配置启用状态
+ */
+export async function togglePaymentConfig(name: string): Promise<PaymentConfigData> {
+  return adminFetch<PaymentConfigData>(`${API_PREFIX}/admin/payment-configs/${name}/toggle`, {
+    method: "PATCH",
+  });
+}

@@ -77,6 +77,7 @@ const sidebarSections: SidebarSection[] = [
       { icon: <IconBill size={18} />, label: "账单管理", href: "/admin/bills" },
       { icon: <IconInvoice size={18} />, label: "发票管理", href: "/admin/invoices" },
       { icon: <IconRecharge size={18} />, label: "充值活动", href: "/admin/promotions" },
+      { icon: <IconSystem size={18} />, label: "支付配置", href: "/admin/payment-configs" },
     ],
   },
   {
