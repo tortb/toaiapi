@@ -1,8 +1,8 @@
 /**
  * Auth 状态管理 (Zustand)
  *
- * 管理管理员登录状态、用户信息、加载状态。
- * 自动从 localStorage 恢复会话。
+ * 管理用户登录状态、用户信息、加载状态。
+ * 自动从 localStorage 恢复会话，支持普通用户和管理员。
  */
 
 import { create } from "zustand";
@@ -55,10 +55,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       const auth = await apiLogin(payload);
+      const role = auth.user.role?.toLowerCase() ?? "";
+      const admin = role === "admin" || role === "super_admin";
       set({
         user: auth.user,
         isAuthenticated: true,
-        isAdmin: true,
+        isAdmin: admin,
         isLoading: false,
         error: null,
       });
@@ -106,23 +108,12 @@ export const useAuthStore = create<AuthState>((set) => ({
    * 从 localStorage 恢复会话
    *
    * 应在应用初始化时调用一次。
+   * 支持普通用户和管理员，不再限制仅管理员可用。
    */
   restoreSession: () => {
     const authenticated = isAuthenticated();
     const admin = isAdmin();
     const user = getCurrentUser();
-
-    // 如果有 token 但不是管理员，清除数据
-    if (authenticated && !admin) {
-      clearAuthData();
-      set({
-        user: null,
-        isAuthenticated: false,
-        isAdmin: false,
-        isLoading: false,
-      });
-      return;
-    }
 
     set({
       user,

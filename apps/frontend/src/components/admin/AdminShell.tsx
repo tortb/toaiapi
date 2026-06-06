@@ -76,6 +76,7 @@ const sidebarSections: SidebarSection[] = [
       { icon: <IconRecharge size={18} />, label: "充值记录", href: "/admin/recharges" },
       { icon: <IconBill size={18} />, label: "账单管理", href: "/admin/bills" },
       { icon: <IconInvoice size={18} />, label: "发票管理", href: "/admin/invoices" },
+      { icon: <IconRecharge size={18} />, label: "充值活动", href: "/admin/promotions" },
     ],
   },
   {
@@ -87,13 +88,10 @@ const sidebarSections: SidebarSection[] = [
     ],
   },
   {
-    title: "系统与监控",
+    title: "系统设置",
     items: [
       { icon: <IconSystem size={18} />, label: "系统设置", href: "/admin/settings" },
       { icon: <IconShield size={18} />, label: "验证码配置", href: "/admin/captcha" },
-      { icon: <IconLog size={18} />, label: "操作日志", href: "/admin/logs/operations" },
-      { icon: <IconLog size={18} />, label: "调用日志", href: "/admin/logs/requests" },
-      { icon: <IconMonitor size={18} />, label: "系统监控", href: "/admin/monitor" },
     ],
   },
 ];

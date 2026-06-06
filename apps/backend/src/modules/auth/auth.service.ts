@@ -78,10 +78,15 @@ export class AuthService {
 
     // 邮箱验证码检查
     const emailVerify = await this.systemSettingService.getTypedByKey<boolean>('email_verify', false);
-    if (emailVerify && !dto.emailCode) {
-      throw new BadRequestException('请输入邮箱验证码');
+    if (emailVerify) {
+      if (!dto.emailCode) {
+        throw new BadRequestException('请输入邮箱验证码');
+      }
+      const codeValid = await this.verifyEmailCode(dto.email, dto.emailCode, '注册');
+      if (!codeValid) {
+        throw new BadRequestException('验证码错误或已过期');
+      }
     }
-    // TODO: 验证邮箱验证码的正确性
 
     // SECURITY: 验证密码强度（大小写字母 + 数字 + 长度 8-128）
     const strength = validatePasswordStrength(dto.password);
@@ -392,6 +397,65 @@ export class AuthService {
     await this.redis.del(tokenKey);
     await this.redis.del(`refresh:${userId}`);
     this.logger.log(`Password reset for user: ${userId}`);
+  }
+
+  /**
+   * 发送邮箱验证码
+   *
+   * 生成 6 位随机验证码，存入 Redis（TTL 5 分钟），发送邮件。
+   * 同一邮箱 60 秒内只能发送一次（防刷）。
+   *
+   * @param email - 目标邮箱
+   * @param purpose - 用途（如 "注册"、"找回密码"）
+   */
+  async sendVerificationCode(email: string, purpose: string = '验证'): Promise<void> {
+    // 防刷检查：60 秒内只能发送一次
+    const cooldownKey = `email-code-cooldown:${email}:${purpose}`;
+    const hasCooldown = await this.redis.exists(cooldownKey);
+    if (hasCooldown) {
+      throw new BadRequestException('验证码发送过于频繁，请 60 秒后再试');
+    }
+
+    // 生成 6 位随机验证码
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 存入 Redis，TTL 5 分钟
+    const codeKey = `email-code:${email}:${purpose}`;
+    await this.redis.set(codeKey, code, 300);
+
+    // 设置冷却时间，60 秒
+    await this.redis.set(cooldownKey, '1', 60);
+
+    // 发送邮件
+    const sent = await this.emailService.sendVerificationCodeEmail(email, code, purpose);
+    if (!sent) {
+      this.logger.warn(`Failed to send verification code to ${email}`);
+    }
+
+    this.logger.log(`Verification code sent to ${email} for ${purpose}`);
+  }
+
+  /**
+   * 验证邮箱验证码
+   *
+   * 从 Redis 读取验证码并与用户输入比对，成功后删除 key。
+   *
+   * @param email - 邮箱
+   * @param code - 用户输入的验证码
+   * @param purpose - 用途
+   * @returns 是否验证成功
+   */
+  async verifyEmailCode(email: string, code: string, purpose: string = '验证'): Promise<boolean> {
+    const codeKey = `email-code:${email}:${purpose}`;
+    const storedCode = await this.redis.get(codeKey);
+
+    if (!storedCode || storedCode !== code) {
+      return false;
+    }
+
+    // 验证成功，删除 key（一次性）
+    await this.redis.del(codeKey);
+    return true;
   }
 
   /**

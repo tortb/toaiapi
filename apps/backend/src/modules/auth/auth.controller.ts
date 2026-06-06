@@ -23,6 +23,7 @@ import { AuthResponseDto, TokenResponseDto } from './dto/token-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SendVerificationCodeDto } from './dto/send-verification-code.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 
@@ -109,6 +110,22 @@ export class AuthController {
     @Body() dto: ChangePasswordDto,
   ): Promise<void> {
     await this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+  }
+
+  /**
+   * 发送邮箱验证码
+   *
+   * 用于注册、找回密码等场景。验证码 5 分钟内有效，同一邮箱 60 秒内只能发送一次。
+   */
+  @Post('send-verification-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: '发送邮箱验证码',
+    description: '发送 6 位验证码到指定邮箱，用于注册或找回密码',
+  })
+  async sendVerificationCode(@Body() dto: SendVerificationCodeDto): Promise<{ message: string }> {
+    await this.authService.sendVerificationCode(dto.email, dto.purpose || '注册');
+    return { message: '验证码已发送' };
   }
 
   /**

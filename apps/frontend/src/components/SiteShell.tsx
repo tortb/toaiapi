@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePublicConfig } from "@/providers/public-config-provider";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   ToAiAPILogo,
   IconChevronDown,
@@ -13,6 +14,7 @@ import {
 
 export function Header() {
   const { config } = usePublicConfig();
+  const { isAuthenticated } = useAuthStore();
   const siteName = config.site_name || "ToAiAPI";
 
   return (
@@ -37,17 +39,24 @@ export function Header() {
             <Link href="/pricing" className="hover:text-primary">价格</Link>
             <Link href="/docs" className="hover:text-primary">文档</Link>
             <Link href="/status" className="hover:text-primary">服务状态</Link>
-            <a href="#" className="hover:text-primary">支持</a>
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/login" className="text-[14px] text-gray-700 px-3 py-1.5 hover:text-primary">
-            登录
-          </Link>
-          {config.allow_register !== false && (
-            <Link href="/register" className="text-[14px] text-white bg-primary px-4 py-1.5 rounded hover:bg-primary-600 transition">
-              注册
+          {isAuthenticated ? (
+            <Link href="/dashboard" className="text-[14px] text-white bg-primary px-4 py-1.5 rounded hover:bg-primary-600 transition">
+              控制台
             </Link>
+          ) : (
+            <>
+              <Link href="/login" className="text-[14px] text-gray-700 px-3 py-1.5 hover:text-primary">
+                登录
+              </Link>
+              {config.allow_register !== false && (
+                <Link href="/register" className="text-[14px] text-white bg-primary px-4 py-1.5 rounded hover:bg-primary-600 transition">
+                  注册
+                </Link>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -110,13 +119,13 @@ export function Footer() {
                 <Link href="/docs" className="text-[12.5px] text-gray-500 hover:text-primary">快速开始</Link>
               </li>
               <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">API 参考</a>
+                <Link href="/docs" className="text-[12.5px] text-gray-500 hover:text-primary">API 参考</Link>
               </li>
               <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">SDK 下载</a>
+                <Link href="/models" className="text-[12.5px] text-gray-500 hover:text-primary">模型列表</Link>
               </li>
               <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">更新日志</a>
+                <Link href="/pricing" className="text-[12.5px] text-gray-500 hover:text-primary">价格方案</Link>
               </li>
             </ul>
           </div>
@@ -124,33 +133,29 @@ export function Footer() {
             <h4 className="text-[13px] font-bold text-gray-900 mb-3">支持</h4>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">技术支持</a>
+                <Link href="/status" className="text-[12.5px] text-gray-500 hover:text-primary">服务状态</Link>
               </li>
               <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">服务条款</a>
+                <Link href="/docs" className="text-[12.5px] text-gray-500 hover:text-primary">帮助中心</Link>
               </li>
-              <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">隐私政策</a>
-              </li>
-              <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">联系我们</a>
-              </li>
+              {config.contact_email && (
+                <li>
+                  <a href={`mailto:${config.contact_email}`} className="text-[12.5px] text-gray-500 hover:text-primary">联系我们</a>
+                </li>
+              )}
             </ul>
           </div>
           <div>
-            <h4 className="text-[13px] font-bold text-gray-900 mb-3">关于我们</h4>
+            <h4 className="text-[13px] font-bold text-gray-900 mb-3">产品</h4>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">公司简介</a>
+                <Link href="/models" className="text-[12.5px] text-gray-500 hover:text-primary">支持模型</Link>
               </li>
               <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">加入我们</a>
+                <Link href="/pricing" className="text-[12.5px] text-gray-500 hover:text-primary">定价</Link>
               </li>
               <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">博客</a>
-              </li>
-              <li>
-                <a href="#" className="text-[12.5px] text-gray-500 hover:text-primary">合作伙伴</a>
+                <Link href="/docs" className="text-[12.5px] text-gray-500 hover:text-primary">文档</Link>
               </li>
             </ul>
           </div>

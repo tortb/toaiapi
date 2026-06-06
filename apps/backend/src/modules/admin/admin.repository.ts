@@ -615,18 +615,27 @@ export class AdminRepository {
 
     const result = await Promise.all(
       channels.map(async (ch) => {
-        const todayRequests = await this.prisma.requestLog.count({
-          where: {
-            channel_id: ch.id,
-            created_at: { gte: today },
-          },
-        });
+        const [todayRequests, avgResult] = await Promise.all([
+          this.prisma.requestLog.count({
+            where: {
+              channel_id: ch.id,
+              created_at: { gte: today },
+            },
+          }),
+          this.prisma.requestLog.aggregate({
+            where: {
+              channel_id: ch.id,
+              created_at: { gte: today },
+            },
+            _avg: { latency_ms: true },
+          }),
+        ]);
 
         return {
           id: ch.id,
           name: ch.name,
           status: ch.status,
-          avgLatency: 0, // TODO: 需要从 RequestLog 计算平均延迟
+          avgLatency: Math.round(avgResult._avg.latency_ms ?? 0),
           todayRequests,
         };
       }),
