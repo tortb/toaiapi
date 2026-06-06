@@ -4,17 +4,20 @@
  * 充值中心（用户端）
  *
  * /recharge — 快捷金额、赠送活动、支付方式选择
+ * 支持订单状态轮询，支付成功后自动刷新余额
  */
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
+import UserConsoleLayout from "@/components/dashboard/layout/UserConsoleLayout";
 import {
-  getBalance,
   getBalanceStats,
   getPaymentMethods,
   getActivePromotions,
   createOrder,
+  getOrderStatus,
   formatAmount,
   formatNumber,
   type BalanceStats,
@@ -36,6 +39,24 @@ function PaymentIcon({ method }: { method: string }) {
   return <span className="text-lg">{icons[method] ?? "💳"}</span>;
 }
 
+/* ============== 订单状态显示 ============== */
+function OrderStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    PENDING: { label: "待支付", color: "text-warning", bg: "bg-warning/10" },
+    PAID: { label: "已支付", color: "text-success", bg: "bg-success/10" },
+    FAILED: { label: "支付失败", color: "text-red-600", bg: "bg-red-50" },
+    CANCELLED: { label: "已取消", color: "text-gray-500", bg: "bg-gray-100" },
+    EXPIRED: { label: "已过期", color: "text-gray-400", bg: "bg-gray-100" },
+  };
+  const s = map[status] ?? { label: status, color: "text-gray-500", bg: "bg-gray-100" };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${status === "PAID" ? "bg-success" : status === "PENDING" ? "bg-warning" : "bg-gray-400"}`} />
+      {s.label}
+    </span>
+  );
+}
+
 /* ============== 主页面 ============== */
 export default function RechargePage() {
   const router = useRouter();
@@ -51,7 +72,12 @@ export default function RechargePage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [orderResult, setOrderResult] = React.useState<{ orderNo: string; payUrl: string | null } | null>(null);
+
+  // 订单状态
+  const [orderNo, setOrderNo] = React.useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = React.useState<string | null>(null);
+  const [payUrl, setPayUrl] = React.useState<string | null>(null);
+  const [pollCount, setPollCount] = React.useState(0);
 
   // 计算赠送金额
   const getBonus = (promo: ActivePromotion, amount: number): number => {
@@ -61,17 +87,19 @@ export default function RechargePage() {
     return bonus;
   };
 
-  // 找到最佳赠送活动
+  const currentAmount = isCustom ? (parseFloat(customAmount) || 0) : selectedAmount;
+
+  // 找到最佳赠送活动（基于 currentAmount）
   const bestPromotion = promotions.length > 0 ? promotions.reduce((best, p) => {
-    if (selectedAmount < p.minAmount) return best;
-    const bonus = getBonus(p, selectedAmount);
-    const bestBonus = best ? getBonus(best, selectedAmount) : 0;
+    if (currentAmount < p.minAmount) return best;
+    const bonus = getBonus(p, currentAmount);
+    const bestBonus = best ? getBonus(best, currentAmount) : 0;
     return bonus > bestBonus ? p : best;
   }, null as ActivePromotion | null) : null;
 
-  const currentAmount = isCustom ? (parseFloat(customAmount) || 0) : selectedAmount;
   const bonusAmount = bestPromotion ? getBonus(bestPromotion, currentAmount) : 0;
 
+  // 加载初始数据
   React.useEffect(() => {
     if (!isAuthenticated) {
       router.replace("/login");
@@ -101,6 +129,37 @@ export default function RechargePage() {
     loadData();
   }, [isAuthenticated, router]);
 
+  // 订单状态轮询
+  React.useEffect(() => {
+    if (!orderNo || orderStatus === "PAID" || orderStatus === "FAILED" || orderStatus === "CANCELLED") {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const order = await getOrderStatus(orderNo);
+        setOrderStatus(order.status);
+        setPollCount((c) => c + 1);
+
+        if (order.status === "PAID") {
+          // 支付成功，刷新余额
+          const newStats = await getBalanceStats();
+          setStats(newStats);
+          clearInterval(pollInterval);
+        }
+
+        // 轮询 60 次（约 3 分钟）后停止
+        if (pollCount > 60) {
+          clearInterval(pollInterval);
+        }
+      } catch {
+        // 静默失败，继续轮询
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [orderNo, orderStatus, pollCount]);
+
   const handleSubmit = async () => {
     if (currentAmount < 0.01) {
       setError("充值金额最低 0.01 元");
@@ -115,7 +174,10 @@ export default function RechargePage() {
     setError(null);
     try {
       const result = await createOrder(currentAmount, selectedMethod);
-      setOrderResult({ orderNo: result.orderNo, payUrl: result.payUrl });
+      setOrderNo(result.orderNo);
+      setOrderStatus("PENDING");
+      setPayUrl(result.payUrl);
+      setPollCount(0);
       if (result.payUrl) {
         window.open(result.payUrl, "_blank");
       }
@@ -126,25 +188,28 @@ export default function RechargePage() {
     }
   };
 
+  // 重新充值（重置订单状态）
+  const handleNewOrder = () => {
+    setOrderNo(null);
+    setOrderStatus(null);
+    setPayUrl(null);
+    setPollCount(0);
+    setError(null);
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FAFBFC] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
+      <UserConsoleLayout>
+        <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-center min-h-[60vh]">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </UserConsoleLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
-      {/* 顶部导航 */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-20">
-        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
-          <h1 className="text-base font-semibold text-gray-800">充值中心</h1>
-          <a href="/" className="text-sm text-primary hover:underline">返回首页</a>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-6 py-8">
+    <UserConsoleLayout>
+      <div className="max-w-4xl mx-auto px-6 py-8">
         {/* 余额卡片 */}
         <div className="bg-gradient-to-r from-primary to-blue-600 rounded-xl p-6 text-white mb-6">
           <p className="text-sm opacity-80 mb-1">当前余额</p>
@@ -156,16 +221,88 @@ export default function RechargePage() {
           </div>
         </div>
 
-        {/* 订单结果 */}
-        {orderResult && (
-          <div className="bg-success/10 border border-success/20 rounded-lg p-4 mb-6">
-            <p className="text-sm text-success font-medium">订单已创建</p>
-            <p className="text-xs text-gray-600 mt-1">订单号: {orderResult.orderNo}</p>
-            {orderResult.payUrl && (
-              <a href={orderResult.payUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-block mt-2 px-4 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary-600">
-                前往支付
-              </a>
+        {/* 订单状态面板 */}
+        {orderNo && (
+          <div className={`border rounded-lg p-5 mb-6 ${
+            orderStatus === "PAID"
+              ? "bg-success/5 border-success/20"
+              : orderStatus === "PENDING"
+              ? "bg-warning/5 border-warning/20"
+              : "bg-red-50 border-red-200"
+          }`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-medium text-gray-900">订单状态</h3>
+                <OrderStatusBadge status={orderStatus || "PENDING"} />
+              </div>
+              {orderStatus === "PENDING" && (
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <div className="w-3 h-3 border-2 border-warning border-t-transparent rounded-full animate-spin" />
+                  等待支付结果...
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+              <div>
+                <span className="text-gray-500">订单号</span>
+                <p className="font-mono text-gray-800">{orderNo}</p>
+              </div>
+              <div>
+                <span className="text-gray-500">充值金额</span>
+                <p className="text-gray-800 font-medium">¥{formatAmount(currentAmount)}</p>
+              </div>
+            </div>
+
+            {orderStatus === "PAID" && (
+              <div className="p-3 bg-success/10 rounded-lg text-sm text-success font-medium mb-3">
+                ✅ 支付成功！余额已更新为 ¥{formatAmount(stats?.balance.available ?? 0)}
+              </div>
+            )}
+
+            {orderStatus === "PENDING" && payUrl && (
+              <div className="flex items-center gap-3">
+                <a
+                  href={payUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600 transition"
+                >
+                  前往支付
+                </a>
+                <button
+                  onClick={handleNewOrder}
+                  className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                >
+                  取消订单
+                </button>
+              </div>
+            )}
+
+            {(orderStatus === "FAILED" || orderStatus === "CANCELLED" || orderStatus === "EXPIRED") && (
+              <button
+                onClick={handleNewOrder}
+                className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600 transition"
+              >
+                重新充值
+              </button>
+            )}
+
+            {orderStatus === "PAID" && (
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/dashboard/billing"
+                  className="px-4 py-2 text-sm text-primary border border-primary rounded-lg hover:bg-primary-50 transition"
+                >
+                  查看账单
+                </Link>
+                <button
+                  onClick={handleNewOrder}
+                  className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600 transition"
+                >
+                  继续充值
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -197,7 +334,11 @@ export default function RechargePage() {
             {QUICK_AMOUNTS.map((amount) => (
               <button
                 key={amount}
-                onClick={() => { setSelectedAmount(amount); setIsCustom(false); }}
+                onClick={() => {
+                  setSelectedAmount(amount);
+                  setIsCustom(false);
+                  setCustomAmount("");
+                }}
                 className={`py-3 rounded-lg text-center transition-colors ${
                   !isCustom && selectedAmount === amount
                     ? "bg-primary text-white"
@@ -222,9 +363,10 @@ export default function RechargePage() {
                   type="number"
                   value={customAmount}
                   onChange={(e) => setCustomAmount(e.target.value)}
-                  placeholder="0.01"
+                  placeholder="输入金额，如 150"
                   min={0.01}
                   step={0.01}
+                  autoFocus
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
@@ -278,15 +420,17 @@ export default function RechargePage() {
           </div>
         )}
 
-        {/* 提交 */}
-        <button
-          onClick={handleSubmit}
-          disabled={isSubmitting || currentAmount < 0.01 || !selectedMethod}
-          className="w-full py-3 bg-primary text-white text-base font-medium rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? "创建订单中..." : `确认充值 ¥${formatAmount(currentAmount)}${bonusAmount > 0 ? ` (含赠送 ¥${formatAmount(bonusAmount)})` : ""}`}
-        </button>
-      </main>
-    </div>
+        {/* 提交按钮（仅在没有活跃订单时显示） */}
+        {!orderNo && (
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting || currentAmount < 0.01 || !selectedMethod}
+            className="w-full py-3 bg-primary text-white text-base font-medium rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? "创建订单中..." : `确认充值 ¥${formatAmount(currentAmount)}${bonusAmount > 0 ? ` (含赠送 ¥${formatAmount(bonusAmount)})` : ""}`}
+          </button>
+        )}
+      </div>
+    </UserConsoleLayout>
   );
 }

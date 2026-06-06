@@ -2,6 +2,8 @@ import React from "react";
 import SiteShell from "@/components/SiteShell";
 import { getStatus } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
 export default async function StatusPage() {
   let status: any[] = [];
   try {

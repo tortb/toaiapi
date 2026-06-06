@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
-import DashboardShell from "@/components/DashboardShell";
+import UserConsoleLayout from "@/components/dashboard/layout/UserConsoleLayout";
 import {
   getUserApiKeys,
   createApiKey,
@@ -243,16 +243,16 @@ export default function ApiKeysPage() {
 
   if (isLoading) {
     return (
-      <DashboardShell>
+      <UserConsoleLayout>
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      </DashboardShell>
+      </UserConsoleLayout>
     );
   }
 
   return (
-    <DashboardShell>
+    <UserConsoleLayout>
       <div className="max-w-5xl mx-auto px-6 py-8">
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">{error}</div>
@@ -260,48 +260,53 @@ export default function ApiKeysPage() {
 
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">API Keys</h1>
-            <p className="text-sm text-gray-500 mt-1">管理您的 API 密钥，用于访问 ToAiAPI 服务</p>
+            <h1 className="text-lg font-semibold text-gray-900">API 密钥</h1>
+            <p className="text-sm text-gray-500 mt-1">管理您的 API 密钥，用于访问 ToAIAPI 服务</p>
           </div>
           <button
             onClick={() => setShowCreate(true)}
-            className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600 flex items-center gap-2"
+            className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600 flex items-center gap-2 shadow-sm"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-            创建 Key
+            创建密钥
           </button>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-100">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-[0_8px_30px_rgba(0,0,0,0.06)] overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 text-gray-500">
-                <th className="font-normal text-left px-4 py-3 text-[13px]">名称</th>
-                <th className="font-normal text-left px-4 py-3 text-[13px]">Key 前缀</th>
-                <th className="font-normal text-left px-4 py-3 text-[13px]">状态</th>
-                <th className="font-normal text-right px-4 py-3 text-[13px]">请求数</th>
-                <th className="font-normal text-left px-4 py-3 text-[13px]">最后使用</th>
-                <th className="font-normal text-left px-4 py-3 text-[13px]">创建时间</th>
-                <th className="font-normal text-right px-4 py-3 text-[13px]">操作</th>
+                <th className="font-normal text-left px-5 py-3.5 text-xs">名称</th>
+                <th className="font-normal text-left px-5 py-3.5 text-xs">密钥</th>
+                <th className="font-normal text-left px-5 py-3.5 text-xs">状态</th>
+                <th className="font-normal text-right px-5 py-3.5 text-xs">请求数</th>
+                <th className="font-normal text-left px-5 py-3.5 text-xs">最后使用</th>
+                <th className="font-normal text-left px-5 py-3.5 text-xs">创建时间</th>
+                <th className="font-normal text-right px-5 py-3.5 text-xs">操作</th>
               </tr>
             </thead>
             <tbody>
               {keys.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-sm">暂无 API Key，点击上方按钮创建</td></tr>
+                <tr><td colSpan={7} className="px-5 py-12 text-center"><span className="text-sm text-gray-400">暂无 API 密钥，点击上方按钮创建</span></td></tr>
               ) : keys.map((k) => (
-                <tr key={k.id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-[13px] text-gray-800 font-medium">{k.name || "-"}</td>
-                  <td className="px-4 py-3 text-[13px] text-gray-600 font-mono">{k.keyPrefix}...</td>
-                  <td className="px-4 py-3 text-[13px]">
-                    <span className={`inline-flex items-center gap-1.5 ${k.isActive ? "text-success" : "text-gray-400"}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${k.isActive ? "bg-success" : "bg-gray-300"}`} />
-                      {k.isActive ? "启用" : "禁用"}
+                <tr key={k.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                  <td className="px-5 py-3.5 text-sm text-gray-800 font-medium">{k.name || "-"}</td>
+                  <td className="px-5 py-3.5 text-sm text-gray-600 font-mono group relative">
+                    <span className="cursor-pointer">
+                      <span className="group-hover:hidden">{k.keyPrefix}••••••••••</span>
+                      <span className="hidden group-hover:inline">{k.keyPrefix}...</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[13px] text-right text-gray-600 font-mono">{k.totalRequests.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-[13px] text-gray-500">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString("zh-CN") : "-"}</td>
-                  <td className="px-4 py-3 text-[13px] text-gray-500">{new Date(k.createdAt).toLocaleDateString("zh-CN")}</td>
-                  <td className="px-4 py-3 text-[13px] text-right">
+                  <td className="px-5 py-3.5 text-sm">
+                    <span className={`inline-flex items-center gap-1.5 ${k.isActive ? "text-success" : "text-gray-400"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${k.isActive ? "bg-success" : "bg-gray-300"}`} />
+                      {k.isActive ? "已启用" : "已禁用"}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-sm text-right text-gray-600 font-mono">{k.totalRequests.toLocaleString()}</td>
+                  <td className="px-5 py-3.5 text-sm text-gray-500">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString("zh-CN") : "-"}</td>
+                  <td className="px-5 py-3.5 text-sm text-gray-500">{new Date(k.createdAt).toLocaleDateString("zh-CN")}</td>
+                  <td className="px-5 py-3.5 text-sm text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleToggle(k)} className="px-2 py-1 text-xs text-gray-600 hover:text-primary hover:bg-primary/5 rounded transition">
                         {k.isActive ? "禁用" : "启用"}
@@ -345,6 +350,6 @@ export default function ApiKeysPage() {
           onClose={() => setConfirmAction(null)}
         />
       )}
-    </DashboardShell>
+    </UserConsoleLayout>
   );
 }

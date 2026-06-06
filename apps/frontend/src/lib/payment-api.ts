@@ -185,7 +185,33 @@ export async function createOrder(amount: number, paymentMethod: string): Promis
 
 /** 获取用户订单列表 */
 export async function getUserOrders(page: number = 1, pageSize: number = 20): Promise<PaginatedResponse<OrderInfo>> {
-  return authFetch<PaginatedResponse<OrderInfo>>(`${API_PREFIX}/payment/orders?page=${page}&pageSize=${pageSize}`);
+  const raw = await authFetch<any>(`${API_PREFIX}/payment/orders?page=${page}&pageSize=${pageSize}`);
+  // 后端返回 { data: [...], total, page, pageSize, totalPages }
+  // 前端期望 { items: [...], total, page, pageSize, totalPages }
+  return {
+    items: raw.data ?? raw.items ?? [],
+    total: raw.total ?? 0,
+    page: raw.page ?? page,
+    pageSize: raw.pageSize ?? pageSize,
+    totalPages: raw.totalPages ?? 1,
+  };
+}
+
+/** 查询单个订单状态 */
+export async function getOrderStatus(orderNo: string): Promise<OrderInfo> {
+  const raw = await authFetch<any>(`${API_PREFIX}/payment/orders/${orderNo}`);
+  // 后端返回 snake_case 字段，前端期望 camelCase
+  return {
+    id: raw.id,
+    orderNo: raw.order_no ?? raw.orderNo,
+    amount: raw.amount,
+    paidAmount: raw.paid_amount ?? raw.paidAmount ?? null,
+    paymentMethod: raw.payment_method ?? raw.paymentMethod ?? null,
+    status: raw.status,
+    productName: raw.product_name ?? raw.productName ?? "",
+    paidAt: raw.paid_at ?? raw.paidAt ?? null,
+    createdAt: raw.created_at ?? raw.createdAt ?? "",
+  };
 }
 
 /** 获取消费明细 */

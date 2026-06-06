@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * 个人设置（用户端）
@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
-import DashboardShell from "@/components/DashboardShell";
+import UserConsoleLayout from "@/components/dashboard/layout/UserConsoleLayout";
 import {
   getUserProfile,
   updateUserProfile,
@@ -219,7 +219,7 @@ export default function SettingsPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <DashboardShell>
+    <UserConsoleLayout>
       <div className="max-w-3xl mx-auto px-6 py-8">
         <div className="mb-6">
           <h1 className="text-lg font-semibold text-gray-900">个人设置</h1>
@@ -231,6 +231,6 @@ export default function SettingsPage() {
           <PasswordCard />
         </div>
       </div>
-    </DashboardShell>
+    </UserConsoleLayout>
   );
 }

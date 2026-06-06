@@ -2,6 +2,8 @@ import React from "react";
 import SiteShell from "@/components/SiteShell";
 import { getPublicModels, type Model } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
 export default async function PricingPage() {
   let models: Model[] = [];
   try {

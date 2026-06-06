@@ -1389,9 +1389,13 @@ export async function sendTestSms(phone: string, templateCode?: string, template
 // ──────────────────────────────────────────────
 
 /**
- * 格式化金额（元）
+ * 格式化金额
+ *
+ * 后端返回金额单位为分（fen），此函数自动转换为元显示。
+ * @param fen - 金额（分），如 10000 表示 ¥100.00
  */
-export function formatAmount(yuan: number): string {
+export function formatAmount(fen: number): string {
+  const yuan = fen / 100;
   return yuan.toLocaleString("zh-CN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
