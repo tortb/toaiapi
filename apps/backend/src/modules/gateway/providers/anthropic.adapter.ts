@@ -8,6 +8,8 @@ import {
 } from './provider-adapter.interface';
 import { ProviderError } from './provider-error';
 import { fetchWithPool } from '../../../common/http/http-agent';
+import { CreateAnthropicMessageDto } from '../dto/anthropic-message.dto';
+import { AnthropicMessageResponse } from '../types/anthropic-response.types';
 
 /**
  * Anthropic 适配器
@@ -219,14 +221,14 @@ export class AnthropicAdapter implements ProviderAdapter {
    * 映射 Anthropic stop_reason 到 OpenAI finish_reason
    */
   private mapStopReason(
-    stopReason: string,
-    content: AnthropicMessageResponse['content'],
+    stopReason: string | null,
+    content: any[],
   ): 'stop' | 'length' | 'tool_calls' {
     if (stopReason === 'tool_use') return 'tool_calls';
     if (stopReason === 'end_turn') return 'stop';
     if (stopReason === 'max_tokens') return 'length';
     // 兜底：检查内容中是否有 tool_use 块
-    if (content.some((c) => c.type === 'tool_use')) return 'tool_calls';
+    if (content.some((c: any) => c.type === 'tool_use')) return 'tool_calls';
     return 'stop';
   }
 
@@ -234,19 +236,19 @@ export class AnthropicAdapter implements ProviderAdapter {
    * 标准化响应格式
    */
   private normalizeResponse(
-    data: AnthropicMessageResponse,
+    data: any,
     model: string,
   ): ChatResponse {
     // 提取文本内容
     const textContent = data.content
-      .filter((c) => c.type === 'text')
-      .map((c) => c.text)
+      .filter((c: any) => c.type === 'text')
+      .map((c: any) => c.text)
       .join('');
 
     // 提取工具调用
     const toolCalls = data.content
-      .filter((c) => c.type === 'tool_use')
-      .map((c) => ({
+      .filter((c: any) => c.type === 'tool_use')
+      .map((c: any) => ({
         id: c.id,
         type: 'function',
         function: {
@@ -274,6 +276,142 @@ export class AnthropicAdapter implements ProviderAdapter {
       },
     };
   }
+
+  /**
+   * 发送原生 Anthropic 格式请求（非流式）
+   *
+   * 直接透传 Anthropic Messages API 格式，无需转换
+   */
+  async sendNativeRequest(dto: CreateAnthropicMessageDto): Promise<AnthropicMessageResponse> {
+    const response = await fetchWithPool(`${this.config.baseUrl}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.config.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: dto.model,
+        max_tokens: dto.max_tokens,
+        messages: dto.messages,
+        system: dto.system,
+        temperature: dto.temperature,
+        top_p: dto.top_p,
+        top_k: dto.top_k,
+        stop_sequences: dto.stop_sequences,
+        metadata: dto.metadata,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error(
+        `Anthropic native request error: ${response.status} ${response.statusText} - ${errorText}`,
+      );
+      throw new ProviderError(
+        `Anthropic returned ${response.status}: ${errorText}`,
+        response.status,
+        this.name,
+      );
+    }
+
+    return (await response.json()) as AnthropicMessageResponse;
+  }
+
+  /**
+   * 发送原生 Anthropic 格式请求（流式）
+   *
+   * 直接透传 Anthropic SSE 格式事件
+   */
+  async *sendNativeStreamRequest(
+    dto: CreateAnthropicMessageDto,
+  ): AsyncGenerator<{ event: string; data: unknown }> {
+    const response = await fetchWithPool(`${this.config.baseUrl}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.config.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: dto.model,
+        max_tokens: dto.max_tokens,
+        messages: dto.messages,
+        system: dto.system,
+        temperature: dto.temperature,
+        top_p: dto.top_p,
+        top_k: dto.top_k,
+        stop_sequences: dto.stop_sequences,
+        metadata: dto.metadata,
+        stream: true,
+      }),
+      signal: AbortSignal.timeout(120000),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error(
+        `Anthropic native stream error: ${response.status} ${response.statusText} - ${errorText}`,
+      );
+      throw new ProviderError(
+        `Anthropic returned ${response.status}: ${errorText}`,
+        response.status,
+        this.name,
+      );
+    }
+
+    if (!response.body) {
+      throw new ProviderError('No response body', 500, this.name);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          // 解析 Anthropic SSE 格式: event: xxx\ndata: {...}
+          if (line.startsWith('event: ')) {
+            const eventType = line.substring(7).trim();
+            continue; // 暂存 event 类型，等待下一行的 data
+          }
+
+          if (line.startsWith('data: ')) {
+            const dataStr = line.substring(6).trim();
+            if (!dataStr) continue;
+
+            try {
+              const data = JSON.parse(dataStr);
+
+              // 根据 data.type 判断事件类型
+              const eventType = data.type || 'unknown';
+
+              yield {
+                event: eventType,
+                data: data,
+              };
+            } catch (parseError) {
+              this.logger.warn(`Failed to parse Anthropic SSE data: ${dataStr}`);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
 }
 
 /**
@@ -296,25 +434,6 @@ interface AnthropicMessageRequest {
   top_p?: number;
   stop_sequences?: string[];
   stream?: boolean;
-}
-
-/**
- * Anthropic API 响应格式
- */
-interface AnthropicMessageResponse {
-  id: string;
-  type: string;
-  role: string;
-  content: Array<
-    | { type: 'text'; text: string }
-    | { type: 'tool_use'; id: string; name: string; input: unknown }
-  >;
-  model: string;
-  stop_reason: string;
-  usage: {
-    input_tokens: number;
-    output_tokens: number;
-  };
 }
 
 /**

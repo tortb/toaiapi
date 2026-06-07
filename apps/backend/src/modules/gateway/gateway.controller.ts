@@ -9,16 +9,19 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  Headers,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiSecurity,
   ApiOkResponse,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { GatewayService } from './gateway.service';
 import { ChannelService } from './channel/channel.service';
 import { ChatCompletionDto, ChatCompletionResponseDto, ModelListResponseDto } from './dto/chat-completion.dto';
+import { CreateAnthropicMessageDto } from './dto/anthropic-message.dto';
 import { ApiKeyAuthGuard } from '../../common/guards/api-key-auth.guard';
 import { ApiKey } from '../../common/decorators/api-key.decorator';
 import type { ApiKeyInfo } from '../../common/decorators/api-key.decorator';
@@ -303,5 +306,110 @@ export class GatewayController {
           : 0,
       })),
     };
+  }
+
+  /**
+   * Anthropic Messages API 端点
+   *
+   * POST /v1/anthropic
+   *
+   * 支持 Anthropic 原生格式，适配 Claude Code、Anthropic SDK 等客户端。
+   * 认证方式：x-api-key header
+   */
+  @Post('anthropic')
+  @UseGuards(ApiKeyAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiSecurity('api-key')
+  @ApiHeader({
+    name: 'x-api-key',
+    description: 'API Key (支持 x-api-key 或 Authorization: Bearer)',
+    required: true,
+  })
+  @ApiHeader({
+    name: 'anthropic-version',
+    description: 'Anthropic API 版本',
+    required: false,
+    schema: { default: '2023-06-01' },
+  })
+  @ApiOperation({
+    summary: 'Anthropic Messages API',
+    description: '创建 Anthropic 格式的消息，支持流式和非流式输出',
+  })
+  @ApiOkResponse({ description: 'Anthropic 格式响应' })
+  async createAnthropicMessage(
+    @Body() dto: CreateAnthropicMessageDto,
+    @ApiKey() apiKey: ApiKeyInfo,
+    @Req() request: FastifyRequest,
+    @Res() reply: FastifyReply,
+    @Headers('anthropic-version') anthropicVersion?: string,
+  ): Promise<void> {
+    this.logger.log(`Anthropic Messages API: model=${dto.model}, stream=${dto.stream}, version=${anthropicVersion || '2023-06-01'}`);
+
+    // 流式响应
+    if (dto.stream) {
+      reply.raw.setHeader('Content-Type', 'text/event-stream');
+      reply.raw.setHeader('Cache-Control', 'no-cache');
+      reply.raw.setHeader('Connection', 'keep-alive');
+
+      let clientDisconnected = false;
+      reply.raw.on('close', () => {
+        clientDisconnected = true;
+        this.logger.debug('Client disconnected from Anthropic stream');
+      });
+
+      try {
+        const result = await this.gatewayService.handleAnthropicMessage(dto, apiKey, request.url);
+
+        // 流式响应必须是 AsyncGenerator
+        if (typeof result === 'object' && Symbol.asyncIterator in result) {
+          const stream = result as AsyncGenerator<{ event: string; data: unknown }>;
+
+          for await (const event of stream) {
+            if (clientDisconnected) {
+              this.logger.debug('Client disconnected, stopping Anthropic stream');
+              break;
+            }
+
+            // Anthropic SSE 格式: event: xxx\ndata: {...}\n\n
+            reply.raw.write(`event: ${event.event}\n`);
+            reply.raw.write(`data: ${JSON.stringify(event.data)}\n\n`);
+          }
+        }
+
+        // 发送 message_stop 事件
+        if (!clientDisconnected) {
+          try {
+            reply.raw.write('event: message_stop\n');
+            reply.raw.write('data: {"type":"message_stop"}\n\n');
+            reply.raw.end();
+          } catch (endError) {
+            this.logger.warn(`Anthropic SSE end error: ${endError}`);
+          }
+        }
+      } catch (streamError) {
+        this.logger.error(`Anthropic stream error: ${streamError}`);
+        if (!clientDisconnected) {
+          try {
+            const errorEvent = {
+              type: 'error',
+              error: {
+                type: 'api_error',
+                message: streamError instanceof Error ? streamError.message : 'Stream processing error',
+              },
+            };
+            reply.raw.write('event: error\n');
+            reply.raw.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+            reply.raw.end();
+          } catch {
+            // 客户端已断开，忽略
+          }
+        }
+      }
+      return;
+    }
+
+    // 非流式响应
+    const response = await this.gatewayService.handleAnthropicMessage(dto, apiKey, request.url);
+    reply.send(response);
   }
 }

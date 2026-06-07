@@ -4,10 +4,13 @@ import { BillingService } from '../billing/billing.service';
 import { RequestLogService } from '../request-log/request-log.service';
 import { ApiKeyRepository } from '../api-key/api-key.repository';
 import { ApiKeyInfo } from '../../common/decorators/api-key.decorator';
+import { CreateAnthropicMessageDto } from './dto/anthropic-message.dto';
+import { AnthropicMessageResponse } from './types/anthropic-response.types';
 import {
   ChatRequest,
   ChatResponse,
   ChatChunk,
+  ProviderAdapter,
 } from './providers/provider-adapter.interface';
 import { ProviderError } from './providers/provider-error';
 
@@ -442,5 +445,230 @@ export class GatewayService {
     }
 
     return Math.ceil(cjkCount * 1.5 + asciiCount * 0.25 + otherCount * 0.5);
+  }
+
+  /**
+   * 处理 Anthropic Messages API 请求
+   *
+   * 流程：校验模型权限 → 选择渠道 → 调用 Provider → 计费 → 记录日志
+   * 支持流式和非流式两种模式
+   *
+   * @param dto - Anthropic 消息请求
+   * @param apiKey - API Key 信息
+   * @param requestPath - 请求路径
+   * @returns Anthropic 格式响应或流式生成器
+   */
+  async handleAnthropicMessage(
+    dto: CreateAnthropicMessageDto,
+    apiKey: ApiKeyInfo,
+    requestPath: string,
+  ): Promise<AnthropicMessageResponse | AsyncGenerator<{ event: string; data: unknown }>> {
+    const startTime = Date.now();
+
+    // 检查模型限制
+    this.checkModelLimit(apiKey, dto.model);
+
+    // 获取可用渠道（带故障转移）
+    const channels = await this.channelService.selectChannelsWithFallback(dto.model);
+
+    let lastError: Error | null = null;
+
+    // 尝试每个渠道
+    for (let i = 0; i < Math.min(channels.length, this.MAX_RETRIES + 1); i++) {
+      const channel = channels[i];
+      if (!channel) continue;
+
+      try {
+        this.logger.debug(`Trying Anthropic channel: ${channel.channelId} (attempt ${i + 1})`);
+
+        // 调用 Anthropic Adapter
+        const adapter = channel.adapter;
+
+        // 流式响应
+        if (dto.stream) {
+          return this.handleAnthropicStream(dto, apiKey, channel, adapter, requestPath, startTime);
+        }
+
+        // 非流式响应
+        return await this.handleAnthropicSync(dto, apiKey, channel, adapter, requestPath, startTime);
+
+      } catch (error) {
+        lastError = error as Error;
+        this.logger.warn(
+          `Anthropic channel ${channel.channelId} failed: ${lastError.message}`,
+        );
+
+        // 如果是最后一个渠道，抛出错误
+        if (i === Math.min(channels.length, this.MAX_RETRIES + 1) - 1) {
+          throw new HttpException(
+            lastError.message || 'All channels failed',
+            HttpStatus.BAD_GATEWAY,
+          );
+        }
+
+        // 继续尝试下一个渠道
+        continue;
+      }
+    }
+
+    throw new HttpException(
+      lastError?.message || 'No available channels',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+
+  /**
+   * 处理 Anthropic 非流式响应
+   */
+  private async handleAnthropicSync(
+    dto: CreateAnthropicMessageDto,
+    apiKey: ApiKeyInfo,
+    channel: ChannelSelectionResult,
+    adapter: ProviderAdapter,
+    requestPath: string,
+    startTime: number,
+  ): Promise<AnthropicMessageResponse> {
+    // 调用原生 Anthropic 格式
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anthropicAdapter = adapter as any;
+    const response = await anthropicAdapter.sendNativeRequest(dto);
+
+    const latencyMs = Date.now() - startTime;
+
+    // 计费
+    const cost = await this.billingService.processUsage(
+      apiKey.userId,
+      apiKey.id,
+      channel.channelId,
+      dto.model,
+      {
+        prompt_tokens: response.usage.input_tokens,
+        completion_tokens: response.usage.output_tokens,
+        total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+      },
+    );
+
+    // 记录请求日志
+    await this.requestLogService.logRequest({
+      userId: apiKey.userId,
+      apiKeyId: apiKey.id,
+      modelId: dto.model,
+      channelId: channel.channelId,
+      requestPath,
+      requestMethod: 'POST',
+      promptTokens: response.usage.input_tokens,
+      completionTokens: response.usage.output_tokens,
+      totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+      cost,
+      statusCode: 200,
+      latencyMs,
+    });
+
+    // 记录 API Key 使用统计
+    this.apiKeyRepository.recordUsage(apiKey.id).catch((err: Error) => {
+      this.logger.error(`API key usage update failed: ${err.message}`);
+    });
+
+    return response;
+  }
+
+  /**
+   * 处理 Anthropic 流式响应
+   */
+  private async *handleAnthropicStream(
+    dto: CreateAnthropicMessageDto,
+    apiKey: ApiKeyInfo,
+    channel: ChannelSelectionResult,
+    adapter: ProviderAdapter,
+    requestPath: string,
+    startTime: number,
+  ): AsyncGenerator<{ event: string; data: unknown }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anthropicAdapter = adapter as any;
+    const stream = anthropicAdapter.sendNativeStreamRequest(dto);
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let fullText = '';
+
+    try {
+      for await (const event of stream) {
+        // 透传流式事件
+        yield event;
+
+        // 收集 token 统计
+        const eventData = event.data as any;
+        if (event.event === 'message_start' && eventData.message?.usage) {
+          inputTokens = eventData.message.usage.input_tokens || 0;
+        }
+        if (event.event === 'message_delta' && eventData.usage) {
+          outputTokens = eventData.usage.output_tokens || 0;
+        }
+        if (event.event === 'content_block_delta' && eventData.delta?.text) {
+          fullText += eventData.delta.text;
+        }
+      }
+
+      // 如果没有 token 统计，使用估算
+      if (outputTokens === 0 && fullText) {
+        outputTokens = this.estimateTokens(fullText);
+        this.logger.debug(`Estimated output tokens: ${outputTokens}`);
+      }
+
+      const latencyMs = Date.now() - startTime;
+
+      // 计费
+      const cost = await this.billingService.processUsage(
+        apiKey.userId,
+        apiKey.id,
+        channel.channelId,
+        dto.model,
+        {
+          prompt_tokens: inputTokens,
+          completion_tokens: outputTokens,
+          total_tokens: inputTokens + outputTokens,
+        },
+      );
+
+      // 记录请求日志
+      await this.requestLogService.logRequest({
+        userId: apiKey.userId,
+        apiKeyId: apiKey.id,
+        modelId: dto.model,
+        channelId: channel.channelId,
+        requestPath,
+        requestMethod: 'POST',
+        promptTokens: inputTokens,
+        completionTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        cost,
+        statusCode: 200,
+        latencyMs,
+      });
+
+      // 记录使用统计
+      this.apiKeyRepository.recordUsage(apiKey.id).catch((err: Error) => {
+        this.logger.error(`API key usage update failed: ${err.message}`);
+      });
+
+    } catch (error) {
+      // 流式错误也需要记录日志
+      const latencyMs = Date.now() - startTime;
+      await this.requestLogService.logRequest({
+        userId: apiKey.userId,
+        apiKeyId: apiKey.id,
+        modelId: dto.model,
+        channelId: channel.channelId,
+        requestPath,
+        requestMethod: 'POST',
+        promptTokens: inputTokens,
+        completionTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        cost: 0,
+        statusCode: 500,
+        latencyMs,
+      });
+      throw error;
+    }
   }
 }
