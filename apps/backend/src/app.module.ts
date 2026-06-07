@@ -11,6 +11,8 @@ import { BalanceModule } from './modules/balance/balance.module';
 import { RequestLogModule } from './modules/request-log/request-log.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { CheckinModule } from './modules/checkin/checkin.module';
+import { RedeemModule } from './modules/redeem/redeem.module';
 import { ConfigModule } from './common/services/config.module';
 import { EmailModule } from './common/services/email.module';
 import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
@@ -45,6 +47,8 @@ import { AppService } from './app.service';
     RequestLogModule,
     AdminModule,
     PaymentModule,
+    CheckinModule,
+    RedeemModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -70,6 +70,19 @@ export class BalanceService {
   }
 
   /**
+   * 增加余额（内部使用，如签到奖励）
+   *
+   * @param userId - 用户 ID
+   * @param amountInFen - 增加金额（分）
+   * @param remark - 备注
+   */
+  async addBalance(userId: string, amountInFen: number, remark?: string) {
+    // 将分转换为元，调用 recharge 方法
+    const amountInYuan = amountInFen / 100;
+    await this.billingService.recharge(userId, amountInYuan, remark);
+  }
+
+  /**
    * 获取交易流水
    *
    * @param userId - 用户 ID
