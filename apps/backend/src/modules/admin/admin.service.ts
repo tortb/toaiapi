@@ -38,6 +38,7 @@ import { SmsService } from '../../common/services/sms.service';
 import { EmailService } from '../../common/services/email.service';
 import { SystemSettingService } from '../../common/services/system-setting.service';
 import { PaymentService } from '../payment/payment.service';
+import { ApiKeyCacheService } from '../../redis/api-key-cache.service';
 
 /**
  * Admin 管理服务
@@ -59,6 +60,7 @@ export class AdminService {
     private readonly smsService: SmsService,
     private readonly emailService: EmailService,
     private readonly systemSettingService: SystemSettingService,
+    private readonly apiKeyCache: ApiKeyCacheService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -512,6 +514,8 @@ export class AdminService {
       is_active: !key.is_active,
     });
 
+    await this.apiKeyCache.invalidateByKeyId(id);
+
     this.logger.log(`API Key ${updated.is_active ? 'enabled' : 'disabled'}: ${id}`);
     return this.toApiKeyResponse(updated);
   }
@@ -526,6 +530,8 @@ export class AdminService {
     }
 
     await this.adminRepo.deleteApiKey(id);
+    await this.apiKeyCache.invalidateByKeyId(id);
+
     this.logger.log(`API Key deleted: ${id}`);
   }
 

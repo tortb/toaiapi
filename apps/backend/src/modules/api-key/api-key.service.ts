@@ -11,7 +11,7 @@ import { hashPassword } from '@toai/auth';
 import { ApiKeyRepository, ApiKeyWithGroup, ApiKeyUsageWindow } from './api-key.repository';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { ApiKeyResponseDto } from './dto/api-key-response.dto';
-import { RedisService } from '../../redis/redis.service';
+import { ApiKeyCacheService } from '../../redis/api-key-cache.service';
 import { SystemSettingService } from '../../common/services/system-setting.service';
 import { toJsonArray, parseJsonArray } from '../../common/utils/json-array.util';
 
@@ -56,7 +56,7 @@ export class ApiKeyService {
 
   constructor(
     private readonly apiKeyRepo: ApiKeyRepository,
-    private readonly redis: RedisService,
+    private readonly apiKeyCache: ApiKeyCacheService,
     private readonly systemSettingService: SystemSettingService,
   ) {}
 
@@ -170,7 +170,7 @@ export class ApiKeyService {
     }
 
     await this.apiKeyRepo.delete(keyId);
-    await this.clearApiKeyCache(apiKey.key_prefix);
+    await this.clearApiKeyCache(apiKey.id);
 
     this.logger.log('API Key deleted: ' + keyId);
   }
@@ -217,7 +217,7 @@ export class ApiKeyService {
     }
 
     const updated = await this.apiKeyRepo.update(keyId, updateData);
-    await this.clearApiKeyCache(updated.key_prefix);
+    await this.clearApiKeyCache(updated.id);
 
     return this.toResponse({ ...updated, group: null });
   }
@@ -244,7 +244,7 @@ export class ApiKeyService {
       is_active: isActive,
     });
 
-    await this.clearApiKeyCache(updated.key_prefix);
+    await this.clearApiKeyCache(updated.id);
 
     this.logger.log('API Key ' + keyId + ' ' + (isActive ? 'enabled' : 'disabled'));
 
@@ -282,8 +282,7 @@ export class ApiKeyService {
       key_prefix: keyPrefix,
     });
 
-    await this.clearApiKeyCache(apiKey.key_prefix);
-    await this.clearApiKeyCache(updated.key_prefix);
+    await this.clearApiKeyCache(apiKey.id);
 
     this.logger.log('API Key rotated: ' + keyId + ' for user ' + userId);
 
@@ -493,7 +492,7 @@ export class ApiKeyService {
     return value.slice(-4);
   }
 
-  private async clearApiKeyCache(keyPrefix: string): Promise<void> {
-    await this.redis.del('apikey:prefix:' + keyPrefix);
+  private async clearApiKeyCache(keyId: string): Promise<void> {
+    await this.apiKeyCache.invalidateByKeyId(keyId);
   }
 }

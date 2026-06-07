@@ -12,6 +12,22 @@ import * as argon2 from 'argon2';
 import { isIPv4 } from 'net';
 import { createHash } from 'crypto';
 
+interface VerifiedApiKeyCacheEntry {
+  id: string;
+  user_id: string;
+  name: string | null;
+  is_active: boolean;
+  expires_at: string | null;
+  updated_at: string | null;
+  rate_limit: number | null;
+  token_limit: number | null;
+  rpm_limit: number | null;
+  tpm_limit: number | null;
+  unlimited_quota?: boolean;
+  model_limit: string[];
+  ip_whitelist: string[];
+}
+
 /**
  * API Key 认证守卫
  *
@@ -48,49 +64,19 @@ export class ApiKeyAuthGuard implements CanActivate {
 
     // 从缓存中查找（按完整 key 的 SHA-256 哈希作为缓存 key）
     const keyHash = this.hashApiKey(apiKey);
-    const cacheKey = `apikey:verified:${keyHash}`;
-
     // 尝试从 Redis 获取已验证的 key 信息（缓存 5 分钟）
-    const cached = await this.redis.get(cacheKey);
+    const cachedInfo = await this.apiKeyCache.getVerified<VerifiedApiKeyCacheEntry>(keyHash);
 
-    if (cached) {
-      try {
-        const cachedInfo = JSON.parse(cached) as {
-          id: string;
-          user_id: string;
-          name: string | null;
-          rate_limit: number | null;
-          token_limit: number | null;
-          rpm_limit: number | null;
-          tpm_limit: number | null;
-          unlimited_quota?: boolean;
-          model_limit: string[];
-          ip_whitelist: string[];
-        };
-        // 检查 IP 白名单
-        if (cachedInfo.ip_whitelist && cachedInfo.ip_whitelist.length > 0) {
-          const clientIp = this.extractClientIp(request);
-          if (!this.isIpWhitelisted(clientIp, cachedInfo.ip_whitelist)) {
-            throw new ForbiddenException(`IP ${clientIp} is not allowed by this API key's whitelist`);
-          }
-        }
-        request['apiKey'] = {
-          id: cachedInfo.id,
-          userId: cachedInfo.user_id,
-          name: cachedInfo.name,
-          rateLimit: cachedInfo.rpm_limit ?? cachedInfo.rate_limit,
-          tokenLimit: cachedInfo.tpm_limit ?? cachedInfo.token_limit,
-          rpmLimit: cachedInfo.rpm_limit ?? cachedInfo.rate_limit,
-          tpmLimit: cachedInfo.tpm_limit ?? cachedInfo.token_limit,
-          unlimitedQuota: cachedInfo.unlimited_quota ?? false,
-          modelLimit: cachedInfo.model_limit,
-          ipWhitelist: cachedInfo.ip_whitelist,
-        };
-        return true;
-      } catch (e) {
-        if (e instanceof ForbiddenException) throw e;
-        // 缓存解析失败，继续走数据库验证
+    if (cachedInfo) {
+      if (!cachedInfo.is_active) {
+        throw new UnauthorizedException('API key is disabled');
       }
+      if (this.isExpired(cachedInfo.expires_at)) {
+        throw new UnauthorizedException('API key has expired');
+      }
+      this.assertIpWhitelist(request, cachedInfo.ip_whitelist);
+      this.attachApiKey(request, cachedInfo, cachedInfo.model_limit, cachedInfo.ip_whitelist);
+      return true;
     }
 
     // 缓存未命中，从数据库查找（按 prefix）
@@ -104,6 +90,7 @@ export class ApiKeyAuthGuard implements CanActivate {
         name: true,
         is_active: true,
         expires_at: true,
+        updated_at: true,
         rate_limit: true,
         token_limit: true,
         rpm_limit: true,
@@ -139,10 +126,13 @@ export class ApiKeyAuthGuard implements CanActivate {
     const ipWhitelist = parseJsonArray(keyRecord.ip_whitelist);
 
     // 缓存验证结果（不含 key_hash），5 分钟过期
-    const cacheData = JSON.stringify({
+    await this.apiKeyCache.setVerified(keyHash, {
       id: keyRecord.id,
       user_id: keyRecord.user_id,
       name: keyRecord.name,
+      is_active: keyRecord.is_active,
+      expires_at: keyRecord.expires_at?.toISOString() ?? null,
+      updated_at: keyRecord.updated_at.toISOString(),
       rate_limit: keyRecord.rate_limit,
       token_limit: keyRecord.token_limit,
       rpm_limit: keyRecord.rpm_limit,
@@ -150,30 +140,13 @@ export class ApiKeyAuthGuard implements CanActivate {
       unlimited_quota: keyRecord.unlimited_quota,
       model_limit: modelLimit,
       ip_whitelist: ipWhitelist,
-    });
-    await this.redis.set(cacheKey, cacheData, 300);
+    }, 300);
 
     // SECURITY: 检查 IP 白名单
-    if (ipWhitelist.length > 0) {
-      const clientIp = this.extractClientIp(request);
-      if (!this.isIpWhitelisted(clientIp, ipWhitelist)) {
-        throw new ForbiddenException(`IP ${clientIp} is not allowed by this API key's whitelist`);
-      }
-    }
+    this.assertIpWhitelist(request, ipWhitelist);
 
     // 将 key 信息附加到请求
-    request['apiKey'] = {
-      id: keyRecord.id,
-      userId: keyRecord.user_id,
-      name: keyRecord.name,
-      rateLimit: keyRecord.rpm_limit ?? keyRecord.rate_limit,
-      tokenLimit: keyRecord.tpm_limit ?? keyRecord.token_limit,
-      rpmLimit: keyRecord.rpm_limit ?? keyRecord.rate_limit,
-      tpmLimit: keyRecord.tpm_limit ?? keyRecord.token_limit,
-      unlimitedQuota: keyRecord.unlimited_quota,
-      modelLimit,
-      ipWhitelist,
-    };
+    this.attachApiKey(request, keyRecord, modelLimit, ipWhitelist);
 
     return true;
   }
@@ -183,6 +156,50 @@ export class ApiKeyAuthGuard implements CanActivate {
    */
   private hashApiKey(apiKey: string): string {
     return createHash('sha256').update(apiKey).digest('hex');
+  }
+
+  private attachApiKey(
+    request: Record<string, unknown>,
+    keyInfo: {
+      id: string;
+      user_id: string;
+      name: string | null;
+      rate_limit: number | null;
+      token_limit: number | null;
+      rpm_limit: number | null;
+      tpm_limit: number | null;
+      unlimited_quota?: boolean;
+    },
+    modelLimit: string[],
+    ipWhitelist: string[],
+  ): void {
+    request['apiKey'] = {
+      id: keyInfo.id,
+      userId: keyInfo.user_id,
+      name: keyInfo.name,
+      rateLimit: keyInfo.rpm_limit ?? keyInfo.rate_limit,
+      tokenLimit: keyInfo.tpm_limit ?? keyInfo.token_limit,
+      rpmLimit: keyInfo.rpm_limit ?? keyInfo.rate_limit,
+      tpmLimit: keyInfo.tpm_limit ?? keyInfo.token_limit,
+      unlimitedQuota: keyInfo.unlimited_quota ?? false,
+      modelLimit,
+      ipWhitelist,
+    };
+  }
+
+  private assertIpWhitelist(request: Record<string, unknown>, whitelist: string[]): void {
+    if (whitelist.length === 0) return;
+
+    const clientIp = this.extractClientIp(request);
+    if (!this.isIpWhitelisted(clientIp, whitelist)) {
+      throw new ForbiddenException('IP ' + clientIp + ' is not allowed by API key whitelist');
+    }
+  }
+
+  private isExpired(expiresAt: string | null | undefined): boolean {
+    if (!expiresAt) return false;
+    const expiry = new Date(expiresAt);
+    return Number.isNaN(expiry.getTime()) || expiry < new Date();
   }
 
   /**
