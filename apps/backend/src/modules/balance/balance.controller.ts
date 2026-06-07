@@ -18,7 +18,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { IsNumber, Min, IsString, IsNotEmpty, IsOptional, Max, IsEnum, IsDateString } from 'class-validator';
+import { IsNumber, Min, IsString, IsNotEmpty, IsOptional, Max, IsEnum, IsDateString, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TransactionType } from '@prisma/client';
 
@@ -40,6 +40,29 @@ class TransactionQueryDto extends PaginationDto {
   @IsOptional()
   @IsDateString()
   readonly endDate?: string;
+}
+
+/**
+ * 余额统计查询 DTO
+ */
+class BalanceStatsQueryDto {
+  @ApiPropertyOptional({
+    description: '统计周期',
+    enum: ['24h', '7d', '30d', '90d'],
+    default: '7d',
+  })
+  @IsOptional()
+  @IsIn(['24h', '7d', '30d', '90d'])
+  readonly period?: '24h' | '7d' | '30d' | '90d';
+
+  @ApiPropertyOptional({
+    description: '趋势聚合粒度',
+    enum: ['hour', 'day'],
+    default: 'day',
+  })
+  @IsOptional()
+  @IsIn(['hour', 'day'])
+  readonly granularity?: 'hour' | 'day';
 }
 
 /**
@@ -153,8 +176,15 @@ export class BalanceController {
   @Get('stats')
   @ApiOperation({ summary: '获取余额和消费统计' })
   @ApiOkResponse()
-  async getStats(@CurrentUser() user: CurrentUserInfo) {
-    return this.balanceService.getStats(user.id);
+  async getStats(
+    @CurrentUser() user: CurrentUserInfo,
+    @Query() query: BalanceStatsQueryDto,
+  ) {
+    return this.balanceService.getStats(
+      user.id,
+      query.period ?? '7d',
+      query.granularity ?? 'day',
+    );
   }
 
   /**

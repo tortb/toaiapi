@@ -9,6 +9,9 @@ export interface ApiKeyInfo {
   readonly name: string | null;
   readonly rateLimit: number | null;
   readonly tokenLimit: number | null;
+  readonly rpmLimit: number | null;
+  readonly tpmLimit: number | null;
+  readonly unlimitedQuota: boolean;
   readonly modelLimit: string[];
 }
 

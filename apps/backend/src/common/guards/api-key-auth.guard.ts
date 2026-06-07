@@ -61,6 +61,9 @@ export class ApiKeyAuthGuard implements CanActivate {
           name: string | null;
           rate_limit: number | null;
           token_limit: number | null;
+          rpm_limit: number | null;
+          tpm_limit: number | null;
+          unlimited_quota?: boolean;
           model_limit: string[];
           ip_whitelist: string[];
         };
@@ -75,8 +78,11 @@ export class ApiKeyAuthGuard implements CanActivate {
           id: cachedInfo.id,
           userId: cachedInfo.user_id,
           name: cachedInfo.name,
-          rateLimit: cachedInfo.rate_limit,
-          tokenLimit: cachedInfo.token_limit,
+          rateLimit: cachedInfo.rpm_limit ?? cachedInfo.rate_limit,
+          tokenLimit: cachedInfo.tpm_limit ?? cachedInfo.token_limit,
+          rpmLimit: cachedInfo.rpm_limit ?? cachedInfo.rate_limit,
+          tpmLimit: cachedInfo.tpm_limit ?? cachedInfo.token_limit,
+          unlimitedQuota: cachedInfo.unlimited_quota ?? false,
           modelLimit: cachedInfo.model_limit,
           ipWhitelist: cachedInfo.ip_whitelist,
         };
@@ -100,6 +106,9 @@ export class ApiKeyAuthGuard implements CanActivate {
         expires_at: true,
         rate_limit: true,
         token_limit: true,
+        rpm_limit: true,
+        tpm_limit: true,
+        unlimited_quota: true,
         model_limit: true,
         ip_whitelist: true,
       },
@@ -136,6 +145,9 @@ export class ApiKeyAuthGuard implements CanActivate {
       name: keyRecord.name,
       rate_limit: keyRecord.rate_limit,
       token_limit: keyRecord.token_limit,
+      rpm_limit: keyRecord.rpm_limit,
+      tpm_limit: keyRecord.tpm_limit,
+      unlimited_quota: keyRecord.unlimited_quota,
       model_limit: modelLimit,
       ip_whitelist: ipWhitelist,
     });
@@ -154,8 +166,11 @@ export class ApiKeyAuthGuard implements CanActivate {
       id: keyRecord.id,
       userId: keyRecord.user_id,
       name: keyRecord.name,
-      rateLimit: keyRecord.rate_limit,
-      tokenLimit: keyRecord.token_limit,
+      rateLimit: keyRecord.rpm_limit ?? keyRecord.rate_limit,
+      tokenLimit: keyRecord.tpm_limit ?? keyRecord.token_limit,
+      rpmLimit: keyRecord.rpm_limit ?? keyRecord.rate_limit,
+      tpmLimit: keyRecord.tpm_limit ?? keyRecord.token_limit,
+      unlimitedQuota: keyRecord.unlimited_quota,
       modelLimit,
       ipWhitelist,
     };

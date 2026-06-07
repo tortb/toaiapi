@@ -19,7 +19,7 @@ import {
   ApiNoContentResponse,
 } from '@nestjs/swagger';
 import { ApiKeyService } from './api-key.service';
-import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { CreateApiKeyDto, UpdateApiKeyDto } from './dto/create-api-key.dto';
 import { ApiKeyResponseDto } from './dto/api-key-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
@@ -74,7 +74,7 @@ export class ApiKeyController {
   async updateApiKey(
     @CurrentUser() user: CurrentUserInfo,
     @Param('id') keyId: string,
-    @Body() dto: Partial<CreateApiKeyDto>,
+    @Body() dto: UpdateApiKeyDto,
   ): Promise<ApiKeyResponseDto> {
     return this.apiKeyService.updateApiKey(user.id, keyId, dto);
   }
