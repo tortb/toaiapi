@@ -10,6 +10,7 @@ import { RedisService } from '../../redis/redis.service';
 import { parseJsonArray } from '../utils/json-array.util';
 import * as argon2 from 'argon2';
 import { isIPv4 } from 'net';
+import { createHash } from 'crypto';
 
 /**
  * API Key 认证守卫
@@ -155,8 +156,8 @@ export class ApiKeyAuthGuard implements CanActivate {
       name: keyRecord.name,
       rateLimit: keyRecord.rate_limit,
       tokenLimit: keyRecord.token_limit,
-      modelLimit: keyRecord.model_limit,
-      ipWhitelist: keyRecord.ip_whitelist,
+      modelLimit,
+      ipWhitelist,
     };
 
     return true;
@@ -166,7 +167,6 @@ export class ApiKeyAuthGuard implements CanActivate {
    * 计算 API Key 的 SHA-256 哈希（用于 Redis 缓存 key）
    */
   private hashApiKey(apiKey: string): string {
-    const { createHash } = require('crypto');
     return createHash('sha256').update(apiKey).digest('hex');
   }
 

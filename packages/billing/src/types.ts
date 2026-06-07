@@ -6,15 +6,15 @@ export interface TokenUsage {
 }
 
 export interface ModelPricing {
-  inputPrice: number;      // 元/百万token
-  outputPrice: number;     // 元/百万token
-  cachedPrice?: number;    // 元/百万token
-  reasoningPrice?: number; // 元/百万token
+  inputPrice: number;      // 分/百万token
+  outputPrice: number;     // 分/百万token
+  cachedPrice?: number;    // 分/百万token
+  reasoningPrice?: number; // 分/百万token
   multiplier: number;
 }
 
 export interface BillingResult {
-  cost: number;            // 元
+  cost: number;            // 分
   breakdown: {
     inputCost: number;
     outputCost: number;

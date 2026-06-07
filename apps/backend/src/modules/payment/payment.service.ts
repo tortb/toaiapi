@@ -10,6 +10,7 @@ import { EPayService } from './epay.service';
 import { AlipayService } from './alipay.service';
 import { WechatPayService } from './wechatpay.service';
 import { PaymentConfigService } from '../../common/services/payment-config.service';
+import { ChannelService } from '../gateway/channel/channel.service';
 import { CreateOrderDto, PaymentMethodDto } from './dto/create-order.dto';
 import { nanoid } from 'nanoid';
 import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
@@ -39,6 +40,7 @@ export class PaymentService implements OnModuleInit {
     private readonly alipayService: AlipayService,
     private readonly wechatPayService: WechatPayService,
     private readonly paymentConfigService: PaymentConfigService,
+    private readonly channelService: ChannelService,
   ) {}
 
   onModuleInit() {
@@ -49,6 +51,9 @@ export class PaymentService implements OnModuleInit {
       });
       this.cancelStaleOrders(30).catch((err) => {
         this.logger.error(`Stale order cleanup failed: ${err}`);
+      });
+      this.channelService.recoverRateLimitedChannels(5).catch((err) => {
+        this.logger.error(`Rate-limited channel recovery failed: ${err}`);
       });
     }, 5 * 60 * 1000);
 
@@ -113,13 +118,20 @@ export class PaymentService implements OnModuleInit {
 
     this.logger.log(`Order created: ${orderNo} for user: ${userId}`);
 
-    // 生成支付链接
+    // 生成支付链接。失败时取消订单并向调用方返回明确错误，避免产生无法支付的订单。
     let payUrl = '';
     try {
       payUrl = await this.generatePayUrl(dto.paymentMethod, order);
     } catch (error) {
-      this.logger.error(`Failed to generate pay URL: ${error}`);
-      // 支付链接生成失败不影响订单创建
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'CANCELLED',
+          remark: '支付链接生成失败',
+        },
+      });
+      this.logger.error(`Failed to generate pay URL for order ${orderNo}: ${error instanceof Error ? error.message : error}`);
+      throw new BadRequestException('支付链接生成失败，请稍后重试');
     }
 
     return {

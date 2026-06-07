@@ -31,6 +31,9 @@ import { RedisService } from '../../redis/redis.service';
 interface FastifyRequest {
   url: string;
   requestId?: string;
+  raw: {
+    on(event: string, listener: (...args: unknown[]) => void): void;
+  };
 }
 
 interface FastifyReply {
@@ -114,9 +117,11 @@ export class GatewayController {
 
       // SECURITY: 监听客户端断开连接
       let clientDisconnected = false;
-      reply.raw.on('close', () => {
+      const markClientDisconnected = () => {
         clientDisconnected = true;
-      });
+      };
+      request.raw.on('close', markClientDisconnected);
+      request.raw.on('aborted', markClientDisconnected);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let stream: AsyncGenerator<ChatChunk, void, unknown> | null = null;
@@ -166,7 +171,7 @@ export class GatewayController {
               error: {
                 message: streamError instanceof Error ? streamError.message : 'Stream processing error',
                 type: 'server_error',
-                code: 500,
+                code: 'server_error',
               },
             };
             reply.raw.write(`data: ${JSON.stringify(errorChunk)}\n\n`);

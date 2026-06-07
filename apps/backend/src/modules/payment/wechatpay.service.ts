@@ -47,6 +47,8 @@ export class WechatPayService {
       throw new BadRequestException('微信支付配置不完整');
     }
 
+    this.validateApiV3Key(config.merchant_key);
+
     const extraConfig = (config.extra_config as Record<string, any>) || {};
 
     return {
@@ -56,6 +58,12 @@ export class WechatPayService {
       privateKey: config.merchant_secret,
       notifyUrl: config.notify_url || '',
     };
+  }
+
+  private validateApiV3Key(apiV3Key: string): void {
+    if (Buffer.byteLength(apiV3Key, 'utf8') !== 32) {
+      throw new BadRequestException('微信支付 API v3 密钥必须为 32 字节');
+    }
   }
 
   /**

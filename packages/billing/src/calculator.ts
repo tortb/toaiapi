@@ -11,11 +11,11 @@ import type { TokenUsage, ModelPricing, BillingResult } from './types';
  *   reasoningTokens * reasoningPrice / 1_000_000
  * ) * multiplier
  *
- * 所有费用单位：元（CNY），使用 Math.ceil 向上取整
+ * 所有费用单位：分（fen），最终总额使用 Math.ceil 向上取整
  * SECURITY: 使用 ?? 运算符处理可选价格字段，避免 0 值被错误替换
  *
  * @param usage - Token 使用统计
- * @param pricing - 模型定价（元/百万Token）
+ * @param pricing - 模型定价（分/百万Token）
  * @returns 计费结果（总费用 + 分项费用）
  * @throws 负数 token 数量或负数价格时行为未定义
  */
@@ -31,21 +31,16 @@ export function calculateCost(usage: TokenUsage, pricing: ModelPricing): Billing
     throw new Error('价格不能为负数');
   }
 
-  const inputCost = Math.ceil(
-    (usage.promptTokens / 1_000_000) * pricing.inputPrice
-  );
-
-  const outputCost = Math.ceil(
-    (usage.completionTokens / 1_000_000) * pricing.outputPrice
-  );
+  const inputCost = (usage.promptTokens / 1_000_000) * pricing.inputPrice;
+  const outputCost = (usage.completionTokens / 1_000_000) * pricing.outputPrice;
 
   // SECURITY: 使用 ?? 代替 ||，当 cachedPrice/reasoningPrice 为 0 时正确处理
   const cachedCost = usage.cachedTokens
-    ? Math.ceil((usage.cachedTokens / 1_000_000) * (pricing.cachedPrice ?? 0))
+    ? (usage.cachedTokens / 1_000_000) * (pricing.cachedPrice ?? 0)
     : 0;
 
   const reasoningCost = usage.reasoningTokens
-    ? Math.ceil((usage.reasoningTokens / 1_000_000) * (pricing.reasoningPrice ?? 0))
+    ? (usage.reasoningTokens / 1_000_000) * (pricing.reasoningPrice ?? 0)
     : 0;
 
   const subtotal = inputCost + outputCost + cachedCost + reasoningCost;

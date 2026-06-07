@@ -13,6 +13,7 @@ import { RedisService } from '../../redis/redis.service';
 import { hashPassword, verifyPassword, generateTokenPair, verifyToken, validatePasswordStrength } from '@toai/auth';
 import { EmailService } from '../../common/services/email.service';
 import { SystemSettingService } from '../../common/services/system-setting.service';
+import { CaptchaService } from './captcha.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes, createHash } from 'crypto';
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
     private readonly systemSettingService: SystemSettingService,
+    private readonly captchaService: CaptchaService,
   ) {}
 
   /**
@@ -67,14 +69,7 @@ export class AuthService {
       throw new BadRequestException('请填写邀请码');
     }
 
-    // 阿里云 ESA AI 验证码检查（每 URL 独立 Scene ID）
-    const captchaRegisterEnabled = await this.systemSettingService.getTypedByKey<boolean>('captcha_register_enabled', false);
-    if (captchaRegisterEnabled) {
-      const sceneId = await this.systemSettingService.getByKey('captcha_register_scene_id');
-      if (sceneId && !captchaVerifyParam) {
-        throw new BadRequestException('请完成验证码验证');
-      }
-    }
+    await this.verifyCaptchaIfEnabled('captcha_register_enabled', 'captcha_register_scene_id', captchaVerifyParam);
 
     // 邮箱验证码检查
     const emailVerify = await this.systemSettingService.getTypedByKey<boolean>('email_verify', false);
@@ -163,14 +158,7 @@ export class AuthService {
    * @throws UnauthorizedException 凭证无效或账号未激活
    */
   async login(dto: LoginDto, captchaVerifyParam?: string) {
-    // 阿里云 ESA AI 验证码检查（每 URL 独立 Scene ID）
-    const captchaLoginEnabled = await this.systemSettingService.getTypedByKey<boolean>('captcha_login_enabled', false);
-    if (captchaLoginEnabled) {
-      const sceneId = await this.systemSettingService.getByKey('captcha_login_scene_id');
-      if (sceneId && !captchaVerifyParam) {
-        throw new BadRequestException('请完成验证码验证');
-      }
-    }
+    await this.verifyCaptchaIfEnabled('captcha_login_enabled', 'captcha_login_scene_id', captchaVerifyParam);
 
     // SECURITY: 暴力破解防护 - 检查登录失败次数
     const failKey = `login-fail:${dto.email}`;
@@ -319,14 +307,7 @@ export class AuthService {
    * @param email - 用户邮箱
    */
   async forgotPassword(email: string, captchaVerifyParam?: string) {
-    // 阿里云 ESA AI 验证码检查（每 URL 独立 Scene ID）
-    const captchaForgotEnabled = await this.systemSettingService.getTypedByKey<boolean>('captcha_forgot_password_enabled', false);
-    if (captchaForgotEnabled) {
-      const sceneId = await this.systemSettingService.getByKey('captcha_forgot_password_scene_id');
-      if (sceneId && !captchaVerifyParam) {
-        throw new BadRequestException('请完成验证码验证');
-      }
-    }
+    await this.verifyCaptchaIfEnabled('captcha_forgot_password_enabled', 'captcha_forgot_password_scene_id', captchaVerifyParam);
 
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -397,6 +378,30 @@ export class AuthService {
     await this.redis.del(tokenKey);
     await this.redis.del(`refresh:${userId}`);
     this.logger.log(`Password reset for user: ${userId}`);
+  }
+
+  private async verifyCaptchaIfEnabled(
+    enabledKey: string,
+    sceneIdKey: string,
+    captchaVerifyParam?: string,
+  ): Promise<void> {
+    const enabled = await this.systemSettingService.getTypedByKey<boolean>(enabledKey, false);
+    if (!enabled) return;
+
+    const sceneId = await this.systemSettingService.getByKey(sceneIdKey);
+    if (!sceneId) {
+      throw new BadRequestException('验证码场景未配置');
+    }
+
+    if (!captchaVerifyParam) {
+      throw new BadRequestException('请完成验证码验证');
+    }
+
+    const region = (await this.systemSettingService.getByKey('captcha_region')) ?? 'cn';
+    const passed = await this.captchaService.verify(sceneId, captchaVerifyParam, region);
+    if (!passed) {
+      throw new BadRequestException('验证码验证失败，请重试');
+    }
   }
 
   /**

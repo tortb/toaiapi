@@ -1,7 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { PrismaService } from './prisma/prisma.service';
 import { RedisService } from './redis/redis.service';
 import { SystemSettingService } from './common/services/system-setting.service';
+
+const packageVersion = (() => {
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')) as { version?: string };
+    return pkg.version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+})();
 
 @Injectable()
 export class AppService {
@@ -39,7 +50,7 @@ export class AppService {
       status: isHealthy ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
       service: 'ToAIAPI Backend',
-      version: '0.2.0',
+      version: process.env['APP_VERSION'] || packageVersion,
       checks,
     };
   }

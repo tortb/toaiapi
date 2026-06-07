@@ -114,10 +114,10 @@ export class ChannelService {
       );
     }
 
-    // 按优先级分组并排序
+    const orderedChannels = this.orderByPriorityAndWeight(channels);
     const results: ChannelSelectionResult[] = [];
 
-    for (const channelModel of channels) {
+    for (const channelModel of orderedChannels) {
       try {
         // SECURITY: 解密 API Key
         const decryptedApiKey = this.decryptChannelApiKey(channelModel.channel.api_key);
@@ -177,6 +177,20 @@ export class ChannelService {
   }
 
   /**
+   * 恢复超过指定分钟数的限流渠道。
+   */
+  async recoverRateLimitedChannels(cooldownMinutes: number = 5): Promise<number> {
+    const cutoff = new Date(Date.now() - cooldownMinutes * 60 * 1000);
+    const recovered = await this.channelRepo.recoverStaleRateLimitedChannels(cutoff);
+
+    if (recovered > 0) {
+      this.logger.log(`Recovered ${recovered} rate-limited channels`);
+    }
+
+    return recovered;
+  }
+
+  /**
    * 获取可用模型列表
    */
   async getAvailableModels() {
@@ -200,6 +214,42 @@ export class ChannelService {
    */
   private decryptChannelApiKey(encryptedApiKey: string): string {
     return decrypt(encryptedApiKey);
+  }
+
+  /**
+   * 按优先级降序排列，同优先级内按权重随机排列。
+   */
+  private orderByPriorityAndWeight<T extends { channel: { priority: number; weight: number } }>(
+    items: T[],
+  ): T[] {
+    const groups = new Map<number, T[]>();
+    for (const item of items) {
+      const group = groups.get(item.channel.priority) ?? [];
+      group.push(item);
+      groups.set(item.channel.priority, group);
+    }
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => b - a)
+      .flatMap(([, group]) => this.shuffleByWeight(group));
+  }
+
+  /**
+   * 按权重随机洗牌，不改变输入数组。
+   */
+  private shuffleByWeight<T extends { channel: { weight: number } }>(items: T[]): T[] {
+    const remaining = [...items];
+    const ordered: T[] = [];
+
+    while (remaining.length > 0) {
+      const selected = this.selectByWeight(remaining);
+      if (!selected) break;
+
+      ordered.push(selected);
+      remaining.splice(remaining.indexOf(selected), 1);
+    }
+
+    return ordered;
   }
 
   /**

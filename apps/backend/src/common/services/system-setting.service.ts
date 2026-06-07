@@ -56,26 +56,34 @@ export class SystemSettingService {
   }
 
   /**
-   * 获取单个设置值
+   * 获取单个设置值。敏感字段会自动解密。
    */
   async getByKey(key: string): Promise<string | null> {
     const setting = await this.prisma.systemSetting.findUnique({
       where: { key },
     });
-    return setting?.value ?? null;
+    return this.resolveSettingValue(setting);
   }
 
   /**
-   * 获取单个设置值并按 type 解析
+   * 显式获取解密后的单个设置值。
+   */
+  async getDecryptedByKey(key: string): Promise<string | null> {
+    return this.getByKey(key);
+  }
+
+  /**
+   * 获取单个设置值并按 type 解析。敏感字段会先自动解密。
    */
   async getTypedByKey<T = string>(key: string, defaultValue?: T): Promise<T | null> {
     const setting = await this.prisma.systemSetting.findUnique({
       where: { key },
     });
-    if (!setting || setting.value === null || setting.value === undefined) {
+    const value = this.resolveSettingValue(setting);
+    if (value === null || value === undefined) {
       return defaultValue ?? null;
     }
-    return this.parseValue<T>(setting.value, setting.type);
+    return this.parseValue<T>(value, setting!.type);
   }
 
   /**
@@ -152,6 +160,18 @@ export class SystemSettingService {
       this.logger.log(`Seeded ${created} settings for category "${category}"`);
     }
     return created;
+  }
+
+  private resolveSettingValue(setting: { key: string; value: string | null } | null): string | null {
+    if (!setting?.value) {
+      return setting?.value ?? null;
+    }
+
+    if (this.ENCRYPTED_KEYS.has(setting.key)) {
+      return this.encryption.decrypt(setting.value);
+    }
+
+    return setting.value;
   }
 
   /**

@@ -49,9 +49,7 @@ export class BalanceService {
    * @returns 充值后的余额（元）
    */
   async recharge(userId: string, amount: number, remark?: string) {
-    // 将元转换为分（数据库存储单位）
-    const amountInFen = Math.round(amount * 100);
-    await this.billingService.recharge(userId, amountInFen, remark);
+    await this.billingService.recharge(userId, amount, remark);
     return this.getBalance(userId);
   }
 

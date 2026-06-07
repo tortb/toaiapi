@@ -14,11 +14,35 @@ const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
 /**
+ * 解析加密密钥。
+ * 只接受 64 位 hex 或 44 位标准 base64，解码后必须为 32 字节。
+ *
+ * @param key - 原始密钥字符串
+ * @returns 32 字节的加密密钥
+ * @throws 密钥格式无效
+ */
+export function parseEncryptionKey(key: string): Buffer {
+  if (/^[0-9a-fA-F]{64}$/.test(key)) {
+    return Buffer.from(key, 'hex');
+  }
+
+  // 标准 base64 格式：32 字节会编码为 44 个字符，末尾 1 个 =
+  if (/^(?:[A-Za-z0-9+/]{4}){10}[A-Za-z0-9+/]{3}=$/.test(key)) {
+    const keyBuffer = Buffer.from(key, 'base64');
+    if (keyBuffer.length === 32) {
+      return keyBuffer;
+    }
+  }
+
+  throw new Error('[SECURITY] ENCRYPTION_KEY 格式无效。请使用 64 位 hex（openssl rand -hex 32）或 44 位 base64 密钥');
+}
+
+/**
  * 获取加密密钥
- * 从环境变量 ENCRYPTION_KEY 读取，支持 hex 或 utf-8 格式，必须为 32 字节
+ * 从环境变量 ENCRYPTION_KEY 读取，必须为 32 字节。
  *
  * @returns 32 字节的加密密钥
- * @throws 环境变量未配置或长度不足
+ * @throws 环境变量未配置或格式无效
  */
 function getEncryptionKey(): Buffer {
   const key = process.env['ENCRYPTION_KEY'];
@@ -26,18 +50,14 @@ function getEncryptionKey(): Buffer {
     throw new Error('[SECURITY] ENCRYPTION_KEY 未配置！请在 .env 中设置 32 字节密钥（推荐 hex 格式：openssl rand -hex 32）');
   }
 
-  // 尝试 hex 解码（推荐格式：64 个 hex 字符 = 32 字节）
-  const hexMatch = key.match(/^[0-9a-fA-F]{64}$/);
-  if (hexMatch) {
-    return Buffer.from(key, 'hex');
-  }
+  return parseEncryptionKey(key);
+}
 
-  // 回退到 utf-8，按字节长度截取
-  const keyBuffer = Buffer.from(key, 'utf-8');
-  if (keyBuffer.length < 32) {
-    throw new Error(`[SECURITY] ENCRYPTION_KEY 字节长度不足 32，当前: ${keyBuffer.length}。推荐使用 hex 格式：openssl rand -hex 32`);
-  }
-  return keyBuffer.subarray(0, 32);
+/**
+ * 校验 ENCRYPTION_KEY，用于应用启动时快速失败。
+ */
+export function validateEncryptionKey(): void {
+  getEncryptionKey();
 }
 
 /**

@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 import { PaymentConfigService } from '../../common/services/payment-config.service';
 import {
   EPayConfig,
@@ -152,7 +152,6 @@ export class EPayService {
         return false;
       }
 
-      const { timingSafeEqual } = require('crypto');
       return timingSafeEqual(signBuffer, expectedBuffer);
     } catch {
       return false;
@@ -324,7 +323,7 @@ export class EPayService {
   /**
    * 查询订单状态（主动向 EPay 查询）
    *
-   * API: GET /api.php?act=order&pid=...&key=...&out_trade_no=...
+   * API: POST /api.php
    *
    * @param orderNo - 商户订单号
    * @returns 订单状态信息
@@ -338,11 +337,21 @@ export class EPayService {
   }> {
     try {
       const config = await this.getConfig();
-      const url = `${config.apiEndpoint.replace(/\/+$/, '')}/api.php?act=order&pid=${config.pid}&key=${config.key}&out_trade_no=${orderNo}`;
+      const endpoint = `${config.apiEndpoint.replace(/\/+$/, '')}/api.php`;
+      const formData = new URLSearchParams({
+        act: 'order',
+        pid: String(config.pid),
+        key: config.key,
+        out_trade_no: orderNo,
+      });
 
       this.logger.log(`Querying EPay order: ${orderNo}`);
 
-      const response = await fetch(url, { method: 'GET' });
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString(),
+      });
       const text = await response.text();
 
       let data: any;

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigEncryptionService } from './config-encryption.service';
 import { PaymentConfig } from '@prisma/client';
@@ -102,11 +102,22 @@ export class PaymentConfigService {
     const updateData: any = { ...data };
 
     if (data.merchant_key !== undefined) {
-      updateData.merchant_key = this.encryption.encrypt(data.merchant_key);
+      if (this.isMaskedSecret(data.merchant_key)) {
+        delete updateData.merchant_key;
+      } else {
+        if (name === 'wechatpay' && data.merchant_key) {
+          this.validateWechatApiV3Key(data.merchant_key);
+        }
+        updateData.merchant_key = this.encryption.encrypt(data.merchant_key);
+      }
     }
 
     if (data.merchant_secret !== undefined) {
-      updateData.merchant_secret = this.encryption.encrypt(data.merchant_secret);
+      if (this.isMaskedSecret(data.merchant_secret)) {
+        delete updateData.merchant_secret;
+      } else {
+        updateData.merchant_secret = this.encryption.encrypt(data.merchant_secret);
+      }
     }
 
     const updated = await this.prisma.paymentConfig.update({
@@ -149,6 +160,16 @@ export class PaymentConfigService {
     });
 
     return configs;
+  }
+
+  private isMaskedSecret(value: string | null | undefined): boolean {
+    return typeof value === 'string' && /^\*{8}.+/.test(value);
+  }
+
+  private validateWechatApiV3Key(apiV3Key: string): void {
+    if (Buffer.byteLength(apiV3Key, 'utf8') !== 32) {
+      throw new BadRequestException('微信支付 API v3 密钥必须为 32 字节');
+    }
   }
 
   /**

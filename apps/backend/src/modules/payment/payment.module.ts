@@ -4,6 +4,7 @@ import { PaymentService } from './payment.service';
 import { EPayService } from './epay.service';
 import { AlipayService } from './alipay.service';
 import { WechatPayService } from './wechatpay.service';
+import { GatewayModule } from '../gateway/gateway.module';
 
 /**
  * 支付模块
@@ -14,6 +15,7 @@ import { WechatPayService } from './wechatpay.service';
  * - 微信支付
  */
 @Module({
+  imports: [GatewayModule],
   controllers: [PaymentController],
   providers: [
     PaymentService,

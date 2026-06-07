@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PaymentConfigService } from '../../common/services/payment-config.service';
+import * as crypto from 'crypto';
 
 /**
  * 支付宝服务
@@ -48,8 +49,6 @@ export class AlipayService {
    * @returns Base64编码的签名
    */
   private generateSign(params: Record<string, string>, privateKey: string): string {
-    const crypto = require('crypto');
-
     // 过滤空值和签名相关参数
     const filteredParams: Record<string, string> = {};
     for (const [k, v] of Object.entries(params)) {
@@ -86,7 +85,6 @@ export class AlipayService {
    * @returns 是否验证通过
    */
   private verifySign(params: Record<string, string>, alipayPublicKey: string): boolean {
-    const crypto = require('crypto');
     const { sign, sign_type, ...rest } = params;
 
     if (!sign) {

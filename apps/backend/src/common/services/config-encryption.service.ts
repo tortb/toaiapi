@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { parseEncryptionKey } from '../utils/crypto.util';
 
 /**
  * 配置加密服务
@@ -21,20 +22,7 @@ export class ConfigEncryptionService {
       throw new Error('ENCRYPTION_KEY environment variable is required');
     }
 
-    // 支持 hex 和 base64 格式的密钥
-    if (key.length === 64) {
-      // hex 格式，32字节
-      this.encryptionKey = Buffer.from(key, 'hex');
-    } else if (key.length === 44) {
-      // base64 格式，32字节
-      this.encryptionKey = Buffer.from(key, 'base64');
-    } else {
-      throw new Error('ENCRYPTION_KEY must be 32 bytes (64 hex chars or 44 base64 chars)');
-    }
-
-    if (this.encryptionKey.length !== 32) {
-      throw new Error('ENCRYPTION_KEY must be exactly 32 bytes');
-    }
+    this.encryptionKey = parseEncryptionKey(key);
 
     this.logger.log('Config encryption service initialized');
   }

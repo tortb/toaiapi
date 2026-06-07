@@ -114,8 +114,27 @@ export class ChannelRepository {
   async restoreChannel(channelId: string): Promise<void> {
     await this.prisma.channel.update({
       where: { id: channelId },
-      data: { status: ChannelStatus.ACTIVE },
+      data: { status: ChannelStatus.ACTIVE, failed_requests: 0 },
     });
+  }
+
+  /**
+   * 恢复超过指定时间仍处于限流状态的渠道
+   */
+  async recoverStaleRateLimitedChannels(olderThan: Date): Promise<number> {
+    const result = await this.prisma.channel.updateMany({
+      where: {
+        status: ChannelStatus.RATE_LIMITED,
+        is_active: true,
+        updated_at: { lt: olderThan },
+      },
+      data: {
+        status: ChannelStatus.ACTIVE,
+        failed_requests: 0,
+      },
+    });
+
+    return result.count;
   }
 
   /**

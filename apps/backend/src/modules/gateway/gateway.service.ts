@@ -116,10 +116,14 @@ export class GatewayService {
           cost,
           statusCode: 200,
           latencyMs,
-        }).catch(() => {});
+        }).catch((err) => {
+          this.logger.error(`Request log write failed: ${err instanceof Error ? err.message : err}`);
+        });
 
         // 记录 API Key 使用统计（异步，不阻塞响应）
-        this.apiKeyRepository.recordUsage(apiKey.id).catch(() => {});
+        this.apiKeyRepository.recordUsage(apiKey.id).catch((err) => {
+          this.logger.error(`API key usage update failed: ${err instanceof Error ? err.message : err}`);
+        });
 
         return response;
       } catch (error) {
@@ -133,11 +137,19 @@ export class GatewayService {
           channel.channelId,
           Date.now() - startTime,
           false,
-        ).catch(() => {});
+        ).catch((err) => {
+          this.logger.error(`Channel stats update failed: ${err instanceof Error ? err.message : err}`);
+        });
 
-        // 如果是限流错误，标记渠道为 RATE_LIMITED（fire-and-forget）
+        // Provider 调用失败时标记渠道状态，计费等本地错误不影响渠道。
         if (error instanceof ProviderError && error.isRateLimited) {
-          this.channelService.markChannelRateLimited(channel.channelId).catch(() => {});
+          this.channelService.markChannelRateLimited(channel.channelId).catch((err) => {
+            this.logger.error(`Channel rate-limit mark failed: ${err instanceof Error ? err.message : err}`);
+          });
+        } else if (error instanceof ProviderError) {
+          this.channelService.markChannelError(channel.channelId).catch((err) => {
+            this.logger.error(`Channel error mark failed: ${err instanceof Error ? err.message : err}`);
+          });
         }
 
         // 如果是最后一个渠道，抛出错误
@@ -230,7 +242,9 @@ export class GatewayService {
             channel.channelId,
             Date.now() - startTime,
             false,
-          ).catch(() => {});
+          ).catch((err) => {
+            this.logger.error(`Stream channel stats update failed: ${err instanceof Error ? err.message : err}`);
+          });
 
           // 重置计数器准备下一个渠道
           totalPromptTokens = 0;
@@ -298,7 +312,9 @@ export class GatewayService {
         cost: 0,
         statusCode: 500,
         latencyMs,
-      }).catch(() => {});
+      }).catch((err) => {
+        this.logger.error(`Failed stream request log write failed: ${err instanceof Error ? err.message : err}`);
+      });
       return;
     }
 
@@ -307,7 +323,9 @@ export class GatewayService {
       channelId,
       latencyMs,
       true,
-    ).catch(() => {});
+    ).catch((err) => {
+      this.logger.error(`Stream channel stats update failed: ${err instanceof Error ? err.message : err}`);
+    });
 
     // SECURITY: 当 Provider 未返回 usage 时，使用字符数估算 token 数
     let finalPromptTokens = totalPromptTokens;
@@ -354,7 +372,9 @@ export class GatewayService {
     });
 
     // 记录 API Key 使用统计（异步，不阻塞）
-    this.apiKeyRepository.recordUsage(apiKey.id).catch(() => {});
+    this.apiKeyRepository.recordUsage(apiKey.id).catch((err) => {
+      this.logger.error(`API key usage update failed: ${err instanceof Error ? err.message : err}`);
+    });
   }
 
   /**
