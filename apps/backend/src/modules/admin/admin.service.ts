@@ -852,6 +852,15 @@ export class AdminService {
       api_key: encryptedApiKey,
       weight: dto.weight ?? 1,
       priority: dto.priority ?? 0,
+      ...(dto.groupId && { org_id: dto.groupId }),
+      ...(dto.tags && { tags: dto.tags }),
+      ...(dto.notes && { internal_note: dto.notes }),
+      ...(dto.statusCodeMapping && { status_mapping: dto.statusCodeMapping }),
+      ...(dto.paramOverrides && { param_override: dto.paramOverrides }),
+      ...(dto.headerOverrides && { header_override: dto.headerOverrides }),
+      ...(dto.proxy && { proxy: dto.proxy }),
+      ...(dto.systemPrompt && { system_prompt: dto.systemPrompt }),
+      ...(dto.autoDisableOnFailure !== undefined && { auto_disable: dto.autoDisableOnFailure }),
     });
 
     this.logger.log(`Channel created: ${channel.id} (${channel.name}) under provider ${provider.name}`);

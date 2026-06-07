@@ -25,7 +25,7 @@ export interface EPayConfig {
 /**
  * 支付方式
  */
-export type EPayType = 'alipay' | 'wxpay' | 'qqpay';
+export type EPayType = 'alipay' | 'wxpay';
 
 /**
  * 创建订单请求

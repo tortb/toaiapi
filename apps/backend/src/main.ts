@@ -68,8 +68,16 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'captcha-verify-param'],
   });
 
-  // SECURITY: Swagger 仅在非生产环境启用
-  if (process.env['NODE_ENV'] !== 'production') {
+  // Port
+  const port = process.env['PORT'] || 3001;
+
+  // SECURITY: Swagger 按需加载（环境变量控制）
+  const enableSwagger = process.env['ENABLE_SWAGGER'] === 'true'
+    || (process.env['NODE_ENV'] !== 'production' && process.env['ENABLE_SWAGGER'] !== 'false');
+
+  if (enableSwagger) {
+    const swaggerStart = Date.now();
+
     const config = new DocumentBuilder()
       .setTitle('ToAIAPI')
       .setDescription('Enterprise AI Gateway Platform API')
@@ -80,14 +88,17 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api/docs', app, document);
-    console.log(`📚 Swagger docs: http://localhost:${process.env['PORT'] || 3001}/api/docs`);
+
+    const swaggerDuration = Date.now() - swaggerStart;
+    logger.log(`📚 Swagger loaded in ${swaggerDuration}ms - http://localhost:${port}/api/docs`);
+  } else {
+    logger.log('📚 Swagger disabled (set ENABLE_SWAGGER=true to enable)');
   }
 
   // Graceful shutdown
   app.enableShutdownHooks();
 
   // Start
-  const port = process.env['PORT'] || 3001;
   await app.listen(port, '0.0.0.0');
 
   logger.log(`ToAIAPI Backend running on http://localhost:${port}`);

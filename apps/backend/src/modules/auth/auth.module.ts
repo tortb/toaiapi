@@ -8,6 +8,7 @@ import { CaptchaService } from './captcha.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
 import { BillingModule } from '../billing/billing.module';
+import { InviteModule } from '../invite/invite.module';
 
 /**
  * 认证模块
@@ -27,6 +28,7 @@ import { BillingModule } from '../billing/billing.module';
     }),
     forwardRef(() => UserModule),
     forwardRef(() => BillingModule),
+    forwardRef(() => InviteModule),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, CaptchaService],

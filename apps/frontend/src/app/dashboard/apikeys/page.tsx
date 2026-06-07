@@ -1,18 +1,32 @@
 "use client";
 
-/**
- * API Key 管理（用户端）
- *
- * /dashboard/apikeys — 列表、创建、启禁用、删除、轮换
- */
-
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import UserConsoleLayout from "@/components/dashboard/layout/UserConsoleLayout";
+import { Table, type TableColumn } from "@/components/ui/Table";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { IconButton } from "@/components/ui/IconButton";
+import { useToast } from "@/components/dashboard/ui/Toast";
+import { cn } from "@/lib/utils";
+import {
+  Plus,
+  Copy,
+  Trash2,
+  Power,
+  RefreshCw,
+  Terminal,
+  MoreHorizontal,
+  Clock,
+  Shield,
+  Activity,
+  Layers,
+  Calendar,
+  Users
+} from "lucide-react";
 import {
   getUserApiKeys,
-  createApiKey,
   enableApiKey,
   disableApiKey,
   deleteApiKey,
@@ -21,174 +35,27 @@ import {
   type CreateApiKeyResult,
 } from "@/lib/user-api";
 
-/* ============== 创建 Key 弹窗 ============== */
-function CreateModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: (result: CreateApiKeyResult) => void;
-}) {
-  const [name, setName] = React.useState("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+import { CreateApiKeyModal } from "@/components/dashboard/apikeys/CreateApiKeyModal";
+import { UseApiKeyModal } from "@/components/dashboard/apikeys/UseApiKeyModal";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const result = await createApiKey(name || undefined);
-      onCreated(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "创建失败");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">创建 API Key</h3>
-        {error && <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">{error}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">名称（可选）</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例如：生产环境、测试用"
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-          <div className="flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
-            <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600 disabled:opacity-50 flex items-center gap-2">
-              {isSubmitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              创建
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-/* ============== Key 创建成功弹窗 ============== */
-function KeyRevealModal({
-  result,
-  onClose,
-}: {
-  result: CreateApiKeyResult;
-  onClose: () => void;
-}) {
-  const [copied, setCopied] = React.useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(result.key);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">API Key 已创建</h3>
-        <p className="text-sm text-gray-500 mb-4">请立即复制保存，此 Key 仅显示一次。</p>
-        <div className="bg-gray-50 rounded-lg p-4 mb-4">
-          <p className="text-xs text-gray-500 mb-1">Key</p>
-          <p className="font-mono text-sm text-gray-800 break-all">{result.key}</p>
-        </div>
-        <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">关闭</button>
-          <button onClick={handleCopy} className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600">
-            {copied ? "✓ 已复制" : "复制 Key"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============== 确认弹窗 ============== */
-function ConfirmModal({
-  title,
-  message,
-  confirmLabel = "确认",
-  danger = false,
-  onConfirm,
-  onClose,
-}: {
-  title: string;
-  message: string;
-  confirmLabel?: string;
-  danger?: boolean;
-  onConfirm: () => Promise<void>;
-  onClose: () => void;
-}) {
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-  const handleConfirm = async () => {
-    setIsSubmitting(true);
-    try {
-      await onConfirm();
-      onClose();
-    } catch {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-        <p className="text-sm text-gray-500 mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
-          <button
-            onClick={handleConfirm}
-            disabled={isSubmitting}
-            className={`px-4 py-2 text-white text-sm rounded-lg disabled:opacity-50 flex items-center gap-2 ${
-              danger ? "bg-red-500 hover:bg-red-600" : "bg-primary hover:bg-primary-600"
-            }`}
-          >
-            {isSubmitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============== 主页面 ============== */
 export default function ApiKeysPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
+  const { toast } = useToast();
 
   const [keys, setKeys] = React.useState<UserApiKey[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [showCreate, setShowCreate] = React.useState(false);
-  const [newKeyResult, setNewKeyResult] = React.useState<CreateApiKeyResult | null>(null);
-  const [confirmAction, setConfirmAction] = React.useState<{
-    title: string;
-    message: string;
-    confirmLabel?: string;
-    danger?: boolean;
-    action: () => Promise<void>;
-  } | null>(null);
+  const [selectedKeyForUse, setSelectedKeyForUse] = React.useState<UserApiKey | null>(null);
 
   const loadKeys = React.useCallback(async () => {
     try {
       const data = await getUserApiKeys();
       setKeys(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败");
+    } catch (err: any) {
+      toast("error", err.message || "加载失败");
     }
-  }, []);
+  }, [toast]);
 
   React.useEffect(() => {
     if (!isAuthenticated) {
@@ -199,155 +66,295 @@ export default function ApiKeysPage() {
     loadKeys().finally(() => setIsLoading(false));
   }, [isAuthenticated, router, loadKeys]);
 
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast("success", "已复制 API 密钥前缀");
+  };
+
   const handleToggle = async (key: UserApiKey) => {
-    setConfirmAction({
-      title: key.isActive ? "禁用 API Key" : "启用 API Key",
-      message: key.isActive
-        ? `确定要禁用 "${key.name || key.keyPrefix}" 吗？禁用后使用此 Key 的请求将被拒绝。`
-        : `确定要启用 "${key.name || key.keyPrefix}" 吗？`,
-      confirmLabel: key.isActive ? "禁用" : "启用",
-      danger: key.isActive,
-      action: async () => {
-        if (key.isActive) await disableApiKey(key.id);
-        else await enableApiKey(key.id);
-        await loadKeys();
-      },
-    });
+    try {
+      if (key.isActive) {
+        await disableApiKey(key.id);
+        toast("success", "已禁用 API 密钥");
+      } else {
+        await enableApiKey(key.id);
+        toast("success", "已启用 API 密钥");
+      }
+      loadKeys();
+    } catch (err: any) {
+      toast("error", err.message);
+    }
   };
 
-  const handleDelete = (key: UserApiKey) => {
-    setConfirmAction({
-      title: "删除 API Key",
-      message: `确定要删除 "${key.name || key.keyPrefix}" 吗？此操作不可撤销，使用此 Key 的请求将立即失效。`,
-      confirmLabel: "删除",
-      danger: true,
-      action: async () => {
-        await deleteApiKey(key.id);
-        await loadKeys();
-      },
-    });
+  const handleDelete = async (id: string) => {
+    if (!confirm("确定要删除此 API 密钥吗？此操作不可撤销。")) return;
+    try {
+      await deleteApiKey(id);
+      toast("success", "已删除 API 密钥");
+      loadKeys();
+    } catch (err: any) {
+      toast("error", err.message);
+    }
   };
 
-  const handleRotate = (key: UserApiKey) => {
-    setConfirmAction({
-      title: "轮换 API Key",
-      message: `确定要轮换 "${key.name || key.keyPrefix}" 吗？旧 Key 将立即失效，新 Key 仅显示一次。`,
-      confirmLabel: "轮换",
-      action: async () => {
-        const result = await rotateApiKey(key.id);
-        setNewKeyResult(result);
-        await loadKeys();
-      },
-    });
+  const handleRotate = async (id: string) => {
+    if (!confirm("确定要轮换此 API 密钥吗？旧密钥将立即失效。")) return;
+    try {
+      const result = await rotateApiKey(id);
+      toast("success", "密钥轮换成功，请保存新密钥");
+      // TODO: 显示新密钥揭示弹窗
+      loadKeys();
+    } catch (err: any) {
+      toast("error", err.message);
+    }
   };
 
-  if (isLoading) {
-    return (
-      <UserConsoleLayout>
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  const columns: TableColumn<UserApiKey>[] = [
+    {
+      key: "name",
+      title: "名称",
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-neutral-900">{row.name || "未命名密钥"}</span>
+          <span className="text-[10px] text-neutral-400">ID: {row.id}</span>
         </div>
-      </UserConsoleLayout>
-    );
-  }
+      ),
+    },
+    {
+      key: "key",
+      title: "API 密钥",
+      render: (row) => (
+        <div className="group flex items-center gap-2">
+          <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-neutral-600">
+            {row.keyPrefix}••••••••
+          </code>
+          <IconButton
+            size="sm"
+            aria-label="复制"
+            icon={<Copy className="h-3 w-3" />}
+            onClick={() => handleCopy(row.keyPrefix)}
+            className="opacity-0 transition-opacity group-hover:opacity-100"
+          />
+        </div>
+      ),
+    },
+    {
+      key: "group",
+      title: "分组",
+      render: (row) => (
+        <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+          <Users className="h-3 w-3 text-neutral-400" />
+          <span>{row.group?.name || "—"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "usage",
+      title: "用量",
+      render: (row) => (
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+            <Activity className="h-3 w-3 text-neutral-400" />
+            <span>今日: ${((row.usageToday || 0) / 100).toFixed(2)}</span>
+          </div>
+          <div className="text-[10px] text-neutral-400 pl-[18px]">
+            近30天: ${((row.usage30d || 0) / 100).toFixed(2)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "rateLimit",
+      title: "速率限制",
+      render: (row) => (
+        <div className="flex flex-col gap-0.5 text-xs text-neutral-600">
+          <span>RPM: {row.rpmLimit || "—"}</span>
+          <span className="text-[10px] text-neutral-400">TPM: {row.tpmLimit || "—"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "expiresAt",
+      title: "过期时间",
+      render: (row) => (
+        <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+          <Calendar className="h-3 w-3 text-neutral-400" />
+          <span>
+            {row.expiresAt
+              ? new Date(row.expiresAt).toLocaleDateString("zh-CN", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "永久有效"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      title: "状态",
+      render: (row) => (
+        <Badge variant={row.isActive ? "success" : "neutral"} className="gap-1.5">
+          <span className={cn("h-1.5 w-1.5 rounded-full", row.isActive ? "bg-emerald-500" : "bg-neutral-400")} />
+          {row.isActive ? "活动" : "禁用"}
+        </Badge>
+      ),
+    },
+    {
+      key: "time",
+      title: "使用/创建",
+      render: (row) => (
+        <div className="flex flex-col text-xs text-neutral-500">
+          <div className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            <span>{new Date(row.createdAt).toLocaleDateString()}</span>
+          </div>
+          <span className="mt-0.5 text-[10px]">
+            最后使用: {row.lastUsedAt ? new Date(row.lastUsedAt).toLocaleDateString() : "从未"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      title: "操作",
+      headerClassName: "text-right",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => setSelectedKeyForUse(row)}
+          >
+            <Terminal className="h-3 w-3" />
+            使用
+          </Button>
+          <div className="h-4 w-px bg-neutral-200 mx-1" />
+          <IconButton
+            size="sm"
+            aria-label={row.isActive ? "禁用" : "启用"}
+            icon={<Power className="h-3.5 w-3.5" />}
+            onClick={() => handleToggle(row)}
+            className={row.isActive ? "text-neutral-400 hover:text-amber-500" : "text-emerald-500 hover:bg-emerald-50"}
+          />
+          <IconButton
+            size="sm"
+            aria-label="删除"
+            icon={<Trash2 className="h-3.5 w-3.5" />}
+            onClick={() => handleDelete(row.id)}
+            className="text-neutral-400 hover:text-red-500 hover:bg-red-50"
+          />
+        </div>
+      ),
+    },
+  ];
 
   return (
     <UserConsoleLayout>
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">{error}</div>
-        )}
-
-        <div className="flex items-center justify-between mb-6">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">API 密钥</h1>
-            <p className="text-sm text-gray-500 mt-1">管理您的 API 密钥，用于访问 ToAIAPI 服务</p>
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+              API 密钥
+            </h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              管理您的 API 密钥，用于在第三方工具或代码中调用 ToAIAPI。
+            </p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600 flex items-center gap-2 shadow-sm"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
             创建密钥
-          </button>
+          </Button>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-[0_8px_30px_rgba(0,0,0,0.06)] overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100 text-gray-500">
-                <th className="font-normal text-left px-5 py-3.5 text-xs">名称</th>
-                <th className="font-normal text-left px-5 py-3.5 text-xs">密钥</th>
-                <th className="font-normal text-left px-5 py-3.5 text-xs">状态</th>
-                <th className="font-normal text-right px-5 py-3.5 text-xs">请求数</th>
-                <th className="font-normal text-left px-5 py-3.5 text-xs">最后使用</th>
-                <th className="font-normal text-left px-5 py-3.5 text-xs">创建时间</th>
-                <th className="font-normal text-right px-5 py-3.5 text-xs">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {keys.length === 0 ? (
-                <tr><td colSpan={7} className="px-5 py-12 text-center"><span className="text-sm text-gray-400">暂无 API 密钥，点击上方按钮创建</span></td></tr>
-              ) : keys.map((k) => (
-                <tr key={k.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3.5 text-sm text-gray-800 font-medium">{k.name || "-"}</td>
-                  <td className="px-5 py-3.5 text-sm text-gray-600 font-mono group relative">
-                    <span className="cursor-pointer">
-                      <span className="group-hover:hidden">{k.keyPrefix}••••••••••</span>
-                      <span className="hidden group-hover:inline">{k.keyPrefix}...</span>
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-sm">
-                    <span className={`inline-flex items-center gap-1.5 ${k.isActive ? "text-success" : "text-gray-400"}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${k.isActive ? "bg-success" : "bg-gray-300"}`} />
-                      {k.isActive ? "已启用" : "已禁用"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-sm text-right text-gray-600 font-mono">{k.totalRequests.toLocaleString()}</td>
-                  <td className="px-5 py-3.5 text-sm text-gray-500">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString("zh-CN") : "-"}</td>
-                  <td className="px-5 py-3.5 text-sm text-gray-500">{new Date(k.createdAt).toLocaleDateString("zh-CN")}</td>
-                  <td className="px-5 py-3.5 text-sm text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleToggle(k)} className="px-2 py-1 text-xs text-gray-600 hover:text-primary hover:bg-primary/5 rounded transition">
-                        {k.isActive ? "禁用" : "启用"}
-                      </button>
-                      <button onClick={() => handleRotate(k)} className="px-2 py-1 text-xs text-gray-600 hover:text-warning hover:bg-warning/5 rounded transition">
-                        轮换
-                      </button>
-                      <button onClick={() => handleDelete(k)} className="px-2 py-1 text-xs text-gray-600 hover:text-red-500 hover:bg-red-50 rounded transition">
-                        删除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+          <div className="lg:col-span-3">
+            <Table
+              columns={columns}
+              data={keys}
+              rowKey="id"
+              loading={isLoading}
+              empty={
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="rounded-full bg-neutral-100 p-4">
+                    <Layers className="h-8 w-8 text-neutral-400" />
+                  </div>
+                  <h3 className="mt-4 text-sm font-semibold text-neutral-900">暂无 API 密钥</h3>
+                  <p className="mt-1 text-xs text-neutral-500 max-w-[200px]">
+                    您还没有创建过 API 密钥，点击右上角按钮开始创建。
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => setShowCreate(true)}
+                  >
+                    创建第一个密钥
+                  </Button>
+                </div>
+              }
+            />
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-5">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+                <Shield className="h-4 w-4 text-emerald-500" />
+                安全建议
+              </h3>
+              <ul className="mt-4 space-y-3 text-xs text-neutral-500 leading-relaxed">
+                <li className="flex gap-2">
+                  <span className="text-emerald-500 font-bold">•</span>
+                  定期轮换您的 API 密钥以降低泄露风险。
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-emerald-500 font-bold">•</span>
+                  通过 IP 白名单限制仅允许您的服务器访问。
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-emerald-500 font-bold">•</span>
+                  切勿在客户端浏览器代码或公共代码库中暴露密钥。
+                </li>
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-5">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                <Terminal className="h-4 w-4 text-blue-500" />
+                快速集成
+              </h3>
+              <p className="mt-2 text-xs text-blue-700 leading-relaxed">
+                ToAIAPI 完美兼容 OpenAI 协议。您只需将 Base URL 设置为：
+              </p>
+              <div className="mt-3 rounded bg-blue-100 px-2 py-1.5 font-mono text-[10px] text-blue-800 break-all">
+                https://api.toaiapi.com/v1
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 弹窗 */}
-      {showCreate && (
-        <CreateModal
-          onClose={() => setShowCreate(false)}
-          onCreated={(result) => {
-            setShowCreate(false);
-            setNewKeyResult(result);
-            loadKeys();
-          }}
-        />
-      )}
-      {newKeyResult && (
-        <KeyRevealModal result={newKeyResult} onClose={() => setNewKeyResult(null)} />
-      )}
-      {confirmAction && (
-        <ConfirmModal
-          title={confirmAction.title}
-          message={confirmAction.message}
-          confirmLabel={confirmAction.confirmLabel}
-          danger={confirmAction.danger}
-          onConfirm={confirmAction.action}
-          onClose={() => setConfirmAction(null)}
+      <CreateApiKeyModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={() => {
+          setShowCreate(false);
+          loadKeys();
+        }}
+      />
+
+      {selectedKeyForUse && (
+        <UseApiKeyModal
+          open={!!selectedKeyForUse}
+          onClose={() => setSelectedKeyForUse(null)}
+          apiKey={selectedKeyForUse.keyPrefix + "••••••••"}
+          baseUrl="https://api.toaiapi.com/v1"
+          model="gpt-4o"
         />
       )}
     </UserConsoleLayout>

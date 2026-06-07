@@ -37,6 +37,7 @@ export function Header() {
             </Link>
             <Link href="/models" className="hover:text-primary">模型</Link>
             <Link href="/pricing" className="hover:text-primary">价格</Link>
+            <Link href="/leaderboard" className="hover:text-primary">排行榜</Link>
             <Link href="/docs" className="hover:text-primary">文档</Link>
             <Link href="/status" className="hover:text-primary">服务状态</Link>
           </nav>

@@ -228,6 +228,47 @@ export async function getDailyBills(days: number = 30): Promise<DailyBill[]> {
 }
 
 // ──────────────────────────────────────────────
+// 兑换码 / 邀请 / 折扣
+// ──────────────────────────────────────────────
+
+export interface DiscountTier {
+  amount: number;
+  discount: number; // 折扣比例，如 0.9 表示9折
+  label: string;
+}
+
+export interface InviteStats {
+  pendingReward: number;   // 待使用收益(分)
+  totalReward: number;     // 总收益(分)
+  inviteCount: number;     // 邀请人数
+  rewardRatio: number;     // 奖励比例(%)
+  inviteUrl: string;       // 邀请链接
+}
+
+export interface RedeemResult {
+  amount: number;          // 兑换金额(分)
+  balance: number;         // 兑换后余额(分)
+}
+
+/** 获取阶梯折扣配置 */
+export async function getDiscounts(): Promise<DiscountTier[]> {
+  return authFetch<DiscountTier[]>(`${API_PREFIX}/payment/discounts`);
+}
+
+/** 获取邀请奖励统计 */
+export async function getInviteStats(): Promise<InviteStats> {
+  return authFetch<InviteStats>(`${API_PREFIX}/invite/stats`);
+}
+
+/** 兑换码充值 */
+export async function redeemCode(code: string): Promise<RedeemResult> {
+  return authFetch<RedeemResult>(`${API_PREFIX}/payment/redeem`, {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
+// ──────────────────────────────────────────────
 // 工具函数
 // ──────────────────────────────────────────────
 

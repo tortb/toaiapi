@@ -6,7 +6,12 @@ export type Model = {
   vendor?: string;
   input_price?: number | null;
   output_price?: number | null;
+  cache_price?: number | null; // 缓存命中价格
   description?: string | null;
+  tags?: string[];       // 标签：对话、工具、识图、绘画、视频、音乐
+  type?: string;         // 模型类型：text、image、audio、video
+  billing_type?: string; // 计费类型：token、request
+  context_window?: number | null; // 上下文窗口大小
 };
 
 export type ChannelStatus = {
@@ -56,6 +61,30 @@ export async function getPublicModels(): Promise<Model[]> {
     return result.data;
   }
   return result as unknown as Model[];
+}
+
+export interface ModelGroupPricing {
+  group: string;
+  billingType: string;
+  inputPrice: number;
+  outputPrice: number;
+  cachePrice?: number;
+}
+
+export interface ModelApiEndpoint {
+  method: string;
+  path: string;
+  label: string;
+}
+
+export interface ModelDetail extends Model {
+  groupPricing?: ModelGroupPricing[];
+  apiEndpoints?: ModelApiEndpoint[];
+}
+
+/** 获取单个模型详情（含分组价格+API端点） */
+export async function getModelDetail(name: string): Promise<ModelDetail> {
+  return fetchJSON<ModelDetail>(`/models/public/${encodeURIComponent(name)}`);
 }
 
 export async function getStatus(): Promise<ChannelStatus[]> {

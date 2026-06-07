@@ -1,0 +1,84 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "20"
+  CI: "true"
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: 安装项目依赖
+        run: pnpm install
+
+      - name: 构建共享包
+        run: pnpm build
+
+      - name: 生成 Prisma Client
+        run: pnpm db:generate
+
+      - name: 推送数据库 schema
+        run: pnpm db:push
+
+      - name: 初始化数据库数据
+        run: pnpm db:seed
+        env:
+          ADMIN_EMAIL: admin@toaiapi.com
+          ADMIN_PASSWORD: Admin@123456
+
+      - name: 安装 E2E 测试依赖
+        working-directory: tests/e2e
+        run: pnpm install
+
+      - name: 安装 Playwright 浏览器
+        working-directory: tests/e2e
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: 运行 E2E 测试
+        working-directory: tests/e2e
+        run: pnpm test
+        env:
+          BASE_URL: http://localhost:3000
+          API_BASE_URL: http://localhost:3001
+          ADMIN_EMAIL: admin@toaiapi.com
+          ADMIN_PASSWORD: Admin@123456
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report/
+          retention-days: 30
+
+      - name: 上传测试结果截图
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: tests/e2e/test-results/
+          retention-days: 7

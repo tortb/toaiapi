@@ -1,0 +1,18 @@
+{
+  "user": {
+    "email": "e2e-test-1780862940667-j6mn8x@test.local",
+    "password": "TestPass@123",
+    "displayName": "测试用户-1780862940667"
+  },
+  "tokens": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXE0N3RjN2YwMDAxanU0cmRweHdqZTByIiwiZW1haWwiOiJlMmUtdGVzdC0xNzgwODYyOTQwNjY3LWo2bW44eEB0ZXN0LmxvY2FsIiwicm9sZSI6IlVTRVIiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzgwODYyOTQxLCJleHAiOjE3ODA4NjM4NDF9.gdW065Nh1NdHvKdLXh-c0XgYNkWLcN8UlZAYKDldWvU",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbXE0N3RjN2YwMDAxanU0cmRweHdqZTByIiwiZW1haWwiOiJlMmUtdGVzdC0xNzgwODYyOTQwNjY3LWo2bW44eEB0ZXN0LmxvY2FsIiwicm9sZSI6IlVTRVIiLCJ0eXBlIjoicmVmcmVzaCIsImlhdCI6MTc4MDg2Mjk0MSwiZXhwIjoxNzgxNDY3NzQxfQ.UH1id0TSH-uCa5hJtu-NRtK_7igjrw0EQFeRkrRXie0",
+    "userId": "cmq47tc7f0001ju4rdpxwje0r",
+    "email": "e2e-test-1780862940667-j6mn8x@test.local"
+  },
+  "apiKey": {
+    "id": "cmq47tcfe0004ju4rgjhhg7f9",
+    "key": "sk-toai-kexXGC9b__LhTGqS397F4pBy7PZM9_3vc_YFU4T2pZml1ttX",
+    "keyPrefix": "sk-toai-kexXGC9b"
+  }
+}

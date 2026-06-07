@@ -4,6 +4,8 @@ import {
   BadRequestException,
   NotFoundException,
   OnModuleInit,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EPayService } from './epay.service';
@@ -14,6 +16,7 @@ import { ChannelService } from '../gateway/channel/channel.service';
 import { CreateOrderDto, PaymentMethodDto } from './dto/create-order.dto';
 import { nanoid } from 'nanoid';
 import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
+import { InviteService } from '../invite/invite.service';
 
 /**
  * 统一支付服务
@@ -41,6 +44,8 @@ export class PaymentService implements OnModuleInit {
     private readonly wechatPayService: WechatPayService,
     private readonly paymentConfigService: PaymentConfigService,
     private readonly channelService: ChannelService,
+    @Inject(forwardRef(() => InviteService))
+    private readonly inviteService: InviteService,
   ) {}
 
   onModuleInit() {
@@ -711,6 +716,13 @@ export class PaymentService implements OnModuleInit {
         }
       }
     });
+
+    // 处理邀请返现奖励（在事务外异步执行）
+    try {
+      await this.inviteService.handleRechargeReward(order.user_id, order.amount);
+    } catch (error) {
+      this.logger.error(`Failed to handle invite reward: ${error}`);
+    }
   }
 
   /**

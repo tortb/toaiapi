@@ -27,10 +27,16 @@ import {
   Modal,
   Select,
   Skeleton,
+  Switch,
   Table,
+  Textarea,
   type TableColumn,
   useToast,
 } from "@/components/ui";
+import { ModelMappingEditor } from "@/components/admin/channels/ModelMappingEditor";
+import { OverrideRulesEditor } from "@/components/admin/channels/OverrideRulesEditor";
+import { UpstreamDetector } from "@/components/admin/channels/UpstreamDetector";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface ChannelFormState {
   providerId: string;
@@ -39,6 +45,17 @@ interface ChannelFormState {
   apiKey: string;
   weight: string;
   priority: string;
+  // 高级设置
+  groupId: string;
+  tags: string;
+  notes: string;
+  modelMapping: string;
+  statusCodeMapping: string;
+  paramOverrides: string;
+  headerOverrides: string;
+  proxy: string;
+  systemPrompt: string;
+  autoDisableOnFailure: boolean;
 }
 
 const emptyChannelForm: ChannelFormState = {
@@ -48,6 +65,16 @@ const emptyChannelForm: ChannelFormState = {
   apiKey: "",
   weight: "1",
   priority: "0",
+  groupId: "default",
+  tags: "",
+  notes: "",
+  modelMapping: "[]",
+  statusCodeMapping: "{}",
+  paramOverrides: "{}",
+  headerOverrides: "{}",
+  proxy: "",
+  systemPrompt: "",
+  autoDisableOnFailure: true,
 };
 
 function toChannelForm(channel?: ChannelData | null): ChannelFormState {
@@ -59,6 +86,16 @@ function toChannelForm(channel?: ChannelData | null): ChannelFormState {
     apiKey: "",
     weight: String(channel.weight),
     priority: String(channel.priority),
+    groupId: (channel as any).groupId || "default",
+    tags: (channel as any).tags || "",
+    notes: (channel as any).notes || "",
+    modelMapping: JSON.stringify((channel as any).modelMapping || []),
+    statusCodeMapping: JSON.stringify((channel as any).statusCodeMapping || {}),
+    paramOverrides: JSON.stringify((channel as any).paramOverrides || {}),
+    headerOverrides: JSON.stringify((channel as any).headerOverrides || {}),
+    proxy: (channel as any).proxy || "",
+    systemPrompt: (channel as any).systemPrompt || "",
+    autoDisableOnFailure: (channel as any).autoDisableOnFailure !== false,
   };
 }
 
@@ -94,11 +131,20 @@ function ChannelFormModal({ channel, providers, open, onClose, onSaved }: Channe
   const [form, setForm] = React.useState<ChannelFormState>(() => toChannelForm(channel));
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const [modelMappings, setModelMappings] = React.useState<Array<{ requestModel: string; actualModel: string }>>([]);
 
   React.useEffect(() => {
     if (!open) return;
     setForm(toChannelForm(channel));
     setError(null);
+    setShowAdvanced(false);
+    try {
+      const mappings = channel ? JSON.parse(JSON.stringify((channel as any).modelMapping || [])) : [];
+      setModelMappings(Array.isArray(mappings) ? mappings : []);
+    } catch {
+      setModelMappings([]);
+    }
   }, [channel, open]);
 
   const updateField = <K extends keyof ChannelFormState>(key: K, value: ChannelFormState[K]) => {
@@ -120,24 +166,28 @@ function ChannelFormModal({ channel, providers, open, onClose, onSaved }: Channe
     setError(null);
 
     try {
+      const payload: Record<string, unknown> = {
+        name: form.name,
+        baseUrl: form.baseUrl,
+        weight: Number(form.weight),
+        priority: Number(form.priority),
+        groupId: form.groupId,
+        tags: form.tags,
+        notes: form.notes,
+        modelMapping: modelMappings,
+        statusCodeMapping: JSON.parse(form.statusCodeMapping || "{}"),
+        paramOverrides: JSON.parse(form.paramOverrides || "{}"),
+        headerOverrides: JSON.parse(form.headerOverrides || "{}"),
+        proxy: form.proxy,
+        systemPrompt: form.systemPrompt,
+        autoDisableOnFailure: form.autoDisableOnFailure,
+      };
+      if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim();
+
       if (channel) {
-        const payload: { name: string; baseUrl: string; weight: number; priority: number; apiKey?: string } = {
-          name: form.name,
-          baseUrl: form.baseUrl,
-          weight: Number(form.weight),
-          priority: Number(form.priority),
-        };
-        if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim();
         await updateChannel(channel.id, payload);
       } else {
-        await createChannel({
-          providerId: form.providerId,
-          name: form.name,
-          baseUrl: form.baseUrl,
-          apiKey: form.apiKey,
-          weight: Number(form.weight),
-          priority: Number(form.priority),
-        });
+        await createChannel(payload as any);
       }
       toast.success(isEdit ? "渠道已更新" : "渠道已创建");
       onSaved();
@@ -168,69 +218,170 @@ function ChannelFormModal({ channel, providers, open, onClose, onSaved }: Channe
         </div>
       }
     >
-      <form id="channel-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="channel-form" onSubmit={handleSubmit} className="space-y-6">
         {error && <div className="rounded-lg border border-error/20 bg-error-bg px-4 py-3 text-sm text-error">{error}</div>}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            label="服务商"
-            value={form.providerId}
-            onChange={(event) => handleProviderChange(event.target.value)}
-            placeholder="请选择服务商"
-            required
-            disabled={isEdit}
-            options={providers.map((provider) => ({ label: provider.displayName + " (" + provider.name + ")", value: provider.id }))}
-          />
+        {/* 基本信息 */}
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Select
+              label="服务商"
+              value={form.providerId}
+              onChange={(event) => handleProviderChange(event.target.value)}
+              placeholder="请选择服务商"
+              required
+              disabled={isEdit}
+              options={providers.map((provider) => ({ label: provider.displayName + " (" + provider.name + ")", value: provider.id }))}
+            />
+            <Input
+              label="渠道名称"
+              value={form.name}
+              onChange={(event) => updateField("name", event.target.value)}
+              placeholder="OpenAI 主力渠道"
+              required
+              maxLength={100}
+            />
+          </div>
+
           <Input
-            label="渠道名称"
-            value={form.name}
-            onChange={(event) => updateField("name", event.target.value)}
-            placeholder="OpenAI 主力渠道"
+            label="Base URL"
+            type="url"
+            value={form.baseUrl}
+            onChange={(event) => updateField("baseUrl", event.target.value)}
+            placeholder="https://api.openai.com"
             required
-            maxLength={100}
+            className="font-mono"
           />
+
+          <Input
+            label="API Key"
+            type="password"
+            value={form.apiKey}
+            onChange={(event) => updateField("apiKey", event.target.value)}
+            placeholder={isEdit ? "留空则不更新" : "sk-..."}
+            required={!isEdit}
+            className="font-mono"
+            hint={isEdit && channel?.keyPrefix ? "当前 Key 前缀：" + channel.keyPrefix : undefined}
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="权重"
+              type="number"
+              min={1}
+              max={100}
+              value={form.weight}
+              onChange={(event) => updateField("weight", event.target.value)}
+            />
+            <Input
+              label="优先级"
+              type="number"
+              min={0}
+              max={100}
+              value={form.priority}
+              onChange={(event) => updateField("priority", event.target.value)}
+              hint="数字越小优先级越高。"
+            />
+          </div>
         </div>
 
-        <Input
-          label="Base URL"
-          type="url"
-          value={form.baseUrl}
-          onChange={(event) => updateField("baseUrl", event.target.value)}
-          placeholder="https://api.openai.com"
-          required
-          className="font-mono"
-        />
+        {/* 高级设置折叠 */}
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex w-full items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition"
+        >
+          高级设置
+          {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
 
-        <Input
-          label="API Key"
-          type="password"
-          value={form.apiKey}
-          onChange={(event) => updateField("apiKey", event.target.value)}
-          placeholder={isEdit ? "留空则不更新" : "sk-..."}
-          required={!isEdit}
-          className="font-mono"
-          hint={isEdit && channel?.keyPrefix ? "当前 Key 前缀：" + channel.keyPrefix : undefined}
-        />
+        {showAdvanced && (
+          <div className="space-y-6 rounded-xl border border-neutral-200 bg-white p-6">
+            {/* 用户组和标签 */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select
+                label="用户组"
+                value={form.groupId}
+                onChange={(e) => updateField("groupId", e.target.value)}
+                options={[
+                  { label: "默认分组", value: "default" },
+                  { label: "VIP 分组", value: "vip" },
+                ]}
+              />
+              <Input
+                label="标签"
+                value={form.tags}
+                onChange={(e) => updateField("tags", e.target.value)}
+                placeholder="用逗号分隔多个标签"
+              />
+            </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="权重"
-            type="number"
-            min={1}
-            max={100}
-            value={form.weight}
-            onChange={(event) => updateField("weight", event.target.value)}
-          />
-          <Input
-            label="优先级"
-            type="number"
-            min={0}
-            max={100}
-            value={form.priority}
-            onChange={(event) => updateField("priority", event.target.value)}
-            hint="数字越小优先级越高。"
-          />
-        </div>
+            {/* 备注 */}
+            <Textarea
+              label="内部备注"
+              value={form.notes}
+              onChange={(e) => updateField("notes", e.target.value)}
+              placeholder="内部备注，不显示给用户"
+              rows={2}
+            />
+
+            {/* 模型映射 */}
+            <ModelMappingEditor
+              value={modelMappings}
+              onChange={setModelMappings}
+            />
+
+            {/* 覆盖规则 */}
+            <OverrideRulesEditor
+              statusCodeMapping={form.statusCodeMapping}
+              onStatusCodeMappingChange={(v) => updateField("statusCodeMapping", v)}
+              paramOverrides={form.paramOverrides}
+              onParamOverridesChange={(v) => updateField("paramOverrides", v)}
+              headerOverrides={form.headerOverrides}
+              onHeaderOverridesChange={(v) => updateField("headerOverrides", v)}
+            />
+
+            {/* 代理和系统提示 */}
+            <Input
+              label="代理地址"
+              value={form.proxy}
+              onChange={(e) => updateField("proxy", e.target.value)}
+              placeholder="socks5://user:pass@host:port"
+              className="font-mono"
+            />
+
+            <Textarea
+              label="系统提示词"
+              value={form.systemPrompt}
+              onChange={(e) => updateField("systemPrompt", e.target.value)}
+              placeholder="渠道级别的系统提示词"
+              rows={3}
+            />
+
+            {/* 自动禁用 */}
+            <div className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
+              <div>
+                <p className="text-sm text-neutral-700">重复失败时自动禁用通道</p>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  连续失败达到阈值后自动禁用该渠道
+                </p>
+              </div>
+              <Switch
+                checked={form.autoDisableOnFailure}
+                onCheckedChange={(checked) => updateField("autoDisableOnFailure", checked)}
+              />
+            </div>
+
+            {/* 上游检测 */}
+            {isEdit && channel && (
+              <UpstreamDetector
+                channelId={channel.id}
+                lastCheckedAt={(channel as any).lastCheckedAt}
+                detectedModels={(channel as any).detectedModels}
+              />
+            )}
+          </div>
+        )}
       </form>
     </Modal>
   );

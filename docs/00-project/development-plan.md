@@ -85,7 +85,7 @@
 | 1 | PaymentConfig 数据库表 | 支付配置存储 |
 | 2 | SmtpConfig 数据库表 | SMTP配置存储 |
 | 3 | ConfigEncryptionService | AES-256-GCM 加密服务 |
-| 4 | EPayService | 易支付集成（支付宝/微信/QQ） |
+| 4 | EPayService | 易支付集成（支付宝/微信） |
 | 5 | AlipayService | 支付宝网页支付 |
 | 6 | WechatPayService | 微信支付（Native/H5） |
 | 7 | PaymentService | 统一支付服务 |

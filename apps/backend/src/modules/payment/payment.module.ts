@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
 import { EPayService } from './epay.service';
 import { AlipayService } from './alipay.service';
 import { WechatPayService } from './wechatpay.service';
 import { GatewayModule } from '../gateway/gateway.module';
+import { InviteModule } from '../invite/invite.module';
 
 /**
  * 支付模块
@@ -15,7 +16,7 @@ import { GatewayModule } from '../gateway/gateway.module';
  * - 微信支付
  */
 @Module({
-  imports: [GatewayModule],
+  imports: [GatewayModule, forwardRef(() => InviteModule)],
   controllers: [PaymentController],
   providers: [
     PaymentService,

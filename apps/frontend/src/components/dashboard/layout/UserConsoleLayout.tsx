@@ -3,7 +3,6 @@
 import React from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import { ToastProvider } from '@/components/dashboard/ui/Toast';
 
 /**
  * UserConsoleLayout — 企业级仪表盘三栏布局
@@ -26,39 +25,37 @@ export default function UserConsoleLayout({ children }: { children: React.ReactN
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   return (
-    <ToastProvider>
-      <div className="min-h-screen bg-[#FAFBFC] text-main flex">
-        {/* ─── 桌面端 Sidebar（固定 220px） ─── */}
-        <div className="hidden lg:flex">
-          <Sidebar />
-        </div>
-
-        {/* ─── 移动端 Sidebar Drawer（带动画） ─── */}
-        {/* 遮罩层 */}
-        <div
-          className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-sm lg:hidden transition-opacity duration-200 ${
-            sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-          onClick={() => setSidebarOpen(false)}
-        />
-        {/* 抽屉面板 */}
-        <div
-          className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-200 ease-out ${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-        >
-          <Sidebar />
-        </div>
-
-        {/* ─── 主内容区 ─── */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <Topbar onMenuClick={() => setSidebarOpen(true)} />
-
-          <main className="flex-1 overflow-y-auto">
-            {children}
-          </main>
-        </div>
+    <div className="min-h-screen bg-[#FAFBFC] text-main flex">
+      {/* ─── 桌面端 Sidebar（固定 220px） ─── */}
+      <div className="hidden lg:flex">
+        <Sidebar />
       </div>
-    </ToastProvider>
+
+      {/* ─── 移动端 Sidebar Drawer（带动画） ─── */}
+      {/* 遮罩层 */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-sm lg:hidden transition-opacity duration-200 ${
+          sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setSidebarOpen(false)}
+      />
+      {/* 抽屉面板 */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-200 ease-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <Sidebar />
+      </div>
+
+      {/* ─── 主内容区 ─── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }

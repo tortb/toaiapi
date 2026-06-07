@@ -74,7 +74,7 @@
 **后端已完成：**
 - [x] PaymentConfig / SmtpConfig 数据库表
 - [x] ConfigEncryptionService（AES-256-GCM加密）
-- [x] EPayService（易支付：支付宝/微信/QQ）
+- [x] EPayService（易支付：支付宝/微信）
 - [x] AlipayService（支付宝网页支付）
 - [x] WechatPayService（微信Native/H5支付）
 - [x] PaymentService（统一支付服务）

@@ -20,6 +20,9 @@ export class RedisService implements OnModuleDestroy {
       password: this.configService.get<string>('REDIS_PASSWORD'),
       db: this.configService.get<number>('REDIS_DB', 0),
       maxRetriesPerRequest: 3,
+      connectTimeout: 5000,        // 5秒连接超时
+      commandTimeout: 3000,        // 3秒命令超时
+      enableOfflineQueue: false,   // 未连接时不排队命令
       lazyConnect: true,
       retryStrategy(times: number): number | null {
         if (times > 3) {
@@ -34,8 +37,25 @@ export class RedisService implements OnModuleDestroy {
     });
 
     this.client.on('error', (error: Error) => {
-      this.logger.error('Redis error', error.message);
+      this.logger.warn(`Redis error (non-fatal): ${error.message}`);
     });
+
+    // 启动时异步测试连接（不阻塞主流程）
+    this.testConnection();
+  }
+
+  /**
+   * 启动时异步测试连接（不阻塞主流程）
+   */
+  private async testConnection(): Promise<void> {
+    try {
+      await this.client.connect();
+      await this.client.ping();
+      this.logger.log('Redis health check passed');
+    } catch (error) {
+      this.logger.warn('Redis unavailable - caching disabled');
+      // 不抛出错误，允许应用在无Redis情况下运行
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

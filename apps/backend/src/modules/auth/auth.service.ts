@@ -5,6 +5,8 @@ import {
   ConflictException,
   ForbiddenException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -18,6 +20,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { randomBytes, createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
+import { InviteService } from '../invite/invite.service';
 
 @Injectable()
 export class AuthService {
@@ -31,6 +34,8 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly systemSettingService: SystemSettingService,
     private readonly captchaService: CaptchaService,
+    @Inject(forwardRef(() => InviteService))
+    private readonly inviteService: InviteService,
   ) {}
 
   /**
@@ -125,6 +130,15 @@ export class AuthService {
         },
         include: { balance: true },
       });
+
+      // 处理邀请码绑定
+      if (dto.inviteCode) {
+        try {
+          await this.inviteService.bindInviteRelation(user.id, dto.inviteCode);
+        } catch (error) {
+          this.logger.warn(`Failed to bind invite code: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
 
       const tokens = await this.generateTokens(user.id, user.email, user.role);
 

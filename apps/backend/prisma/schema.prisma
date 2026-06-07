@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db?connection_limit=1&journal_mode=WAL&synchronous=NORMAL&cache_size=10000"
 }
 
 /// 用户表
@@ -28,21 +28,34 @@ model User {
   created_at      DateTime          @default(now())
   updated_at      DateTime          @updatedAt
   deleted_at      DateTime?
-  apiKeys         ApiKey[]
-  orders          Order[]
-  requestLogs     RequestLog[]
-  organization    Organization?     @relation(fields: [organization_id], references: [id])
-  group           UserGroup?        @relation(fields: [group_id], references: [id])
-  balance         UserBalance?
-  subscriptions   UserSubscription?
-  transactions    UserTransaction[]
-  userRoles       UserRoleMapping[]
-  invoices        Invoice[]
+  language                 String                    @default("zh")
+  invite_code              String?                   @unique @map("invite_code")
+  apiKeys                  ApiKey[]
+  orders                   Order[]
+  requestLogs              RequestLog[]
+  organization             Organization?             @relation(fields: [organization_id], references: [id])
+  group                    UserGroup?                @relation(fields: [group_id], references: [id])
+  balance                  UserBalance?
+  subscriptions            UserSubscription?
+  transactions             UserTransaction[]
+  userRoles                UserRoleMapping[]
+  invoices                 Invoice[]
+  notificationConfig       NotificationConfig?
+  realNameVerification     RealNameVerification?
+  twoFactorAuth            TwoFactorAuth?
+  passkeys                 Passkey[]
+  checkInRecords           CheckInRecord[]
+  accountBindings          AccountBinding[]
+  invitedBy                InviteRecord?             @relation("InviteeRelation")
+  inviteRecords            InviteRecord[]            @relation("InviterRelation")
+  redeemCodes              RedeemCode[]
+  redeemRecords            RedeemRecord[]
 
   @@index([created_at])
   @@index([role])
   @@index([status])
   @@index([group_id])
+  @@index([invite_code])
 }
 
 /// 用户余额表（一对一）
@@ -60,24 +73,25 @@ model UserBalance {
 /// 用户组表
 /// 用于控制用户的价格倍率、限额、可访问模型等策略
 model UserGroup {
-  id               String   @id @default(cuid())
-  name             String   @unique
+  id               String    @id @default(cuid())
+  name             String    @unique
   display_name     String
   description      String?
-  price_multiplier Decimal  @default(1.0)
-  rpm_limit        Int      @default(60)
-  tpm_limit        Int      @default(60000)
-  max_api_keys     Int      @default(10)
-  allowed_models   String   @default("[]")  // JSON array
-  allowed_channels String   @default("[]")  // JSON array
-  allow_proxy      Boolean  @default(true)
-  allow_share      Boolean  @default(false)
-  is_active        Boolean  @default(true)
-  is_builtin       Boolean  @default(false)
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
+  price_multiplier Decimal   @default(1.0)
+  rpm_limit        Int       @default(60)
+  tpm_limit        Int       @default(60000)
+  max_api_keys     Int       @default(10)
+  allowed_models   String    @default("[]")  // JSON array
+  allowed_channels String    @default("[]")  // JSON array
+  allow_proxy      Boolean   @default(true)
+  allow_share      Boolean   @default(false)
+  is_active        Boolean   @default(true)
+  is_builtin       Boolean   @default(false)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
   deleted_at       DateTime?
   users            User[]
+  apiKeys          ApiKey[]
 
   @@index([is_active])
   @@index([deleted_at])
@@ -180,25 +194,31 @@ model UserTransaction {
 /// SECURITY: key_hash 使用 Argon2id 哈希，不存储明文
 /// key_prefix 存储前 16 字符用于列表展示
 model ApiKey {
-  id             String    @id @default(cuid())
-  user_id        String
-  key_hash       String    @unique
-  key_prefix     String
-  name           String?
-  is_active      Boolean   @default(true)
-  expires_at     DateTime?
-  rate_limit     Int?
-  token_limit    Int?
-  model_limit    String   @default("[]")  // JSON array
-  ip_whitelist   String   @default("[]")  // JSON array
-  last_used_at   DateTime?
-  total_requests Int       @default(0)
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
-  user           User      @relation(fields: [user_id], references: [id])
+  id              String    @id @default(cuid())
+  user_id         String
+  key_hash        String    @unique
+  key_prefix      String
+  name            String?
+  is_active       Boolean   @default(true)
+  expires_at      DateTime?
+  rate_limit      Int?
+  token_limit     Int?
+  model_limit     String    @default("[]")  // JSON array
+  ip_whitelist    String    @default("[]")  // JSON array
+  last_used_at    DateTime?
+  total_requests  Int       @default(0)
+  group_id        String?   @map("group_id")
+  rpm_limit       Int?      @map("rpm_limit")
+  tpm_limit       Int?      @map("tpm_limit")
+  unlimited_quota Boolean   @default(false) @map("unlimited_quota")
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  user            User      @relation(fields: [user_id], references: [id])
+  group           UserGroup? @relation(fields: [group_id], references: [id])
 
   @@index([user_id])
   @@index([key_prefix])
+  @@index([group_id])
 }
 
 /// AI 模型定义表
@@ -250,24 +270,49 @@ model Provider {
 /// 每个渠道对应一个 Provider 的一个 API 端点/凭证
 /// SECURITY: api_key 使用 AES-256-GCM 加密存储
 model Channel {
-  id              String         @id @default(cuid())
-  provider_id     String
-  name            String
-  base_url        String
-  api_key         String
-  weight          Int            @default(1)
-  priority        Int            @default(0)
-  is_active       Boolean        @default(true)
-  status          ChannelStatus  @default(ACTIVE)
-  total_requests  Int            @default(0)
-  failed_requests Int            @default(0)
-  avg_latency_ms  Int            @default(0)
-  rate_limit      Int?
-  token_limit     Int?
-  created_at      DateTime       @default(now())
-  updated_at      DateTime       @updatedAt
-  provider        Provider       @relation(fields: [provider_id], references: [id])
-  models          ChannelModel[]
+  id                        String         @id @default(cuid())
+  provider_id               String
+  name                      String
+  base_url                  String
+  api_key                   String
+  weight                    Int            @default(1)
+  priority                  Int            @default(0)
+  is_active                 Boolean        @default(true)
+  status                    ChannelStatus  @default(ACTIVE)
+  total_requests            Int            @default(0)
+  failed_requests           Int            @default(0)
+  avg_latency_ms            Int            @default(0)
+  rate_limit                Int?
+  token_limit               Int?
+  org_id                    String?        @map("org_id")
+  auto_disable              Boolean        @default(false) @map("auto_disable")
+  tags                      String?
+  internal_note             String?        @map("internal_note")
+  status_mapping            String?        @map("status_mapping")
+  param_override            String?        @map("param_override")
+  header_override           String?        @map("header_override")
+  proxy                     String?
+  system_prompt             String?        @map("system_prompt")
+  concat_prompt             Boolean        @default(false) @map("concat_prompt")
+  passthrough_service_tier  Boolean        @default(false) @map("passthrough_service_tier")
+  block_store               Boolean        @default(false) @map("block_store")
+  passthrough_safety_id     Boolean        @default(false) @map("passthrough_safety_id")
+  passthrough_include       Boolean        @default(false) @map("passthrough_include")
+  passthrough_inference_geo Boolean        @default(false) @map("passthrough_inference_geo")
+  force_openai_format       Boolean        @default(false) @map("force_openai_format")
+  reasoning_to_think_tag    Boolean        @default(false) @map("reasoning_to_think_tag")
+  passthrough_body          Boolean        @default(false) @map("passthrough_body")
+  detect_upstream           Boolean        @default(false) @map("detect_upstream")
+  auto_sync_models          Boolean        @default(false) @map("auto_sync_models")
+  exclude_model_regex       String?        @map("exclude_model_regex")
+  last_detect_time          DateTime?      @map("last_detect_time")
+  detected_models           String?        @map("detected_models")
+  key_mode                  String         @default("single") @map("key_mode")
+  api_keys                  String?        @map("api_keys")
+  created_at                DateTime       @default(now())
+  updated_at                DateTime       @updatedAt
+  provider                  Provider       @relation(fields: [provider_id], references: [id])
+  models                    ChannelModel[]
 
   @@index([provider_id, is_active])
 }
@@ -616,4 +661,324 @@ model SystemSetting {
   updated_at DateTime @updatedAt
 
   @@index([category])
+}
+
+// ──────────────────────────────────────────────
+// 签到功能
+// ──────────────────────────────────────────────
+
+/// 签到配置表
+model CheckInConfig {
+  id         String   @id @default(cuid())
+  is_enabled Boolean  @default(true)
+  min_reward Int      @default(1000)  // 最小奖励（分）
+  max_reward Int      @default(5000)  // 最大奖励（分）
+  updated_at DateTime @updatedAt
+  created_at DateTime @default(now())
+
+  @@map("check_in_config")
+}
+
+/// 签到记录表
+model CheckInRecord {
+  id         String   @id @default(cuid())
+  user_id    String   @map("user_id")
+  check_date DateTime @map("check_date")  // 签到日期（精确到天）
+  reward     Int                          // 奖励额度（分）
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, check_date])
+  @@index([user_id])
+  @@map("check_in_records")
+}
+
+// ──────────────────────────────────────────────
+// 通知配置
+// ──────────────────────────────────────────────
+
+/// 通知配置表（一对一）
+model NotificationConfig {
+  id                     String   @id @default(cuid())
+  user_id                String   @unique @map("user_id")
+  email                  String?                       // 通知邮箱（留空使用账号邮箱）
+  low_balance_threshold  Int      @default(10000)     // 预警额度（分）
+  subscriptions          String   @default("[]")      // JSON: string[]
+  channels               String   @default("{}")      // JSON: ChannelConfig
+  updated_at             DateTime @updatedAt
+  created_at             DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notification_configs")
+}
+
+// ──────────────────────────────────────────────
+// 实名认证
+// ──────────────────────────────────────────────
+
+/// 实名认证表（一对一）
+model RealNameVerification {
+  id               String    @id @default(cuid())
+  user_id          String    @unique @map("user_id")
+  real_name        String    @map("real_name")
+  id_card          String    @map("id_card")          // AES-256-GCM 加密
+  front_image_url  String?   @map("front_image_url")
+  back_image_url   String?   @map("back_image_url")
+  status           String    @default("PENDING")      // PENDING/APPROVED/REJECTED
+  reject_reason    String?   @map("reject_reason")
+  verified_at      DateTime? @map("verified_at")
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("real_name_verifications")
+}
+
+// ──────────────────────────────────────────────
+// 兑换码
+// ──────────────────────────────────────────────
+
+/// 兑换码表
+model RedeemCode {
+  id          String        @id @default(cuid())
+  code        String        @unique                  // 兑换码（大写字母+数字）
+  type        String        @default("FIXED")        // FIXED/PERCENTAGE
+  value       Int                                    // 固定额度（分）或百分比
+  max_uses    Int           @default(1)  @map("max_uses")
+  used_count  Int           @default(0)  @map("used_count")
+  expires_at  DateTime?     @map("expires_at")
+  is_active   Boolean       @default(true) @map("is_active")
+  created_by  String        @map("created_by")
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @updatedAt
+
+  user    User           @relation(fields: [created_by], references: [id])
+  records RedeemRecord[]
+
+  @@index([code])
+  @@index([is_active, expires_at])
+  @@map("redeem_codes")
+}
+
+/// 兑换记录表
+model RedeemRecord {
+  id         String   @id @default(cuid())
+  user_id    String   @map("user_id")
+  code_id    String   @map("code_id")
+  reward     Int                      // 奖励额度（分）
+  created_at DateTime @default(now())
+
+  user User       @relation(fields: [user_id], references: [id])
+  code RedeemCode @relation(fields: [code_id], references: [id])
+
+  @@index([user_id])
+  @@map("redeem_records")
+}
+
+// ──────────────────────────────────────────────
+// 邀请奖励
+// ──────────────────────────────────────────────
+
+/// 邀请记录表
+model InviteRecord {
+  id              String   @id @default(cuid())
+  inviter_id      String   @map("inviter_id")        // 邀请人
+  invitee_id      String   @unique @map("invitee_id") // 被邀请人
+  reward          Int      @default(0)               // 已获得奖励（分）
+  pending_reward  Int      @default(0) @map("pending_reward") // 待确认奖励（分）
+  recharge_count  Int      @default(0) @map("recharge_count") // 被邀请人充值次数
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  inviter User @relation("InviterRelation", fields: [inviter_id], references: [id])
+  invitee User @relation("InviteeRelation", fields: [invitee_id], references: [id])
+
+  @@index([inviter_id])
+  @@map("invite_records")
+}
+
+// ──────────────────────────────────────────────
+// 账户安全
+// ──────────────────────────────────────────────
+
+/// 账户绑定表
+model AccountBinding {
+  id            String   @id @default(cuid())
+  user_id       String   @map("user_id")
+  provider      String                       // EMAIL/GITHUB/GOOGLE/WECHAT
+  provider_id   String   @map("provider_id") // 平台ID
+  email         String?
+  access_token  String?  @map("access_token")  // AES-256-GCM 加密
+  refresh_token String?  @map("refresh_token") // AES-256-GCM 加密
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, provider])
+  @@index([provider, provider_id])
+  @@map("account_bindings")
+}
+
+/// 两步验证表（一对一）
+model TwoFactorAuth {
+  id           String    @id @default(cuid())
+  user_id      String    @unique @map("user_id")
+  secret       String                        // TOTP secret (AES-256-GCM 加密)
+  is_enabled   Boolean   @default(false) @map("is_enabled")
+  last_used_at DateTime? @map("last_used_at")
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("two_factor_auths")
+}
+
+/// Passkey 表
+model Passkey {
+  id            String    @id @default(cuid())
+  user_id       String    @map("user_id")
+  credential_id String    @unique @map("credential_id")
+  public_key    String    @map("public_key") // 公钥（JSON）
+  device_name   String?   @map("device_name")
+  last_used_at  DateTime? @map("last_used_at")
+  created_at    DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("passkeys")
+}
+
+// ──────────────────────────────────────────────
+// 排行榜与分析
+// ──────────────────────────────────────────────
+
+/// 排行榜缓存表
+model LeaderboardCache {
+  id         String   @id @default(cuid())
+  period     String              // TODAY/WEEK/MONTH/YEAR/ALL
+  data_type  String   @map("data_type") // MODELS/VENDORS/TRENDING/AGGREGATE
+  data       String              // JSON 缓存数据
+  expires_at DateTime @map("expires_at")
+  created_at DateTime @default(now())
+
+  @@unique([period, data_type])
+  @@index([expires_at])
+  @@map("leaderboard_cache")
+}
+
+// ──────────────────────────────────────────────
+// API 快捷方式
+// ──────────────────────────────────────────────
+
+/// API 快捷方式表
+model ApiShortcut {
+  id          String   @id @default(cuid())
+  url         String
+  name        String
+  description String?
+  color       String   @default("blue") // blue/red/green/yellow/purple/orange/teal/indigo
+  sort_order  Int      @default(0) @map("sort_order")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("api_shortcuts")
+}
+
+// ──────────────────────────────────────────────
+// Uptime Kuma 监控
+// ──────────────────────────────────────────────
+
+/// Uptime Kuma 分组表
+model UptimeGroup {
+  id         String   @id @default(cuid())
+  name       String              // 显示名称（最多50字符）
+  base_url   String   @map("base_url")
+  slug       String              // 别名，URL变为 {baseUrl}/status/{slug}
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("uptime_groups")
+}
+
+// ──────────────────────────────────────────────
+// Provider 专属设置
+// ──────────────────────────────────────────────
+
+/// Provider 专属设置表
+model ProviderSetting {
+  id          String   @id @default(cuid())
+  provider_id String   @unique @map("provider_id")
+  settings    String              // JSON - 安全行为/版本覆盖等
+  updated_at  DateTime @updatedAt
+  created_at  DateTime @default(now())
+
+  @@map("provider_settings")
+}
+
+// ──────────────────────────────────────────────
+// 渠道亲和性
+// ──────────────────────────────────────────────
+
+/// 渠道亲和性规则表
+model ChannelAffinityRule {
+  id          String   @id @default(cuid())
+  name        String
+  model_regex String   @map("model_regex")
+  key_source  String   @map("key_source")  // gjson:path 或 header:name
+  ttl         Int      @default(3600)      // 缓存TTL(秒)
+  retry       Boolean  @default(false)
+  scope       String   @default("GROUP")   // GROUP/RULE
+  cache_count Int      @default(0) @map("cache_count")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("channel_affinity_rules")
+}
+
+/// 渠道亲和性配置表
+model ChannelAffinityConfig {
+  id               String   @id @default(cuid())
+  max_entries      Int      @default(100000) @map("max_entries")
+  default_ttl      Int      @default(3600)   @map("default_ttl")
+  update_on_retry  Boolean  @default(true)   @map("update_on_retry")
+  updated_at       DateTime @updatedAt
+  created_at       DateTime @default(now())
+
+  @@map("channel_affinity_config")
+}
+
+// ──────────────────────────────────────────────
+// 支付网关配置
+// ──────────────────────────────────────────────
+
+/// 支付网关配置表
+model PaymentGatewayConfig {
+  id         String   @id @default(cuid())
+  gateway    String   @unique // STRIPE/CREEM/WAFFO_PANCAKE/WAFFO_AGGREGATE
+  config     String              // JSON - 包含所有配置(AES加密敏感字段)
+  is_enabled Boolean  @default(false) @map("is_enabled")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("payment_gateway_configs")
+}
+
+/// 充值折扣表
+model RechargeDiscount {
+  id            String   @id @default(cuid())
+  min_amount    Int      @map("min_amount")    // 最低充值金额（分）
+  discount_rate Float    @map("discount_rate") // 折扣率 (9.90折 = 0.99)
+  bonus_percent Float    @default(0) @map("bonus_percent") // 赠送百分比
+  is_active     Boolean  @default(true) @map("is_active")
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("recharge_discounts")
 }
