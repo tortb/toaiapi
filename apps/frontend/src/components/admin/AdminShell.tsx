@@ -1,268 +1,184 @@
 "use client";
 
-/**
- * AdminShell - 管理后台共享布局
- *
- * 提供统一的侧边栏、头部、页脚。
- * 侧边栏根据当前路径自动高亮。
- */
-
 import * as React from "react";
-import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuthStore } from "@/stores/auth-store";
+import { usePathname, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
+import { SearchIcon } from "@/components/ui/Icons";
 import { usePublicConfig } from "@/providers/public-config-provider";
-import {
-  ToAiAPILogo,
-  IconMenu,
-  IconSearch,
-  IconBell,
-  IconSettings,
-  IconChevronDown,
-  IconDashboard,
-  IconUserList,
-  IconUserGroup,
-  IconKey,
-  IconOrders,
-  IconRecharge,
-  IconBill,
-  IconInvoice,
-  IconModel,
-  IconChannel,
-  IconPrice,
-  IconSystem,
-  IconLog,
-  IconMonitor,
-  IconBack,
-  IconShield,
-} from "@/components/PixelIcons";
+import { useAuthStore } from "@/stores/auth-store";
+import { cn } from "@/lib/utils";
 
-/* ============== 侧边栏导航数据 ============== */
-
-interface SidebarItem {
-  icon: React.ReactNode;
+interface AdminNavItem {
   label: string;
   href: string;
+  match?: string[];
 }
 
-interface SidebarSection {
+interface AdminNavSection {
   title: string;
-  items: SidebarItem[];
+  items: AdminNavItem[];
 }
 
-const sidebarSections: SidebarSection[] = [
+const navSections: AdminNavSection[] = [
   {
-    title: "控制台",
-    items: [{ icon: <IconDashboard size={18} />, label: "控制台", href: "/admin" }],
+    title: "概览",
+    items: [{ label: "控制台", href: "/admin" }],
   },
   {
-    title: "用户管理",
+    title: "账户",
     items: [
-      { icon: <IconUserList size={18} />, label: "用户列表", href: "/admin/users" },
-      { icon: <IconUserGroup size={18} />, label: "用户分组", href: "/admin/users/groups" },
-      { icon: <IconKey size={18} />, label: "API Key 管理", href: "/admin/apikeys" },
+      { label: "用户列表", href: "/admin/users", match: ["/admin/users"] },
+      { label: "用户分组", href: "/admin/users/groups" },
+      { label: "API Key", href: "/admin/apikeys" },
+      { label: "角色权限", href: "/admin/roles" },
     ],
   },
   {
-    title: "权限管理",
+    title: "模型",
     items: [
-      { icon: <IconUserGroup size={18} />, label: "角色管理", href: "/admin/roles" },
+      { label: "模型管理", href: "/admin/models" },
+      { label: "通道管理", href: "/admin/channels" },
+      { label: "服务商", href: "/admin/providers" },
+      { label: "价格策略", href: "/admin/pricing" },
     ],
   },
   {
-    title: "订单与财务",
+    title: "财务",
     items: [
-      { icon: <IconOrders size={18} />, label: "订单管理", href: "/admin/orders" },
-      { icon: <IconRecharge size={18} />, label: "充值记录", href: "/admin/recharges" },
-      { icon: <IconBill size={18} />, label: "账单管理", href: "/admin/bills" },
-      { icon: <IconInvoice size={18} />, label: "发票管理", href: "/admin/invoices" },
-      { icon: <IconRecharge size={18} />, label: "充值活动", href: "/admin/promotions" },
-      { icon: <IconSystem size={18} />, label: "支付配置", href: "/admin/payment-configs" },
+      { label: "订单", href: "/admin/orders" },
+      { label: "充值记录", href: "/admin/recharges" },
+      { label: "账单", href: "/admin/bills" },
+      { label: "充值活动", href: "/admin/promotions" },
+      { label: "发票", href: "/admin/invoices" },
+      { label: "支付配置", href: "/admin/payment-configs" },
     ],
   },
   {
-    title: "模型与通道",
+    title: "系统",
     items: [
-      { icon: <IconModel size={18} />, label: "模型管理", href: "/admin/models" },
-      { icon: <IconChannel size={18} />, label: "通道管理", href: "/admin/channels" },
-      { icon: <IconPrice size={18} />, label: "模型价格", href: "/admin/pricing" },
-    ],
-  },
-  {
-    title: "系统设置",
-    items: [
-      { icon: <IconSystem size={18} />, label: "系统设置", href: "/admin/settings" },
-      { icon: <IconShield size={18} />, label: "验证码配置", href: "/admin/captcha" },
-      { icon: <IconShield size={18} />, label: "短信管理", href: "/admin/sms" },
+      { label: "系统设置", href: "/admin/settings/basic", match: ["/admin/settings"] },
+      { label: "验证码", href: "/admin/captcha" },
+      { label: "短信", href: "/admin/sms" },
     ],
   },
 ];
 
-/* ============== 判断菜单是否激活 ============== */
-
-function isActive(href: string, pathname: string): boolean {
-  // 精确匹配 /admin
-  if (href === "/admin") return pathname === "/admin";
-  // 前缀匹配其他路径
-  return pathname.startsWith(href);
+function isActive(item: AdminNavItem, pathname: string) {
+  if (item.href === "/admin") return pathname === "/admin";
+  if (item.match?.some((path) => pathname === path || pathname.startsWith(`${path}/`))) return true;
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-/* ============== AdminShell 组件 ============== */
-
-interface AdminShellProps {
-  children: React.ReactNode;
-  /** 页面标题，显示在头部 */
-  title?: string;
+function initials(value: string) {
+  return value.trim().slice(0, 1).toUpperCase() || "A";
 }
 
-export function AdminShell({ children, title }: AdminShellProps) {
+export function AdminShell({ children, title }: { children: React.ReactNode; title?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { config } = usePublicConfig();
   const { user, logout } = useAuthStore();
-  const [showUserMenu, setShowUserMenu] = React.useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [accountOpen, setAccountOpen] = React.useState(false);
 
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Admin";
-  const initial = displayName.charAt(0).toUpperCase();
+  const currentTitle = React.useMemo(() => {
+    if (title) return title;
+    for (const section of navSections) {
+      const item = section.items.find((entry) => isActive(entry, pathname));
+      if (item) return item.label;
+    }
+    return "管理后台";
+  }, [pathname, title]);
 
   const handleLogout = async () => {
     await logout();
     router.replace("/admin/login");
   };
 
-  // 从 sidebarSections 自动推断页面标题
-  const autoTitle = React.useMemo(() => {
-    if (title) return title;
-    for (const section of sidebarSections) {
-      for (const item of section.items) {
-        if (isActive(item.href, pathname)) return item.label;
-      }
-    }
-    return "管理后台";
-  }, [title, pathname]);
+  const sidebar = (
+    <div className="flex h-full flex-col bg-neutral-950 text-white">
+      <div className="flex h-16 items-center border-b border-white/10 px-5">
+        <Link href="/admin" className="min-w-0">
+          <div className="text-md font-semibold tracking-tight">{config.site_name || "ToAIAPI"}</div>
+          <div className="mt-0.5 text-xs text-white/45">Admin Console</div>
+        </Link>
+      </div>
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {navSections.map((section) => (
+          <div key={section.title} className="mb-5">
+            <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-white/35">{section.title}</div>
+            <div className="grid gap-1">
+              {section.items.map((item) => {
+                const active = isActive(item, pathname);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "rounded-lg px-3 py-2 text-sm font-medium transition duration-150 ease-apple",
+                      active ? "bg-white text-neutral-950" : "text-white/62 hover:bg-white/8 hover:text-white",
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+      <div className="border-t border-white/10 p-3">
+        <Link className="block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/62 transition hover:border-white/20 hover:text-white" href="/">
+          返回前台
+        </Link>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] text-gray-900 flex">
-      {/* ============== 左侧导航 ============== */}
-      <aside
-        className={`bg-white border-r border-gray-100 flex flex-col flex-shrink-0 transition-all duration-200 ${
-          sidebarCollapsed ? "w-[64px]" : "w-[220px]"
-        }`}
-      >
-        {/* Logo */}
-        <div className="h-16 px-5 flex items-center border-b border-gray-100">
-          <ToAiAPILogo size={28} />
-          {!sidebarCollapsed && (
-            <span className="ml-2 text-[16px] font-bold text-gray-900 whitespace-nowrap">
-              ToAi<span className="text-primary">API</span>
-            </span>
-          )}
-        </div>
+    <div className="min-h-screen bg-page text-neutral-950">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 lg:block">{sidebar}</aside>
 
-        {/* 导航菜单 */}
-        <nav className="flex-1 overflow-y-auto py-3">
-          {sidebarSections.map((section) => (
-            <div key={section.title} className="mb-3">
-              {!sidebarCollapsed && (
-                <div className="px-5 py-1.5 text-[11px] text-gray-400 font-medium">
-                  {section.title}
-                </div>
-              )}
-              <ul>
-                {section.items.map((item) => {
-                  const active = isActive(item.href, pathname);
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition ${
-                          active
-                            ? "bg-primary-50 text-primary border-r-2 border-primary font-medium"
-                            : "text-gray-600 hover:bg-gray-50"
-                        }`}
-                        title={sidebarCollapsed ? item.label : undefined}
-                      >
-                        <span className={active ? "text-primary" : "text-gray-500"}>
-                          {item.icon}
-                        </span>
-                        {!sidebarCollapsed && item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button className="absolute inset-0 bg-black/30" aria-label="关闭导航" onClick={() => setMobileOpen(false)} />
+          <aside className="relative h-full w-72 shadow-modal animate-slide-right">{sidebar}</aside>
+        </div>
+      )}
+
+      <div className="lg:pl-64">
+        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-page/88 backdrop-blur-xl">
+          <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+            <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setMobileOpen(true)}>菜单</Button>
+            <div className="min-w-0 flex-1">
+              <div className="text-lg font-semibold tracking-tight text-neutral-950">{currentTitle}</div>
+              <div className="hidden text-sm text-neutral-500 sm:block">{pathname}</div>
             </div>
-          ))}
-        </nav>
-
-        {/* 底部按钮 */}
-        <div className="p-3 border-t border-gray-100">
-          <Link
-            href="/"
-            className="flex items-center justify-center gap-2 w-full py-2 text-[13px] text-gray-600 border border-gray-200 rounded hover:border-primary hover:text-primary transition"
-          >
-            <IconBack size={14} />
-            {!sidebarCollapsed && "返回前台"}
-          </Link>
-        </div>
-      </aside>
-
-      {/* ============== 主内容区 ============== */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* 顶部标题栏 */}
-        <header className="h-16 bg-white border-b border-gray-100 flex items-center px-6 flex-shrink-0">
-          <button
-            className="mr-4 text-gray-500 hover:text-primary"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          >
-            <IconMenu size={20} />
-          </button>
-          <h1 className="text-[16px] font-medium text-gray-900 mr-auto">{autoTitle}</h1>
-          <div className="flex items-center gap-5">
-            <button className="text-gray-500 hover:text-primary">
-              <IconSearch size={18} />
-            </button>
-            <button className="relative text-gray-500 hover:text-primary">
-              <IconBell size={18} />
-              <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] font-bold rounded-full px-1 min-w-[14px] text-center">
-                0
-              </span>
-            </button>
-            <Link href="/admin/settings" className="text-gray-500 hover:text-primary">
-              <IconSettings size={18} />
-            </Link>
-            <div className="relative pl-5 border-l border-gray-100">
+            <div className="hidden h-9 w-72 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-400 shadow-[0_1px_1px_rgba(0,0,0,0.02)] md:flex">
+              <SearchIcon size={15} />
+              <span>搜索用户、订单、模型</span>
+            </div>
+            <div className="relative">
               <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1.5 transition"
+                type="button"
+                onClick={() => setAccountOpen((value) => !value)}
+                className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition hover:border-neutral-300"
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple flex items-center justify-center text-white text-[11px] font-bold">
-                  {initial}
-                </div>
-                <div className="text-left">
-                  <div className="text-[12.5px] font-medium text-gray-900 leading-tight">
-                    {displayName}
-                  </div>
-                  <div className="text-[10px] text-gray-400">
-                    {user?.role === "super_admin" ? "超级管理员" : "管理员"}
-                  </div>
-                </div>
-                <IconChevronDown size={12} className="text-gray-400" />
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-neutral-950 text-sm font-semibold text-white">{initials(displayName)}</span>
+                <span className="hidden max-w-32 truncate text-sm font-medium text-neutral-800 sm:block">{displayName}</span>
               </button>
-
-              {showUserMenu && (
+              {accountOpen && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900">{displayName}</p>
-                      <p className="text-xs text-gray-500">{user?.email}</p>
+                  <button className="fixed inset-0 z-40" aria-label="关闭账户菜单" onClick={() => setAccountOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-neutral-200 bg-white p-2 shadow-popover animate-scale-in">
+                    <div className="border-b border-neutral-100 px-3 py-2">
+                      <div className="text-sm font-medium text-neutral-950">{displayName}</div>
+                      <div className="mt-0.5 truncate text-xs text-neutral-500">{user?.email}</div>
                     </div>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    >
+                    <button onClick={handleLogout} className="mt-1 w-full rounded-lg px-3 py-2 text-left text-sm text-error transition hover:bg-error-bg">
                       退出登录
                     </button>
                   </div>
@@ -272,22 +188,9 @@ export function AdminShell({ children, title }: AdminShellProps) {
           </div>
         </header>
 
-        {/* 内容区 */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-
-        {/* 页脚 */}
-        <footer className="h-12 bg-white border-t border-gray-100 px-6 flex items-center justify-between text-[12px] text-gray-400 flex-shrink-0">
-          <span>{config.copyright || "© 2026 ToAIAPI. All rights reserved."}</span>
-          <div className="flex items-center gap-5">
-            <a href="#" className="hover:text-primary">
-              文档中心
-            </a>
-            <a href="#" className="hover:text-primary">
-              帮助中心
-            </a>
-            <span className="text-gray-300">v0.5.0</span>
-          </div>
-        </footer>
+        <main className="min-h-[calc(100vh-64px)] px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1440px] animate-fade-in">{children}</div>
+        </main>
       </div>
     </div>
   );
