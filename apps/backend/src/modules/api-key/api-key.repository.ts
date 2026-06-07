@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, ApiKey } from '@prisma/client';
+import { Prisma, ApiKey, UserGroup } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export type ApiKeyWithGroup = ApiKey & {
   group: { id: string; name: string; display_name: string } | null;
+};
+
+export type ApiKeyWithFullGroup = ApiKey & {
+  group: UserGroup | null;
 };
 
 export type ApiKeyUsageWindow = {
@@ -194,5 +198,85 @@ export class ApiKeyRepository {
         total_requests: { increment: 1 },
       },
     });
+  }
+
+  /**
+   * 根据 ID 查找（包含分组信息）
+   */
+  async findByIdWithGroup(id: string): Promise<ApiKeyWithFullGroup | null> {
+    return this.prisma.apiKey.findUnique({
+      where: { id },
+      include: {
+        group: true,
+      },
+    });
+  }
+
+  /**
+   * 获取 API Key 的总体用量统计
+   */
+  async getKeyUsageStats(keyId: string): Promise<{ requests: number; tokens: number; cost: number }> {
+    const result = await this.prisma.requestLog.aggregate({
+      where: { api_key_id: keyId },
+      _sum: {
+        total_tokens: true,
+        cost: true,
+      },
+      _count: true,
+    });
+
+    return {
+      requests: result._count,
+      tokens: result._sum.total_tokens || 0,
+      cost: result._sum.cost || 0,
+    };
+  }
+
+  /**
+   * 获取 API Key 的每日用量统计（最近 N 天）
+   */
+  async getKeyDailyUsage(keyId: string, days: number): Promise<Array<{ date: string; requests: number; tokens: number; cost: number }>> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days + 1);
+    startDate.setHours(0, 0, 0, 0);
+
+    const logs = await this.prisma.requestLog.findMany({
+      where: {
+        api_key_id: keyId,
+        created_at: { gte: startDate },
+      },
+      select: {
+        created_at: true,
+        total_tokens: true,
+        cost: true,
+      },
+    });
+
+    // 按日期聚合
+    const dailyMap = new Map<string, { requests: number; tokens: number; cost: number }>();
+    for (const log of logs) {
+      const dateStr = log.created_at.toISOString().slice(0, 10);
+      const existing = dailyMap.get(dateStr) || { requests: 0, tokens: 0, cost: 0 };
+      existing.requests += 1;
+      existing.tokens += log.total_tokens;
+      existing.cost += log.cost;
+      dailyMap.set(dateStr, existing);
+    }
+
+    // 填充空日期
+    const result: Array<{ date: string; requests: number; tokens: number; cost: number }> = [];
+    const current = new Date(startDate);
+    const today = new Date();
+    while (current <= today) {
+      const dateStr = current.toISOString().slice(0, 10);
+      const data = dailyMap.get(dateStr) || { requests: 0, tokens: 0, cost: 0 };
+      result.push({
+        date: dateStr,
+        ...data,
+      });
+      current.setDate(current.getDate() + 1);
+    }
+
+    return result;
   }
 }

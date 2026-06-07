@@ -290,6 +290,80 @@ export class ApiKeyService {
     return this.toResponse({ ...updated, group: null }, { rawKey });
   }
 
+  /**
+   * 获取 API Key 用量统计
+   *
+   * @param userId - 用户 ID
+   * @param keyId - API Key ID
+   * @returns 用量统计信息
+   */
+  async getKeyUsage(userId: string, keyId: string) {
+    const apiKey = await this.apiKeyRepo.findById(keyId);
+
+    if (!apiKey) {
+      throw new NotFoundException('API key not found');
+    }
+
+    if (apiKey.user_id !== userId) {
+      throw new ForbiddenException('Not authorized to view this API key');
+    }
+
+    // 获取总体统计
+    const totalStats = await this.apiKeyRepo.getKeyUsageStats(keyId);
+
+    // 获取最近 7 天的每日统计
+    const last7Days = await this.apiKeyRepo.getKeyDailyUsage(keyId, 7);
+
+    return {
+      keyId,
+      keyPrefix: apiKey.key_prefix,
+      totalRequests: totalStats.requests,
+      totalTokens: totalStats.tokens,
+      totalCost: totalStats.cost / 100, // 分转元
+      last7Days: last7Days.map((day) => ({
+        date: day.date,
+        requests: day.requests,
+        tokens: day.tokens,
+        cost: day.cost / 100, // 分转元
+      })),
+    };
+  }
+
+  /**
+   * 获取 API Key 分组信息
+   *
+   * @param userId - 用户 ID
+   * @param keyId - API Key ID
+   * @returns 分组信息
+   */
+  async getKeyGroup(userId: string, keyId: string) {
+    const apiKey = await this.apiKeyRepo.findByIdWithGroup(keyId);
+
+    if (!apiKey) {
+      throw new NotFoundException('API key not found');
+    }
+
+    if (apiKey.user_id !== userId) {
+      throw new ForbiddenException('Not authorized to view this API key');
+    }
+
+    return {
+      keyId,
+      keyPrefix: apiKey.key_prefix,
+      group: apiKey.group ? {
+        id: apiKey.group.id,
+        name: apiKey.group.name,
+        display_name: apiKey.group.display_name,
+        price_multiplier: Number(apiKey.group.price_multiplier),
+        rpm_limit: apiKey.group.rpm_limit,
+        tpm_limit: apiKey.group.tpm_limit,
+        max_api_keys: apiKey.group.max_api_keys,
+        allowed_models: parseJsonArray(apiKey.group.allowed_models),
+        allowed_channels: parseJsonArray(apiKey.group.allowed_channels),
+      } : null,
+    };
+  }
+
   private async resolveMaxKeysPerUser(userId: string): Promise<number> {
     const groupLimit = await this.apiKeyRepo.findUserGroupLimit(userId);
     return groupLimit ?? this.MAX_KEYS_PER_USER;

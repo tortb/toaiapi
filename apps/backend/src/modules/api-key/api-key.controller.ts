@@ -138,4 +138,64 @@ export class ApiKeyController {
   ): Promise<ApiKeyResponseDto> {
     return this.apiKeyService.rotateApiKey(user.id, keyId);
   }
+
+  /**
+   * 获取 API Key 用量统计
+   */
+  @Get(':id/usage')
+  @ApiOperation({
+    summary: '获取 API Key 用量统计',
+    description: '查询指定 API Key 的使用统计（请求数、Token 数、费用等）',
+  })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        keyId: 'clxxxxx',
+        totalRequests: 1250,
+        totalTokens: 450000,
+        totalCost: 125.50,
+        last7Days: [
+          { date: '2026-06-01', requests: 150, tokens: 50000, cost: 12.30 },
+          { date: '2026-06-02', requests: 200, tokens: 65000, cost: 18.50 },
+        ],
+      },
+    },
+  })
+  async getKeyUsage(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('id') keyId: string,
+  ) {
+    return this.apiKeyService.getKeyUsage(user.id, keyId);
+  }
+
+  /**
+   * 获取 API Key 分组信息
+   */
+  @Get(':id/group')
+  @ApiOperation({
+    summary: '获取 API Key 分组信息',
+    description: '查询 API Key 所属分组的详细信息（价格倍率、限额等）',
+  })
+  @ApiOkResponse({
+    schema: {
+      example: {
+        keyId: 'clxxxxx',
+        group: {
+          id: 'clxxxxx',
+          name: 'default',
+          display_name: '默认组',
+          price_multiplier: 1.0,
+          rpm_limit: 60,
+          tpm_limit: 60000,
+          max_api_keys: 10,
+        },
+      },
+    },
+  })
+  async getKeyGroup(
+    @CurrentUser() user: CurrentUserInfo,
+    @Param('id') keyId: string,
+  ) {
+    return this.apiKeyService.getKeyGroup(user.id, keyId);
+  }
 }
