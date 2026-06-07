@@ -1,332 +1,279 @@
 "use client";
 
-/**
- * 渠道管理页
- *
- * Channel CRUD + 启用/禁用 + 测试连通性。
- * 后端 API：GET/POST/PATCH/DELETE /admin/channels, POST /admin/channels/:id/test
- */
-
 import * as React from "react";
 import {
-  getChannels,
   createChannel,
-  updateChannel,
-  enableChannel,
-  disableChannel,
   deleteChannel,
-  testChannel,
-  getProviders,
-  formatDate,
+  disableChannel,
+  enableChannel,
   formatNumber,
+  getChannels,
   getChannelStatusLabel,
+  getProviders,
+  testChannel,
+  updateChannel,
   type ChannelData,
-  type ProviderData,
   type ChannelTestResult,
-  type CreateChannelPayload,
+  type ProviderData,
 } from "@/lib/admin-api";
-import { IconSearch } from "@/components/PixelIcons";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { AdminPagination, AdminToolbar, ConfirmDialog, StatusBadge } from "@/components/admin/data";
+import {
+  Button,
+  Card,
+  CardContent,
+  EmptyState,
+  Input,
+  Modal,
+  Select,
+  Skeleton,
+  Table,
+  type TableColumn,
+  useToast,
+} from "@/components/ui";
 
-/* ============== 确认弹窗 ============== */
-interface ConfirmAction {
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  confirmText?: string;
-  confirmColor?: string;
+interface ChannelFormState {
+  providerId: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  weight: string;
+  priority: string;
 }
 
-function ConfirmModal({
-  action,
-  onClose,
-}: {
-  action: ConfirmAction;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-medium text-gray-900">{action.title}</h3>
-        </div>
-        <div className="px-6 py-4">
-          <p className="text-sm text-gray-600">{action.message}</p>
-        </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            取消
-          </button>
-          <button
-            onClick={() => {
-              action.onConfirm();
-              onClose();
-            }}
-            className={`px-4 py-2 text-sm text-white rounded-lg ${action.confirmColor ?? "bg-red-600 hover:bg-red-700"}`}
-          >
-            {action.confirmText ?? "确认"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+const emptyChannelForm: ChannelFormState = {
+  providerId: "",
+  name: "",
+  baseUrl: "",
+  apiKey: "",
+  weight: "1",
+  priority: "0",
+};
+
+function toChannelForm(channel?: ChannelData | null): ChannelFormState {
+  if (!channel) return emptyChannelForm;
+  return {
+    providerId: channel.providerId,
+    name: channel.name,
+    baseUrl: channel.baseUrl,
+    apiKey: "",
+    weight: String(channel.weight),
+    priority: String(channel.priority),
+  };
 }
 
-/* ============== 测试结果弹窗 ============== */
-function TestResultModal({
-  result,
-  channelName,
-  onClose,
-}: {
-  result: ChannelTestResult;
-  channelName: string;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-medium text-gray-900">连通性测试结果</h3>
-        </div>
-        <div className="px-6 py-6">
-          <div className="text-center mb-4">
-            {result.success ? (
-              <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl">✓</span>
-              </div>
-            ) : (
-              <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl">✗</span>
-              </div>
-            )}
-            <p className={`text-lg font-medium ${result.success ? "text-success" : "text-red-600"}`}>
-              {result.success ? "连接成功" : "连接失败"}
-            </p>
-          </div>
-          <div className="space-y-3 bg-gray-50 rounded-lg p-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">渠道</span>
-              <span className="text-gray-800 font-medium">{channelName}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">延迟</span>
-              <span className="text-gray-800 font-mono">{result.latencyMs}ms</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">消息</span>
-              <span className={`text-right max-w-[240px] truncate ${result.success ? "text-gray-800" : "text-red-600"}`}>
-                {result.message}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-white bg-primary rounded-lg hover:bg-primary-600"
-          >
-            关闭
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function calcSuccessRate(channel: ChannelData): string {
+  if (channel.totalRequests === 0) return "-";
+  const rate = ((channel.totalRequests - channel.failedRequests) / channel.totalRequests) * 100;
+  return rate.toFixed(1) + "%";
 }
 
-/* ============== 新建/编辑弹窗 ============== */
-interface ChannelFormProps {
+function channelTone(status: string) {
+  if (status === "ACTIVE") return "success" as const;
+  if (status === "RATE_LIMITED") return "warning" as const;
+  if (status === "ERROR") return "error" as const;
+  return "neutral" as const;
+}
+
+function ChannelStatus({ status }: { status: string }) {
+  const meta = getChannelStatusLabel(status);
+  return <StatusBadge tone={channelTone(status)}>{meta.label}</StatusBadge>;
+}
+
+interface ChannelFormModalProps {
   channel?: ChannelData | null;
   providers: ProviderData[];
+  open: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
 
-function ChannelFormModal({ channel, providers, onClose, onSaved }: ChannelFormProps) {
-  const [providerId, setProviderId] = React.useState(channel?.providerId ?? "");
-  const [name, setName] = React.useState(channel?.name ?? "");
-  const [baseUrl, setBaseUrl] = React.useState(channel?.baseUrl ?? "");
-  const [apiKey, setApiKey] = React.useState("");
-  const [weight, setWeight] = React.useState(String(channel?.weight ?? 1));
-  const [priority, setPriority] = React.useState(String(channel?.priority ?? 0));
+function ChannelFormModal({ channel, providers, open, onClose, onSaved }: ChannelFormModalProps) {
+  const toast = useToast();
+  const isEdit = Boolean(channel);
+  const [form, setForm] = React.useState<ChannelFormState>(() => toChannelForm(channel));
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const isEdit = !!channel;
+  React.useEffect(() => {
+    if (!open) return;
+    setForm(toChannelForm(channel));
+    setError(null);
+  }, [channel, open]);
 
-  // 选择 Provider 时自动填充 baseUrl
-  const handleProviderChange = (pid: string) => {
-    setProviderId(pid);
-    const p = providers.find((x) => x.id === pid);
-    if (p && !isEdit) {
-      setBaseUrl(p.baseUrl);
-    }
+  const updateField = <K extends keyof ChannelFormState>(key: K, value: ChannelFormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleProviderChange = (providerId: string) => {
+    const provider = providers.find((item) => item.id === providerId);
+    setForm((prev) => ({
+      ...prev,
+      providerId,
+      baseUrl: !isEdit && provider ? provider.baseUrl : prev.baseUrl,
+    }));
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setSaving(true);
     setError(null);
+
     try {
-      if (isEdit && channel) {
-        const payload: Record<string, unknown> = { name, baseUrl, weight: Number(weight), priority: Number(priority) };
-        if (apiKey) payload.apiKey = apiKey;
+      if (channel) {
+        const payload: { name: string; baseUrl: string; weight: number; priority: number; apiKey?: string } = {
+          name: form.name,
+          baseUrl: form.baseUrl,
+          weight: Number(form.weight),
+          priority: Number(form.priority),
+        };
+        if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim();
         await updateChannel(channel.id, payload);
       } else {
         await createChannel({
-          providerId,
-          name,
-          baseUrl,
-          apiKey,
-          weight: Number(weight),
-          priority: Number(priority),
+          providerId: form.providerId,
+          name: form.name,
+          baseUrl: form.baseUrl,
+          apiKey: form.apiKey,
+          weight: Number(form.weight),
+          priority: Number(form.priority),
         });
       }
+      toast.success(isEdit ? "渠道已更新" : "渠道已创建");
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      const message = err instanceof Error ? err.message : "保存失败";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-medium text-gray-900">
-            {isEdit ? "编辑渠道" : "新建渠道"}
-          </h3>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? "编辑渠道" : "新建渠道"}
+      description="渠道承载实际 API 请求，权重与优先级会影响分发顺序。"
+      size="lg"
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+            取消
+          </Button>
+          <Button type="submit" form="channel-form" loading={saving}>
+            保存
+          </Button>
         </div>
-        <form onSubmit={handleSubmit}>
-          <div className="px-6 py-4 space-y-4">
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
-                {error}
-              </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                服务商 <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={providerId}
-                onChange={(e) => handleProviderChange(e.target.value)}
-                required
-                disabled={isEdit}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-100"
-              >
-                <option value="">请选择服务商</option>
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.displayName} ({p.name})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                渠道名称 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="例如：OpenAI 主力渠道"
-                required
-                maxLength={100}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Base URL <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="url"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="https://api.openai.com"
-                required
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                API Key {isEdit ? "" : <span className="text-red-500">*</span>}
-              </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={isEdit ? "留空则不更新" : "sk-..."}
-                required={!isEdit}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono"
-              />
-              {isEdit && (
-                <p className="mt-1 text-xs text-gray-400">当前 Key：{channel?.keyPrefix}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">权重</label>
-                <input
-                  type="number"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  min={1}
-                  max={100}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">优先级</label>
-                <input
-                  type="number"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  min={0}
-                  max={100}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-                <p className="mt-1 text-xs text-gray-400">数字越小优先级越高</p>
-              </div>
-            </div>
-          </div>
-          <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 text-sm text-white bg-primary rounded-lg hover:bg-primary-600 disabled:opacity-50"
-            >
-              {saving ? "保存中..." : "保存"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      }
+    >
+      <form id="channel-form" onSubmit={handleSubmit} className="space-y-4">
+        {error && <div className="rounded-lg border border-error/20 bg-error-bg px-4 py-3 text-sm text-error">{error}</div>}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Select
+            label="服务商"
+            value={form.providerId}
+            onChange={(event) => handleProviderChange(event.target.value)}
+            placeholder="请选择服务商"
+            required
+            disabled={isEdit}
+            options={providers.map((provider) => ({ label: provider.displayName + " (" + provider.name + ")", value: provider.id }))}
+          />
+          <Input
+            label="渠道名称"
+            value={form.name}
+            onChange={(event) => updateField("name", event.target.value)}
+            placeholder="OpenAI 主力渠道"
+            required
+            maxLength={100}
+          />
+        </div>
+
+        <Input
+          label="Base URL"
+          type="url"
+          value={form.baseUrl}
+          onChange={(event) => updateField("baseUrl", event.target.value)}
+          placeholder="https://api.openai.com"
+          required
+          className="font-mono"
+        />
+
+        <Input
+          label="API Key"
+          type="password"
+          value={form.apiKey}
+          onChange={(event) => updateField("apiKey", event.target.value)}
+          placeholder={isEdit ? "留空则不更新" : "sk-..."}
+          required={!isEdit}
+          className="font-mono"
+          hint={isEdit && channel?.keyPrefix ? "当前 Key 前缀：" + channel.keyPrefix : undefined}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input
+            label="权重"
+            type="number"
+            min={1}
+            max={100}
+            value={form.weight}
+            onChange={(event) => updateField("weight", event.target.value)}
+          />
+          <Input
+            label="优先级"
+            type="number"
+            min={0}
+            max={100}
+            value={form.priority}
+            onChange={(event) => updateField("priority", event.target.value)}
+            hint="数字越小优先级越高。"
+          />
+        </div>
+      </form>
+    </Modal>
   );
 }
 
-/* ============== 计算成功率 ============== */
-function calcSuccessRate(ch: ChannelData): string {
-  if (ch.totalRequests === 0) return "-";
-  const rate = ((ch.totalRequests - ch.failedRequests) / ch.totalRequests) * 100;
-  return `${rate.toFixed(1)}%`;
+function TestResultModal({ result, channelName, open, onClose }: { result: ChannelTestResult | null; channelName: string; open: boolean; onClose: () => void }) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="连通性测试结果"
+      description={channelName}
+      size="sm"
+      footer={
+        <div className="flex justify-end">
+          <Button type="button" onClick={onClose}>关闭</Button>
+        </div>
+      }
+    >
+      {result && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <span className="text-sm text-neutral-500">状态</span>
+            <StatusBadge tone={result.success ? "success" : "error"}>{result.success ? "连接成功" : "连接失败"}</StatusBadge>
+          </div>
+          <div className="grid gap-3 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-neutral-500">延迟</span>
+              <span className="font-mono text-neutral-900">{result.latencyMs}ms</span>
+            </div>
+            <div className="grid gap-1">
+              <span className="text-neutral-500">消息</span>
+              <div className="break-words rounded-lg bg-neutral-50 px-3 py-2 text-neutral-800">{result.message}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
 }
 
-/* ============== 主页面 ============== */
 export default function ChannelsPage() {
-  // 数据状态
+  const toast = useToast();
   const [channels, setChannels] = React.useState<ChannelData[]>([]);
   const [providers, setProviders] = React.useState<ProviderData[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -334,38 +281,38 @@ export default function ChannelsPage() {
   const [totalPages, setTotalPages] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-
-  // 筛选
   const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [filterProvider, setFilterProvider] = React.useState("");
-
-  // 弹窗状态
   const [formChannel, setFormChannel] = React.useState<ChannelData | null | undefined>(undefined);
-  const [confirmAction, setConfirmAction] = React.useState<ConfirmAction | null>(null);
+  const [toggleTarget, setToggleTarget] = React.useState<ChannelData | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<ChannelData | null>(null);
   const [testResult, setTestResult] = React.useState<{ result: ChannelTestResult; name: string } | null>(null);
   const [testingId, setTestingId] = React.useState<string | null>(null);
+  const [isMutating, setIsMutating] = React.useState(false);
 
-  // 搜索防抖
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput);
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
       setPage(1);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  // 加载服务商列表（用于筛选和表单下拉）
-  const fetchProviders = React.useCallback(async () => {
-    try {
-      const res = await getProviders({ pageSize: 100 });
-      setProviders(res.items);
-    } catch {
-      // 静默失败
-    }
+  React.useEffect(() => {
+    let mounted = true;
+    getProviders({ pageSize: 100 })
+      .then((res) => {
+        if (mounted) setProviders(res.items);
+      })
+      .catch(() => {
+        if (mounted) setProviders([]);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // 加载渠道数据
   const fetchChannels = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -384,289 +331,251 @@ export default function ChannelsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, search, filterProvider]);
-
-  React.useEffect(() => {
-    fetchProviders();
-  }, [fetchProviders]);
+  }, [filterProvider, page, search]);
 
   React.useEffect(() => {
     fetchChannels();
   }, [fetchChannels]);
 
-  // 测试连通性
-  const handleTest = async (ch: ChannelData) => {
-    setTestingId(ch.id);
+  const handleTest = async (channel: ChannelData) => {
+    setTestingId(channel.id);
     try {
-      const result = await testChannel(ch.id);
-      setTestResult({ result, name: ch.name });
+      const result = await testChannel(channel.id);
+      setTestResult({ result, name: channel.name });
     } catch (err) {
       setTestResult({
         result: { success: false, latencyMs: 0, message: err instanceof Error ? err.message : "测试失败" },
-        name: ch.name,
+        name: channel.name,
       });
     } finally {
       setTestingId(null);
     }
   };
 
-  // 启用/禁用
-  const handleToggle = (ch: ChannelData) => {
-    if (ch.isActive) {
-      setConfirmAction({
-        title: "禁用渠道",
-        message: `确定要禁用渠道「${ch.name}」吗？禁用后该渠道将不再参与请求分发。`,
-        confirmText: "禁用",
-        onConfirm: async () => {
-          try {
-            await disableChannel(ch.id);
-            fetchChannels();
-          } catch (err) {
-            alert(err instanceof Error ? err.message : "操作失败");
-          }
-        },
-      });
-    } else {
-      setConfirmAction({
-        title: "启用渠道",
-        message: `确定要启用渠道「${ch.name}」吗？`,
-        confirmText: "启用",
-        confirmColor: "bg-success hover:bg-success/90",
-        onConfirm: async () => {
-          try {
-            await enableChannel(ch.id);
-            fetchChannels();
-          } catch (err) {
-            alert(err instanceof Error ? err.message : "操作失败");
-          }
-        },
-      });
+  const handleToggle = async () => {
+    if (!toggleTarget) return;
+    setIsMutating(true);
+    try {
+      if (toggleTarget.isActive) {
+        await disableChannel(toggleTarget.id);
+        toast.success("渠道已禁用");
+      } else {
+        await enableChannel(toggleTarget.id);
+        toast.success("渠道已启用");
+      }
+      setToggleTarget(null);
+      fetchChannels();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    } finally {
+      setIsMutating(false);
     }
   };
 
-  // 删除
-  const handleDelete = (ch: ChannelData) => {
-    setConfirmAction({
-      title: "删除渠道",
-      message: `确定要删除渠道「${ch.name}」吗？删除后不可恢复。`,
-      onConfirm: async () => {
-        try {
-          await deleteChannel(ch.id);
-          fetchChannels();
-        } catch (err) {
-          alert(err instanceof Error ? err.message : "删除失败");
-        }
-      },
-    });
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsMutating(true);
+    try {
+      await deleteChannel(deleteTarget.id);
+      toast.success("渠道已删除");
+      setDeleteTarget(null);
+      fetchChannels();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    } finally {
+      setIsMutating(false);
+    }
   };
+
+  const columns = React.useMemo<TableColumn<ChannelData>[]>(
+    () => [
+      {
+        key: "name",
+        title: "渠道",
+        className: "min-w-[180px]",
+        render: (channel) => (
+          <div>
+            <div className="font-medium text-neutral-950">{channel.name}</div>
+            <div className="mt-0.5 font-mono text-xs text-neutral-400">{channel.keyPrefix || "-"}</div>
+          </div>
+        ),
+      },
+      {
+        key: "provider",
+        title: "服务商",
+        render: (channel) => <span className="text-neutral-600">{channel.provider?.displayName ?? "-"}</span>,
+      },
+      {
+        key: "baseUrl",
+        title: "Base URL",
+        className: "max-w-[240px]",
+        render: (channel) => (
+          <span className="block truncate font-mono text-xs text-neutral-500" title={channel.baseUrl}>{channel.baseUrl}</span>
+        ),
+      },
+      {
+        key: "status",
+        title: "状态",
+        render: (channel) => <ChannelStatus status={channel.status} />,
+      },
+      {
+        key: "requests",
+        title: "请求数",
+        headerClassName: "text-right",
+        className: "text-right font-mono text-neutral-600",
+        render: (channel) => formatNumber(channel.totalRequests),
+      },
+      {
+        key: "successRate",
+        title: "成功率",
+        headerClassName: "text-right",
+        className: "text-right font-mono",
+        render: (channel) => {
+          const successRate = calcSuccessRate(channel);
+          const risky = successRate !== "-" && Number.parseFloat(successRate) < 95;
+          return <span className={risky ? "text-error" : "text-neutral-700"}>{successRate}</span>;
+        },
+      },
+      {
+        key: "latency",
+        title: "延迟",
+        headerClassName: "text-right",
+        className: "text-right font-mono text-neutral-600",
+        render: (channel) => (channel.avgLatencyMs > 0 ? channel.avgLatencyMs + "ms" : "-"),
+      },
+      {
+        key: "routing",
+        title: "权重/优先级",
+        headerClassName: "text-right",
+        className: "text-right font-mono text-neutral-600",
+        render: (channel) => channel.weight + "/" + channel.priority,
+      },
+      {
+        key: "actions",
+        title: "操作",
+        headerClassName: "text-right",
+        className: "text-right",
+        render: (channel) => {
+          const isTesting = testingId === channel.id;
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <Button type="button" variant="ghost" size="sm" loading={isTesting} onClick={() => handleTest(channel)}>
+                测试
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setToggleTarget(channel)}>
+                {channel.isActive ? "禁用" : "启用"}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setFormChannel(channel)}>
+                编辑
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="text-error hover:bg-error-bg" onClick={() => setDeleteTarget(channel)}>
+                删除
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [testingId],
+  );
 
   return (
     <AdminShell title="通道管理">
-      {/* 搜索 + 筛选 + 操作栏 */}
-      <div className="flex items-center justify-between mb-4 gap-3">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="relative w-72">
-            <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="搜索渠道..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-          <select
+      <AdminToolbar
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="搜索渠道"
+        actions={
+          <Button type="button" onClick={() => setFormChannel(null)}>
+            新建渠道
+          </Button>
+        }
+      >
+        <div className="w-full sm:w-56">
+          <Select
             value={filterProvider}
-            onChange={(e) => {
-              setFilterProvider(e.target.value);
+            onChange={(event) => {
+              setFilterProvider(event.target.value);
               setPage(1);
             }}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          >
-            <option value="">全部服务商</option>
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.displayName}
-              </option>
-            ))}
-          </select>
+            placeholder="全部服务商"
+            options={providers.map((provider) => ({ label: provider.displayName, value: provider.id }))}
+          />
         </div>
-        <button
-          onClick={() => setFormChannel(null)}
-          className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600"
-        >
-          + 新建渠道
-        </button>
-      </div>
+      </AdminToolbar>
 
-      {/* 错误提示 */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
-          <span className="text-sm text-red-600">{error}</span>
-          <button onClick={fetchChannels} className="text-sm text-primary hover:underline">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-error/20 bg-error-bg px-4 py-3">
+          <span className="text-sm text-error">{error}</span>
+          <Button type="button" variant="secondary" size="sm" onClick={fetchChannels}>
             重试
-          </button>
+          </Button>
         </div>
       )}
 
-      {/* 表格 */}
-      <div className="bg-white rounded-lg border border-gray-100 overflow-x-auto">
-        <table className="w-full min-w-[900px]">
-          <thead>
-            <tr className="border-b border-gray-100 text-gray-500">
-              <th className="font-normal text-left px-4 py-3 text-[13px]">渠道名称</th>
-              <th className="font-normal text-left px-4 py-3 text-[13px]">服务商</th>
-              <th className="font-normal text-left px-4 py-3 text-[13px]">Base URL</th>
-              <th className="font-normal text-left px-4 py-3 text-[13px]">Key 前缀</th>
-              <th className="font-normal text-left px-4 py-3 text-[13px]">状态</th>
-              <th className="font-normal text-right px-4 py-3 text-[13px]">请求数</th>
-              <th className="font-normal text-right px-4 py-3 text-[13px]">成功率</th>
-              <th className="font-normal text-right px-4 py-3 text-[13px]">延迟</th>
-              <th className="font-normal text-center px-4 py-3 text-[13px]">权重/优先级</th>
-              <th className="font-normal text-right px-4 py-3 text-[13px]">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={10} className="px-4 py-12 text-center">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">加载中...</p>
-                </td>
-              </tr>
-            ) : channels.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="px-4 py-12 text-center text-gray-400 text-sm">
-                  暂无数据
-                </td>
-              </tr>
-            ) : (
-              channels.map((ch) => {
-                const status = getChannelStatusLabel(ch.status);
-                const successRate = calcSuccessRate(ch);
-                const isTesting = testingId === ch.id;
-                return (
-                  <tr key={ch.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-[13px] text-gray-800 font-medium">{ch.name}</td>
-                    <td className="px-4 py-3 text-[13px] text-gray-600">
-                      {ch.provider?.displayName ?? "-"}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-gray-500 font-mono truncate max-w-[180px]">
-                      {ch.baseUrl}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-gray-500 font-mono">{ch.keyPrefix}</td>
-                    <td className="px-4 py-3 text-[13px]">
-                      <span className={`inline-flex items-center gap-1.5 ${status.color}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${status.dotColor}`} />
-                        {status.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-right text-gray-600 font-mono">
-                      {formatNumber(ch.totalRequests)}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-right">
-                      <span
-                        className={
-                          successRate !== "-" && parseFloat(successRate) < 95
-                            ? "text-red-600"
-                            : "text-gray-600"
-                        }
-                      >
-                        {successRate}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-right text-gray-600 font-mono">
-                      {ch.avgLatencyMs > 0 ? `${ch.avgLatencyMs}ms` : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-center text-gray-500">
-                      {ch.weight}/{ch.priority}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleTest(ch)}
-                          disabled={isTesting}
-                          className="px-2 py-1 text-xs text-info hover:bg-info/10 rounded disabled:opacity-50"
-                        >
-                          {isTesting ? "测试中..." : "测试"}
-                        </button>
-                        <button
-                          onClick={() => handleToggle(ch)}
-                          className={`px-2 py-1 text-xs rounded ${
-                            ch.isActive
-                              ? "text-warning hover:bg-warning/10"
-                              : "text-success hover:bg-success/10"
-                          }`}
-                        >
-                          {ch.isActive ? "禁用" : "启用"}
-                        </button>
-                        <button
-                          onClick={() => setFormChannel(ch)}
-                          className="px-2 py-1 text-xs text-primary hover:bg-primary-50 rounded"
-                        >
-                          编辑
-                        </button>
-                        <button
-                          onClick={() => handleDelete(ch)}
-                          className="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Card variant="elevated">
+        <CardContent className="p-0">
+          {isLoading && channels.length === 0 ? (
+            <Skeleton variant="table" lines={7} className="rounded-xl border-0" />
+          ) : (
+            <Table
+              columns={columns}
+              data={channels}
+              rowKey="id"
+              loading={isLoading}
+              empty={<EmptyState title="暂无渠道" description="新建渠道后即可接入服务商 API 并参与请求分发。" />}
+              className="border-0 shadow-none"
+            />
+          )}
+        </CardContent>
+      </Card>
 
-      {/* 分页 */}
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-          <span>
-            共 {total} 条，第 {page}/{totalPages} 页
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50"
-            >
-              上一页
-            </button>
-            <button
-              onClick={() => setPage(Math.min(totalPages, page + 1))}
-              disabled={page >= totalPages}
-              className="px-3 py-1.5 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50"
-            >
-              下一页
-            </button>
-          </div>
-        </div>
-      )}
+      <AdminPagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
 
-      {/* 弹窗 */}
-      {formChannel !== undefined && (
-        <ChannelFormModal
-          channel={formChannel}
-          providers={providers}
-          onClose={() => setFormChannel(undefined)}
-          onSaved={() => {
-            setFormChannel(undefined);
-            fetchChannels();
-          }}
-        />
-      )}
-      {confirmAction && <ConfirmModal action={confirmAction} onClose={() => setConfirmAction(null)} />}
-      {testResult && (
-        <TestResultModal
-          result={testResult.result}
-          channelName={testResult.name}
-          onClose={() => setTestResult(null)}
-        />
-      )}
+      <ChannelFormModal
+        open={formChannel !== undefined}
+        channel={formChannel}
+        providers={providers}
+        onClose={() => setFormChannel(undefined)}
+        onSaved={() => {
+          setFormChannel(undefined);
+          fetchChannels();
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(toggleTarget)}
+        title={toggleTarget?.isActive ? "禁用渠道" : "启用渠道"}
+        description={
+          toggleTarget
+            ? (toggleTarget.isActive
+                ? "确定要禁用渠道「" + toggleTarget.name + "」吗？禁用后该渠道将不再参与请求分发。"
+                : "确定要启用渠道「" + toggleTarget.name + "」吗？")
+            : ""
+        }
+        confirmText={toggleTarget?.isActive ? "禁用" : "启用"}
+        variant={toggleTarget?.isActive ? "danger" : "primary"}
+        loading={isMutating}
+        onCancel={() => setToggleTarget(null)}
+        onConfirm={handleToggle}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="删除渠道"
+        description={deleteTarget ? "确定要删除渠道「" + deleteTarget.name + "」吗？删除后不可恢复。" : ""}
+        confirmText="删除"
+        loading={isMutating}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
+
+      <TestResultModal
+        open={Boolean(testResult)}
+        result={testResult?.result ?? null}
+        channelName={testResult?.name ?? ""}
+        onClose={() => setTestResult(null)}
+      />
     </AdminShell>
   );
 }
