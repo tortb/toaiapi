@@ -16,6 +16,7 @@ import { RedeemModule } from './modules/redeem/redeem.module';
 import { InviteModule } from './modules/invite/invite.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
 import { ConfigModule } from './common/services/config.module';
 import { EmailModule } from './common/services/email.module';
 import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
@@ -55,6 +56,7 @@ import { AppService } from './app.service';
     InviteModule,
     NotificationModule,
     AnalyticsModule,
+    LeaderboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

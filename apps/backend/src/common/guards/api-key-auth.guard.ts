@@ -228,24 +228,11 @@ export class ApiKeyAuthGuard implements CanActivate {
 
   /**
    * 提取客户端真实 IP
-   * SECURITY: 优先使用 X-Forwarded-For（反向代理场景）
+   * SECURITY: 只使用 Fastify 在 trustProxy 配置后计算出的 request.ip。
    */
   private extractClientIp(request: Record<string, unknown>): string {
-    const headers = request['headers'] as Record<string, string | string[]>;
-
-    // X-Forwarded-For 可能包含多个 IP，取第一个（最接近客户端的）
-    const forwarded = headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-      const firstIp = forwarded.split(',')[0]?.trim();
-      if (firstIp) return firstIp;
-    }
-
-    // X-Real-IP（Nginx 常用）
-    const realIp = headers['x-real-ip'];
-    if (typeof realIp === 'string') return realIp;
-
-    // Fastify 默认的 IP
-    return (request['ip'] as string) || '127.0.0.1';
+    const ip = request['ip'];
+    return typeof ip === 'string' && ip.trim() ? ip.trim() : '127.0.0.1';
   }
 
   /**

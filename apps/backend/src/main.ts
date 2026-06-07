@@ -8,6 +8,21 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
+function parseTrustProxy(value: string | undefined): boolean | string[] {
+  const raw = value?.trim();
+  if (!raw || raw === 'false' || raw === '0') {
+    return false;
+  }
+
+  // Do not trust every peer: that lets direct clients spoof X-Forwarded-For.
+  if (raw === 'true' || raw === '1') {
+    return false;
+  }
+
+  const trusted = raw.split(',').map((entry) => entry.trim()).filter(Boolean);
+  return trusted.length > 0 ? trusted : false;
+}
+
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
@@ -15,7 +30,7 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter({
       bodyLimit: Number(process.env['BODY_LIMIT_MB'] || 10) * 1024 * 1024,
-      trustProxy: process.env['TRUST_PROXY'] === 'true',
+      trustProxy: parseTrustProxy(process.env['TRUST_PROXY']),
     }),
   );
 
