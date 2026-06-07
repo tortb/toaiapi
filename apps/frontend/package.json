@@ -1,18 +1,19 @@
 {
   "name": "toaiapi-frontend",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "NODE_OPTIONS='--max-old-space-size=8192' next build",
-    "start": "NODE_OPTIONS='--max-old-space-size=8192' next start",
+    "dev": "NODE_OPTIONS='--max-old-space-size=1024' next dev",
+    "build": "NODE_OPTIONS='--max-old-space-size=1024' next build",
+    "start": "NODE_OPTIONS='--max-old-space-size=1024' next start",
     "lint": "next lint"
   },
   "dependencies": {
     "next": "^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "lucide-react": "^0.462.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
