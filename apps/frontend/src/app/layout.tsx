@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/providers/auth-provider";
 import { PublicConfigProvider } from "@/providers/public-config-provider";
+import { ToastProvider } from "@/components/ui/Toast";
 import { buildApiUrl } from "@/lib/http";
 import "./globals.css";
 
@@ -63,7 +64,9 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="min-h-screen bg-page text-neutral-900 font-sans antialiased selection:bg-neutral-900/10 selection:text-neutral-950">
         <PublicConfigProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </AuthProvider>
         </PublicConfigProvider>
       </body>
     </html>

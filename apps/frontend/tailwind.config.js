@@ -187,12 +187,22 @@ const config = {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "slide-left": {
+          from: { transform: "translateX(100%)" },
+          to: { transform: "translateX(0)" },
+        },
+        "slide-right": {
+          from: { transform: "translateX(-100%)" },
+          to: { transform: "translateX(0)" },
+        },
       },
       animation: {
         skeleton: "skeleton 1.5s ease-in-out infinite",
         "fade-in": "fade-in 160ms cubic-bezier(0.25, 0.1, 0.25, 1)",
         "scale-in": "scale-in 180ms cubic-bezier(0.16, 1, 0.3, 1)",
         "slide-up": "slide-up 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-left": "slide-left 250ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-right": "slide-right 250ms cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },
