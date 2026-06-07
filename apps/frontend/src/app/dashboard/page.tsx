@@ -1,10 +1,5 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
-/**
- * /dashboard → /dashboard/overview
- *
- * 保持向后兼容，自动重定向到规范路径。
- */
-export default function DashboardPage() {
-  redirect('/dashboard/overview');
+export default function DashboardIndexPage() {
+  redirect("/dashboard/overview");
 }
