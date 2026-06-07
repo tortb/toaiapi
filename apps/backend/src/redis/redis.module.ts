@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { RedisService } from './redis.service';
+import { ApiKeyCacheService } from './api-key-cache.service';
 
 /**
  * Redis 全局模块
@@ -8,7 +9,7 @@ import { RedisService } from './redis.service';
  */
 @Global()
 @Module({
-  providers: [RedisService],
-  exports: [RedisService],
+  providers: [RedisService, ApiKeyCacheService],
+  exports: [RedisService, ApiKeyCacheService],
 })
 export class RedisModule {}

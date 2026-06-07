@@ -14,6 +14,7 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { CheckinModule } from './modules/checkin/checkin.module';
 import { RedeemModule } from './modules/redeem/redeem.module';
 import { InviteModule } from './modules/invite/invite.module';
+import { NotificationModule } from './modules/notification/notification.module';
 import { ConfigModule } from './common/services/config.module';
 import { EmailModule } from './common/services/email.module';
 import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
@@ -51,6 +52,7 @@ import { AppService } from './app.service';
     CheckinModule,
     RedeemModule,
     InviteModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

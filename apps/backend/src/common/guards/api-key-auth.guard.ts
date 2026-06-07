@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { RedisService } from '../../redis/redis.service';
+import { ApiKeyCacheService } from '../../redis/api-key-cache.service';
 import { parseJsonArray } from '../utils/json-array.util';
 import * as argon2 from 'argon2';
 import { isIPv4 } from 'net';
@@ -30,7 +30,7 @@ import { createHash } from 'crypto';
 export class ApiKeyAuthGuard implements CanActivate {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
+    private readonly apiKeyCache: ApiKeyCacheService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
