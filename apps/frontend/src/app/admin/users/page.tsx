@@ -1,344 +1,262 @@
 "use client";
 
-/**
- * 用户列表页面
- *
- * 展示所有用户，支持搜索、筛选、分页、状态变更。
- */
-
+import Link from "next/link";
 import * as React from "react";
 import {
-  getUsers,
-  updateUserStatus,
-  formatAmount,
   formatDate,
   getRoleLabel,
   getUserStatusLabel,
+  getUsers,
+  updateUserStatus,
   type UserData,
-  type PaginatedResponse,
 } from "@/lib/admin-api";
-import { IconSearch } from "@/components/PixelIcons";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { AdminPagination, AdminToolbar, ConfirmDialog, StatusBadge } from "@/components/admin/data";
+import { Badge, Button, Card, CardContent, EmptyState, Select, Skeleton, Table, type TableColumn, useToast } from "@/components/ui";
 
-/* ============== 状态确认弹窗 ============== */
-function ConfirmModal({
-  title,
-  message,
-  onConfirm,
-  onCancel,
-}: {
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        </div>
-        <div className="px-6 py-4">
-          <p className="text-sm text-gray-600">{message}</p>
-        </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            取消
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700"
-          >
-            确认
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+const roleOptions = [
+  { label: "普通用户", value: "USER" },
+  { label: "VIP", value: "VIP" },
+  { label: "企业", value: "ENTERPRISE" },
+  { label: "代理", value: "AGENT" },
+  { label: "管理员", value: "ADMIN" },
+  { label: "超级管理员", value: "SUPER_ADMIN" },
+];
+
+const statusOptions = [
+  { label: "正常", value: "ACTIVE" },
+  { label: "已冻结", value: "SUSPENDED" },
+  { label: "已封禁", value: "BANNED" },
+];
+
+function statusTone(status: string) {
+  if (status === "ACTIVE") return "success" as const;
+  if (status === "SUSPENDED") return "warning" as const;
+  if (status === "BANNED") return "error" as const;
+  return "neutral" as const;
+}
+
+function UserStatus({ status }: { status: string }) {
+  const meta = getUserStatusLabel(status);
+  return <StatusBadge tone={statusTone(status)}>{meta.label}</StatusBadge>;
+}
+
+function RoleBadge({ role }: { role: string }) {
+  const meta = getRoleLabel(role);
+  const tone = role.includes("ADMIN") ? "purple" : role === "ENTERPRISE" ? "info" : role === "VIP" ? "warning" : "neutral";
+  return <Badge variant={tone} size="sm">{meta.label}</Badge>;
+}
+
+function initials(user: UserData) {
+  return (user.displayName || user.email || "U").slice(0, 1).toUpperCase();
 }
 
 export default function UsersPage() {
-  const [data, setData] = React.useState<PaginatedResponse<UserData> | null>(null);
+  const toast = useToast();
+  const [users, setUsers] = React.useState<UserData[]>([]);
+  const [total, setTotal] = React.useState(0);
+  const [totalPages, setTotalPages] = React.useState(1);
+  const [page, setPage] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-
-  // 筛选状态
+  const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("");
-  const [page, setPage] = React.useState(1);
-  const [pageSize] = React.useState(20);
+  const [statusTarget, setStatusTarget] = React.useState<{ user: UserData; status: "ACTIVE" | "SUSPENDED" | "BANNED" } | null>(null);
+  const [isMutating, setIsMutating] = React.useState(false);
 
-  // 确认弹窗
-  const [confirmAction, setConfirmAction] = React.useState<{
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  } | null>(null);
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
-  // 加载用户列表
   const fetchUsers = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const result = await getUsers({
         page,
-        pageSize,
+        pageSize: 20,
         role: roleFilter || undefined,
         status: statusFilter || undefined,
         search: search || undefined,
       });
-      setData(result);
+      setUsers(result.items);
+      setTotal(result.total);
+      setTotalPages(result.totalPages);
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载失败");
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, roleFilter, statusFilter, search]);
+  }, [page, roleFilter, search, statusFilter]);
 
   React.useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // 搜索防抖
-  const [searchInput, setSearchInput] = React.useState("");
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  // 修改用户状态
-  const handleStatusChange = (userId: string, newStatus: "ACTIVE" | "SUSPENDED" | "BANNED", userName: string) => {
-    const statusLabels = {
-      ACTIVE: "解冻/解封",
-      SUSPENDED: "冻结",
-      BANNED: "封禁",
-    };
-
-    setConfirmAction({
-      title: `确认${statusLabels[newStatus]}用户`,
-      message: `确定要${statusLabels[newStatus]}用户 "${userName}" 吗？`,
-      onConfirm: async () => {
-        try {
-          await updateUserStatus(userId, newStatus);
-          fetchUsers();
-        } catch (err) {
-          alert(err instanceof Error ? err.message : "操作失败");
-        }
-        setConfirmAction(null);
-      },
-    });
+  const handleStatusChange = async () => {
+    if (!statusTarget) return;
+    setIsMutating(true);
+    try {
+      await updateUserStatus(statusTarget.user.id, statusTarget.status);
+      toast.success("用户状态已更新");
+      setStatusTarget(null);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    } finally {
+      setIsMutating(false);
+    }
   };
+
+  const columns = React.useMemo<TableColumn<UserData>[]>(
+    () => [
+      {
+        key: "user",
+        title: "用户",
+        className: "min-w-[220px]",
+        render: (user) => (
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-neutral-700">
+              {initials(user)}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate font-medium text-neutral-950">{user.displayName || "-"}</div>
+              <div className="mt-0.5 font-mono text-xs text-neutral-400">{user.id.slice(0, 8)}...</div>
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "email",
+        title: "邮箱",
+        className: "min-w-[220px]",
+        render: (user) => <span className="text-neutral-700">{user.email}</span>,
+      },
+      {
+        key: "role",
+        title: "角色",
+        render: (user) => <RoleBadge role={user.role} />,
+      },
+      {
+        key: "status",
+        title: "状态",
+        render: (user) => <UserStatus status={user.status} />,
+      },
+      {
+        key: "createdAt",
+        title: "注册时间",
+        render: (user) => <span className="font-mono text-xs text-neutral-500">{formatDate(user.createdAt)}</span>,
+      },
+      {
+        key: "actions",
+        title: "操作",
+        headerClassName: "text-right",
+        className: "text-right",
+        render: (user) => (
+          <div className="flex items-center justify-end gap-1">
+            <Link className="inline-flex h-8 items-center rounded-md px-3 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 hover:text-neutral-950" href={"/admin/users/" + user.id}>
+              详情
+            </Link>
+            {user.status === "ACTIVE" ? (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStatusTarget({ user, status: "SUSPENDED" })}>
+                冻结
+              </Button>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStatusTarget({ user, status: "ACTIVE" })}>
+                解冻
+              </Button>
+            )}
+            {user.status !== "BANNED" && (
+              <Button type="button" variant="ghost" size="sm" className="text-error hover:bg-error-bg" onClick={() => setStatusTarget({ user, status: "BANNED" })}>
+                封禁
+              </Button>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const statusLabel = statusTarget?.status === "ACTIVE" ? "解冻/解封" : statusTarget?.status === "SUSPENDED" ? "冻结" : "封禁";
+  const statusName = statusTarget ? statusTarget.user.displayName || statusTarget.user.email : "";
 
   return (
     <AdminShell title="用户列表">
-      {/* 确认弹窗 */}
-      {confirmAction && (
-        <ConfirmModal
-          title={confirmAction.title}
-          message={confirmAction.message}
-          onConfirm={confirmAction.onConfirm}
-          onCancel={() => setConfirmAction(null)}
-        />
-      )}
-
-      {/* 错误提示 */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
-          <span className="text-sm text-red-600">{error}</span>
-          <button onClick={fetchUsers} className="text-sm text-primary hover:underline">
-            重试
-          </button>
-        </div>
-      )}
-
-      {/* 筛选区 */}
-      <div className="bg-white rounded-lg border border-gray-100 p-4 mb-4">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* 搜索框 */}
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="搜索 ID / 用户名 / 邮箱..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-          </div>
-
-          {/* 角色筛选 */}
-          <select
-            value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value);
-              setPage(1);
-            }}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          >
-            <option value="">所有角色</option>
-            <option value="USER">普通用户</option>
-            <option value="VIP">VIP</option>
-            <option value="ENTERPRISE">企业</option>
-            <option value="AGENT">代理</option>
-            <option value="ADMIN">管理员</option>
-            <option value="SUPER_ADMIN">超级管理员</option>
-          </select>
-
-          {/* 状态筛选 */}
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          >
-            <option value="">所有状态</option>
-            <option value="ACTIVE">正常</option>
-            <option value="SUSPENDED">已冻结</option>
-            <option value="BANNED">已封禁</option>
-          </select>
-
-          {/* 刷新按钮 */}
-          <button
-            onClick={fetchUsers}
-            disabled={isLoading}
-            className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-600 disabled:opacity-50"
-          >
+      <AdminToolbar
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="搜索 ID / 用户名 / 邮箱"
+        actions={
+          <Button type="button" variant="secondary" onClick={fetchUsers} loading={isLoading}>
             刷新
-          </button>
+          </Button>
+        }
+      >
+        <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2">
+          <Select
+            value={roleFilter}
+            onChange={(event) => {
+              setRoleFilter(event.target.value);
+              setPage(1);
+            }}
+            placeholder="所有角色"
+            options={roleOptions}
+          />
+          <Select
+            value={statusFilter}
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
+              setPage(1);
+            }}
+            placeholder="所有状态"
+            options={statusOptions}
+          />
         </div>
-      </div>
+      </AdminToolbar>
 
-      {/* 用户表格 */}
-      <div className="bg-white rounded-lg border border-gray-100">
-        {isLoading ? (
-          <div className="p-8 text-center">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-gray-500">加载中...</p>
-          </div>
-        ) : data && data.items.length > 0 ? (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-gray-100 text-gray-500">
-                    <th className="text-left font-normal px-4 py-3">用户</th>
-                    <th className="text-left font-normal px-4 py-3">邮箱</th>
-                    <th className="text-left font-normal px-4 py-3">角色</th>
-                    <th className="text-left font-normal px-4 py-3">状态</th>
-                    <th className="text-left font-normal px-4 py-3">注册时间</th>
-                    <th className="text-right font-normal px-4 py-3">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((u) => {
-                    const roleInfo = getRoleLabel(u.role);
-                    const statusInfo = getUserStatusLabel(u.status);
-                    return (
-                      <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600">
-                              {(u.displayName || u.email).charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {u.displayName || "-"}
-                              </div>
-                              <div className="text-[11px] text-gray-400 font-mono">
-                                {u.id.slice(0, 8)}...
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">{u.email}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${roleInfo.color}`}>
-                            {roleInfo.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 ${statusInfo.color}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dotColor}`} />
-                            {statusInfo.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 text-[12px]">
-                          {formatDate(u.createdAt)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <a
-                              href={`/admin/users/${u.id}`}
-                              className="px-2 py-1 text-[11px] text-primary hover:bg-primary-50 rounded"
-                            >
-                              详情
-                            </a>
-                            {u.status === "ACTIVE" ? (
-                              <button
-                                onClick={() => handleStatusChange(u.id, "SUSPENDED", u.displayName || u.email)}
-                                className="px-2 py-1 text-[11px] text-warning hover:bg-warning/10 rounded"
-                              >
-                                冻结
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleStatusChange(u.id, "ACTIVE", u.displayName || u.email)}
-                                className="px-2 py-1 text-[11px] text-success hover:bg-success/10 rounded"
-                              >
-                                解冻
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+      {error && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-error/20 bg-error-bg px-4 py-3">
+          <span className="text-sm text-error">{error}</span>
+          <Button type="button" variant="secondary" size="sm" onClick={fetchUsers}>重试</Button>
+        </div>
+      )}
 
-            {/* 分页 */}
-            {data.totalPages > 1 && (
-              <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-sm text-gray-500">
-                  共 {data.total} 条，第 {data.page}/{data.totalPages} 页
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-1.5 text-sm border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    上一页
-                  </button>
-                  <button
-                    onClick={() => setPage(Math.min(data.totalPages, page + 1))}
-                    disabled={page === data.totalPages}
-                    className="px-3 py-1.5 text-sm border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    下一页
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="p-8 text-center text-gray-400">
-            <p className="text-sm">暂无用户数据</p>
-          </div>
-        )}
-      </div>
+      <Card variant="elevated">
+        <CardContent className="p-0">
+          {isLoading && users.length === 0 ? (
+            <Skeleton variant="table" lines={7} className="rounded-xl border-0" />
+          ) : (
+            <Table
+              columns={columns}
+              data={users}
+              rowKey="id"
+              loading={isLoading}
+              empty={<EmptyState title="暂无用户" description="没有符合当前筛选条件的用户。" />}
+              className="border-0 shadow-none"
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <AdminPagination page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
+
+      <ConfirmDialog
+        open={Boolean(statusTarget)}
+        title={"确认" + statusLabel + "用户"}
+        description={statusTarget ? "确定要" + statusLabel + "用户「" + statusName + "」吗？" : ""}
+        confirmText={statusLabel}
+        variant={statusTarget?.status === "ACTIVE" ? "primary" : "danger"}
+        loading={isMutating}
+        onCancel={() => setStatusTarget(null)}
+        onConfirm={handleStatusChange}
+      />
     </AdminShell>
   );
 }
