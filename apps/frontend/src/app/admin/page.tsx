@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, BarChart3, Clock, DollarSign, Globe, Mail, Server, Shield, TrendingUp, Zap, CheckCircle, Send, Save, Eye, EyeOff, Power, PowerOff } from "lucide-react";
-import { getDashboard, getOrderStatusLabel, getSmtpConfig, updateSmtpConfig, toggleSmtpConfig, testSmtpConnection, sendTestEmail, type DashboardData, type SmtpConfigData, type UpdateSmtpConfigPayload } from "@/lib/admin-api";
+import Link from "next/link";
+import { Activity, AlertTriangle, BarChart3, Clock, DollarSign, Globe, Mail, Server, Shield, TrendingUp, Zap, Settings } from "lucide-react";
+import { getDashboard, getOrderStatusLabel, getSmtpConfig, type DashboardData, type SmtpConfigData } from "@/lib/admin-api";
 
 function yuan(fen: number) {
   return `¥${(fen / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -21,114 +22,21 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
 
-  // 邮件设置状态
+  // 邮件服务状态
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfigData | null>(null);
   const [smtpLoading, setSmtpLoading] = useState(true);
-  const [smtpSaving, setSmtpSaving] = useState(false);
-  const [smtpError, setSmtpError] = useState("");
-  const [smtpSuccess, setSmtpSuccess] = useState("");
-  const [smtpForm, setSmtpForm] = useState({
-    host: "", port: 587, secure: false, username: "", password: "",
-    from_name: "", from_address: "",
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [testEmail, setTestEmail] = useState("");
-  const [testEmailSending, setTestEmailSending] = useState(false);
-  const [testEmailResult, setTestEmailResult] = useState<string | null>(null);
-  const [testConnecting, setTestConnecting] = useState(false);
-  const [testConnectionResult, setTestConnectionResult] = useState<string | null>(null);
 
   useEffect(() => {
     getDashboard().then(setData).catch((err) => setError(err instanceof Error ? err.message : "加载失败"));
   }, []);
 
-  // 加载 SMTP 配置
+  // 加载 SMTP 配置（仅用于状态展示）
   useEffect(() => {
     getSmtpConfig()
-      .then((cfg) => {
-        setSmtpConfig(cfg);
-        if (cfg) {
-          setSmtpForm({
-            host: cfg.host ?? "",
-            port: cfg.port ?? 587,
-            secure: cfg.secure ?? false,
-            username: cfg.username ?? "",
-            password: "",
-            from_name: cfg.from_name ?? "",
-            from_address: cfg.from_address ?? "",
-          });
-        }
-      })
+      .then((cfg) => setSmtpConfig(cfg))
       .catch(() => {})
       .finally(() => setSmtpLoading(false));
   }, []);
-
-  // SMTP 操作
-  async function handleSaveSmtp() {
-    setSmtpSaving(true);
-    setSmtpError("");
-    setSmtpSuccess("");
-    try {
-      const payload: UpdateSmtpConfigPayload = {};
-      if (smtpForm.host !== (smtpConfig?.host ?? "")) payload.host = smtpForm.host || undefined;
-      if (smtpForm.port !== (smtpConfig?.port ?? 587)) payload.port = smtpForm.port;
-      if (smtpForm.secure !== (smtpConfig?.secure ?? false)) payload.secure = smtpForm.secure;
-      if (smtpForm.username !== (smtpConfig?.username ?? "")) payload.username = smtpForm.username || undefined;
-      if (smtpForm.password) payload.password = smtpForm.password;
-      if (smtpForm.from_name !== (smtpConfig?.from_name ?? "")) payload.from_name = smtpForm.from_name || undefined;
-      if (smtpForm.from_address !== (smtpConfig?.from_address ?? "")) payload.from_address = smtpForm.from_address || undefined;
-      await updateSmtpConfig(payload);
-      setSmtpSuccess("SMTP 配置已保存");
-      // 重新加载
-      const cfg = await getSmtpConfig();
-      setSmtpConfig(cfg);
-      if (cfg) setSmtpForm((f) => ({ ...f, password: "" }));
-    } catch (err) {
-      setSmtpError(err instanceof Error ? err.message : "保存失败");
-    } finally {
-      setSmtpSaving(false);
-    }
-  }
-
-  async function handleToggleSmtp() {
-    setSmtpError("");
-    setSmtpSuccess("");
-    try {
-      await toggleSmtpConfig();
-      const cfg = await getSmtpConfig();
-      setSmtpConfig(cfg);
-      setSmtpSuccess(smtpConfig?.is_enabled ? "邮件服务已停用" : "邮件服务已启用");
-    } catch (err) {
-      setSmtpError(err instanceof Error ? err.message : "操作失败");
-    }
-  }
-
-  async function handleTestSmtpConnection() {
-    setTestConnecting(true);
-    setTestConnectionResult(null);
-    try {
-      const result = await testSmtpConnection();
-      setTestConnectionResult(result.success ? "✅ 连接成功" : `❌ 连接失败: ${result.message}`);
-    } catch (err) {
-      setTestConnectionResult(`❌ 连接失败: ${err instanceof Error ? err.message : "未知错误"}`);
-    } finally {
-      setTestConnecting(false);
-    }
-  }
-
-  async function handleSendTestEmail() {
-    if (!testEmail) return;
-    setTestEmailSending(true);
-    setTestEmailResult(null);
-    try {
-      const result = await sendTestEmail(testEmail);
-      setTestEmailResult(result.success ? "✅ 发送成功" : `❌ 发送失败: ${result.message}`);
-    } catch (err) {
-      setTestEmailResult(`❌ 发送失败: ${err instanceof Error ? err.message : "未知错误"}`);
-    } finally {
-      setTestEmailSending(false);
-    }
-  }
 
   const stats: [string, string, string][] = data ? [
     ["注册用户", num(data.metrics.totalUsers), `${data.metrics.totalUsersGrowth}%`],
@@ -334,114 +242,35 @@ export default function AdminDashboardPage() {
         </div>
       </section>
 
-      {/* ✉️ 邮件设置 */}
+      {/* ✉️ 邮件服务状态 */}
       <section className="bg-white border border-[var(--line)] rounded-lg p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Mail className="w-5 h-5 text-[var(--accent)]" />
-            <h2 className="text-base font-semibold text-[var(--foreground)]">邮件设置</h2>
-            <span className="text-xs text-[var(--text-muted)] ml-1">配置 SMTP 邮件服务，用于发送通知和验证邮件</span>
+            <h2 className="text-base font-semibold text-[var(--foreground)]">邮件服务</h2>
           </div>
-          <div className="flex items-center gap-2">
-            {smtpConfig && (
-              <button
-                onClick={handleToggleSmtp}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  smtpConfig.is_enabled
-                    ? "bg-green-50 text-green-700 hover:bg-green-100"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                {smtpConfig.is_enabled ? <><PowerOff className="h-3 w-3" />停用</> : <><Power className="h-3 w-3" />启用</>}
-              </button>
-            )}
-          </div>
+          <Link
+            href="/admin/settings/email"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--line)] px-3 py-1.5 text-sm text-[var(--foreground)] hover:bg-[var(--surface-soft)] transition-colors"
+          >
+            <Settings className="h-3.5 w-3.5" />配置
+          </Link>
         </div>
-
-        {smtpLoading ? (
-          <div className="text-sm text-[var(--text-secondary)]">加载中...</div>
-        ) : (
-          <>
-            {smtpError && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{smtpError}</div>}
-            {smtpSuccess && <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{smtpSuccess}</div>}
-
-            {smtpConfig && (
-              <div className="mb-4 flex items-center gap-3">
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${smtpConfig.is_enabled ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${smtpConfig.is_enabled ? "bg-green-500" : "bg-gray-400"}`} />
-                  {smtpConfig.is_enabled ? "邮件服务已启用" : "邮件服务已停用"}
-                </span>
-                {smtpConfig.host && <span className="text-xs text-[var(--text-muted)]">服务器: {smtpConfig.host}:{smtpConfig.port}</span>}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-[var(--foreground)] mb-1">SMTP 服务器</label>
-                <input value={smtpForm.host} onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })} className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" placeholder="smtp.gmail.com" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--foreground)] mb-1">端口</label>
-                <input type="number" value={smtpForm.port} onChange={(e) => setSmtpForm({ ...smtpForm, port: Number(e.target.value) })} className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" />
-              </div>
-              <div className="flex items-end gap-2">
-                <label className="flex items-center gap-2 pb-2 cursor-pointer">
-                  <input type="checkbox" checked={smtpForm.secure} onChange={(e) => setSmtpForm({ ...smtpForm, secure: e.target.checked })} className="rounded border-[var(--line)]" />
-                  <span className="text-xs text-[var(--foreground)]">TLS/SSL</span>
-                </label>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--foreground)] mb-1">发件人名称</label>
-                <input value={smtpForm.from_name} onChange={(e) => setSmtpForm({ ...smtpForm, from_name: e.target.value })} className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" placeholder="AI Platform" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--foreground)] mb-1">发件人邮箱</label>
-                <input value={smtpForm.from_address} onChange={(e) => setSmtpForm({ ...smtpForm, from_address: e.target.value })} className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" placeholder="noreply@example.com" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--foreground)] mb-1">SMTP 用户名</label>
-                <input value={smtpForm.username} onChange={(e) => setSmtpForm({ ...smtpForm, username: e.target.value })} className="w-full rounded-md border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" placeholder="user@example.com" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--foreground)] mb-1">
-                  SMTP 密码 <span className="text-[var(--text-muted)] font-normal">（留空不修改）</span>
-                </label>
-                <div className="relative">
-                  <input type={showPassword ? "text" : "password"} value={smtpForm.password} onChange={(e) => setSmtpForm({ ...smtpForm, password: e.target.value })} className="w-full rounded-md border border-[var(--line)] px-3 py-2 pr-8 text-sm outline-none focus:border-[var(--accent)]" placeholder="加密存储" />
-                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--foreground)]">
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button onClick={handleSaveSmtp} disabled={smtpSaving || !smtpForm.host} className="inline-flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent)]/90 disabled:opacity-50">
-                <Save className="h-4 w-4" />{smtpSaving ? "保存中..." : "保存配置"}
-              </button>
-              <button onClick={handleTestSmtpConnection} disabled={testConnecting} className="inline-flex items-center gap-1.5 rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-soft)]">
-                <CheckCircle className="h-4 w-4" />{testConnecting ? "测试中..." : "测试连接"}
-              </button>
-              {testConnectionResult && (
-                <span className={`text-xs ${testConnectionResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{testConnectionResult}</span>
-              )}
-            </div>
-
-            {/* 发送测试邮件 */}
-            <div className="mt-4 pt-4 border-t border-[var(--line)]">
-              <label className="block text-xs font-medium text-[var(--foreground)] mb-2">发送测试邮件</label>
-              <div className="flex items-center gap-2">
-                <input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} className="flex-1 rounded-md border border-[var(--line)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]" placeholder="输入测试邮箱地址" />
-                <button onClick={handleSendTestEmail} disabled={testEmailSending || !testEmail} className="inline-flex items-center gap-1.5 rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface-soft)] disabled:opacity-50">
-                  <Send className="h-4 w-4" />{testEmailSending ? "发送中..." : "发送"}
-                </button>
-              </div>
-              {testEmailResult && (
-                <p className={`mt-2 text-xs ${testEmailResult.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>{testEmailResult}</p>
-              )}
-            </div>
-          </>
-        )}
+        <div className="mt-3 flex items-center gap-3">
+          {smtpLoading ? (
+            <span className="text-xs text-[var(--text-muted)]">加载中...</span>
+          ) : smtpConfig ? (
+            <>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${smtpConfig.is_enabled ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${smtpConfig.is_enabled ? "bg-green-500" : "bg-gray-400"}`} />
+                {smtpConfig.is_enabled ? "已启用" : "已停用"}
+              </span>
+              {smtpConfig.host && <span className="text-xs text-[var(--text-muted)]">{smtpConfig.host}:{smtpConfig.port}</span>}
+            </>
+          ) : (
+            <span className="text-xs text-[var(--text-muted)]">未配置 — 前往邮件设置页面配置 SMTP</span>
+          )}
+        </div>
       </section>
     </div>
   );

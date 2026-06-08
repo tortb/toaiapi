@@ -176,7 +176,11 @@ export default function RegisterPage() {
                   disabled={!!registerCaptcha}
                 />
               ) : (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">注册验证码未配置，请联系管理员</div>
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <p className="font-medium">验证码服务未完成配置</p>
+                  <p className="mt-1 text-xs">请在后台「系统设置 → 验证码配置」中填写阿里云验证码 Identity 和注册 Scene ID</p>
+                  <Link href="/admin/captcha" className="mt-1 inline-block text-xs text-amber-800 underline">前往配置 →</Link>
+                </div>
               )}
             </div>
           )}

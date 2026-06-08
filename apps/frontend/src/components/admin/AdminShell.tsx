@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bot, Building2, Cable, ClipboardList, FileText, Key, LayoutDashboard, LogOut, MessageSquare, PartyPopper, Receipt, Settings, Users, UsersRound } from "lucide-react";
+import { Bot, Building2, Cable, ClipboardList, FileText, Key, LayoutDashboard, LogOut, Mail, MessageSquare, PartyPopper, Receipt, Settings, Users, UsersRound } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 
 const groups: [string, [typeof LayoutDashboard, string, string][]][] = [
@@ -10,7 +10,7 @@ const groups: [string, [typeof LayoutDashboard, string, string][]][] = [
   ["账户", [[Users, "用户管理", "/admin/users"], [UsersRound, "用户分组", "/admin/users/groups"], [Key, "API Key", "/admin/apikeys"]]],
   ["模型", [[Bot, "模型管理", "/admin/models"], [Cable, "通道管理", "/admin/channels"], [Building2, "服务商", "/admin/providers"]]],
   ["财务", [[ClipboardList, "订单", "/admin/orders"], [FileText, "账单", "/admin/bills"], [PartyPopper, "充值活动", "/admin/promotions"], [Receipt, "发票", "/admin/invoices"], [Settings, "支付配置", "/admin/payment-configs"]]],
-  ["系统", [[Settings, "系统设置", "/admin/settings"], [MessageSquare, "短信", "/admin/sms"]]],
+  ["系统", [[Settings, "系统设置", "/admin/settings"], [Mail, "邮件", "/admin/settings/email"], [MessageSquare, "短信", "/admin/sms"]]],
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
