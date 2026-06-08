@@ -1,5 +1,3 @@
-import { SmtpSettingsForm } from "@/components/admin/settings/SmtpSettingsForm";
-
-export default function EmailSettingsPage() {
-  return <SmtpSettingsForm />;
+export default function Page() {
+  return <div className="p-8 text-[var(--text-secondary)]">内容开发中 - settings/email</div>
 }

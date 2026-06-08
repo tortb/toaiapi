@@ -1,9 +1,3 @@
-import { SettingsForm } from "@/components/admin/settings/SettingsForm";
-import { getCategoryByRoute, SETTINGS_FIELDS } from "@/components/admin/settings/settings-schema";
-
-const category = getCategoryByRoute("register");
-
-export default function SettingsPage() {
-  if (!category) return null;
-  return <SettingsForm category={category} fields={SETTINGS_FIELDS[category.key] || []} />;
+export default function Page() {
+  return <div className="p-8 text-[var(--text-secondary)]">内容开发中 - settings/register</div>
 }
