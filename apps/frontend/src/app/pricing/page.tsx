@@ -1,54 +1,48 @@
-import React from "react";
-import SiteShell from "@/components/SiteShell";
-import { getPublicModels, type Model } from "@/lib/api";
+import { PublicLayout } from '@/components/layout/public-layout'
 
-export const dynamic = "force-dynamic";
+const models = [
+  ['GPT-4o', 'OpenAI', '128K', '¥2.5', '¥10', '¥1.25', '¥5'],
+  ['GPT-4o-mini', 'OpenAI', '128K', '¥0.15', '¥0.6', '¥0.075', '¥0.3'],
+  ['Claude 3.5 Sonnet', 'Anthropic', '200K', '¥3', '¥15', '¥1.5', '¥7.5'],
+  ['Claude 3 Haiku', 'Anthropic', '200K', '¥0.25', '¥1.25', '¥0.125', '-'],
+  ['Gemini 2.0 Flash', 'Google', '1M', '¥0.1', '¥0.4', '¥0.05', '-'],
+  ['Gemini 1.5 Pro', 'Google', '2M', '¥3.5', '¥10.5', '¥1.75', '-'],
+  ['DeepSeek-V2', 'DeepSeek', '128K', '¥0.5', '¥2', '¥0.25', '-'],
+  ['Qwen-Max', 'Qwen', '32K', '¥2', '¥6', '¥1', '-'],
+]
 
-export default async function PricingPage() {
-  let models: Model[] = [];
-  try {
-    models = await getPublicModels();
-  } catch (err) {
-    console.error("Failed to load models for pricing:", err);
-  }
-
+export default function PricingPage() {
   return (
-    <SiteShell>
-      <section className="max-w-[1100px] mx-auto px-6 py-12">
-        <h1 className="text-[28px] font-bold mb-4">定价对比</h1>
-        <p className="text-[13px] text-gray-500 mb-6">基于公开模型数据展示输入/输出价格对比。</p>
-
-        <div className="overflow-x-auto bg-white border border-gray-100 rounded-lg">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-4 py-3 text-[13px]">模型</th>
-                <th className="px-4 py-3 text-[13px]">供应商</th>
-                <th className="px-4 py-3 text-[13px]">输入价格 (/1K)</th>
-                <th className="px-4 py-3 text-[13px]">输出价格 (/1K)</th>
-                <th className="px-4 py-3 text-[13px]">说明</th>
-              </tr>
-            </thead>
-            <tbody>
-              {models.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-gray-500">暂无定价数据</td>
-                </tr>
-              ) : (
-                models.map((m: any) => (
-                  <tr key={m.id ?? m.name} className="border-t">
-                    <td className="px-4 py-4">{m.name}</td>
-                    <td className="px-4 py-4">{m.vendor ?? '-'}</td>
-                    <td className="px-4 py-4">{typeof m.input_price === 'number' ? `¥${m.input_price}` : '-'}</td>
-                    <td className="px-4 py-4">{typeof m.output_price === 'number' ? `¥${m.output_price}` : '-'}</td>
-                    <td className="px-4 py-4 text-[13px] text-gray-600">{m.description ?? '-'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+    <PublicLayout>
+      <div className="max-w-[1440px] mx-auto px-10 py-16">
+        <div className="text-center mb-8"><h1 className="text-4xl font-bold text-[var(--foreground)]">价格方案</h1><p className="mt-2 text-base text-[var(--text-secondary)]">所有价格单位为「分/百万 Token」，按实际用量计费</p></div>
+        <div className="flex gap-1 mb-4">
+          {['全部模型', 'OpenAI', 'Anthropic', 'Google', 'DeepSeek', 'Qwen'].map((t, i) => (
+            <button key={t} className={`px-4 py-2 text-sm rounded-md ${i === 0 ? 'bg-[var(--accent)] text-white font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]'}`}>{t}</button>
+          ))}
         </div>
-      </section>
-    </SiteShell>
-  );
+        <div className="bg-white border border-[var(--line)] rounded-xl overflow-hidden">
+          <div className="flex px-4 py-3.5 bg-[var(--surface-soft)] text-xs font-semibold text-[var(--text-muted)]">
+            {['模型', '提供商', '上下文', '输入价格', '输出价格', '缓存价格', '推理价格'].map((h) => (
+              <div key={h} className="flex-1">{h}</div>
+            ))}
+          </div>
+          {models.map((m, i) => (
+            <div key={m[0]} className={`flex px-4 py-3.5 text-sm ${i < models.length - 1 ? 'border-b border-[var(--line)]' : ''}`}>
+              <div className="flex-1 font-medium text-[var(--foreground)]">{m[0]}</div>
+              <div className="flex-1 text-[var(--text-secondary)]">{m[1]}</div>
+              <div className="flex-1 text-[var(--text-secondary)]">{m[2]}</div>
+              <div className="flex-1 text-[var(--foreground)]">{m[3]}</div>
+              <div className="flex-1 text-[var(--foreground)]">{m[4]}</div>
+              <div className="flex-1 text-[var(--foreground)]">{m[5]}</div>
+              <div className="flex-1 text-[var(--foreground)]">{m[6]}</div>
+            </div>
+          ))}
+        </div>
+        <div className="text-center mt-12"><h2 className="text-2xl font-semibold text-[var(--foreground)]">准备好开始了吗？</h2><p className="text-sm text-[var(--text-secondary)] mt-2 mb-6">注册即送 ¥5 体验金，立即体验所有模型</p>
+          <a href="/register" className="inline-flex px-8 py-3.5 bg-[var(--accent)] text-white font-semibold rounded-lg hover:bg-[var(--accent)]/90 transition-colors">免费注册 →</a>
+        </div>
+      </div>
+    </PublicLayout>
+  )
 }

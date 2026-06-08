@@ -1,172 +1,53 @@
-"use client";
+import { PublicLayout } from '@/components/layout/public-layout'
+import { Search, Zap, Wrench, Eye } from 'lucide-react'
 
-import * as React from "react";
-import SiteShell from "@/components/SiteShell";
-import { getPublicModels, type Model } from "@/lib/api";
-import { ModelFilterBar } from "@/components/models/ModelFilterBar";
-import { ModelCard } from "@/components/models/ModelCard";
-import { ModelDetailDrawer } from "@/components/models/ModelDetailDrawer";
-import { Button } from "@/components/ui/Button";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { Sparkles, LayoutGrid, List } from "lucide-react";
-import { cn } from "@/lib/utils";
+const models = [
+  [{ name: 'GPT-4o', provider: 'OpenAI', ctx: '128K', price: '¥2.5 / ¥10', tags: ['流式', '工具', '视觉'], color: '#10B981' },
+   { name: 'Claude 3.5 Sonnet', provider: 'Anthropic', ctx: '200K', price: '¥3 / ¥15', tags: ['流式', '工具', '视觉'], color: '#2383E2' },
+   { name: 'Gemini 2.0 Flash', provider: 'Google', ctx: '1M', price: '¥0.1 / ¥0.4', tags: ['流式', '工具', '视觉'], color: '#2563EB' },
+   { name: 'DeepSeek-V2', provider: 'DeepSeek', ctx: '128K', price: '¥0.5 / ¥2', tags: ['流式', '工具'], color: '#D97706' }],
+  [{ name: 'Qwen-Max', provider: 'Qwen', ctx: '32K', price: '¥2 / ¥6', tags: ['流式', '工具', '视觉'], color: '#059669' },
+   { name: 'GLM-4', provider: 'GLM', ctx: '128K', price: '¥1 / ¥2', tags: ['流式', '工具'], color: '#DC2626' },
+   { name: 'Moonshot-v1', provider: 'Moonshot', ctx: '128K', price: '¥1.5 / ¥4.5', tags: ['流式', '工具'], color: '#7C3AED' },
+   { name: 'Grok-2', provider: 'Grok', ctx: '128K', price: '¥2 / ¥8', tags: ['流式', '工具'], color: '#2563EB' }],
+]
 
 export default function ModelsPage() {
-  const [models, setModels] = React.useState<Model[]>([]);
-  const [filteredModels, setFilteredModels] = React.useState<Model[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [view, setView] = React.useState<"grid" | "list">("grid");
-  const [selectedModel, setSelectedModel] = React.useState<string | null>(null);
-
-  const loadModels = React.useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await getPublicModels();
-      setModels(data);
-      setFilteredModels(data);
-    } catch (err) {
-      console.error("Failed to load models:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    loadModels();
-  }, [loadModels]);
-
-  const providers = React.useMemo(() => {
-    const p = models.map((m) => m.vendor).filter(Boolean) as string[];
-    return Array.from(new Set(p));
-  }, [models]);
-
-  const handleFilterChange = (filters: { search: string; provider: string; type: string; tag: string; billingType: string }) => {
-    let next = [...models];
-    if (filters.search) {
-      const s = filters.search.toLowerCase();
-      next = next.filter((m) =>
-        m.name.toLowerCase().includes(s) || (m.description && m.description.toLowerCase().includes(s))
-      );
-    }
-    if (filters.provider !== "all") {
-      next = next.filter((m) => m.vendor === filters.provider);
-    }
-    if (filters.type !== "all") {
-      next = next.filter((m) => m.type === filters.type);
-    }
-    if (filters.tag !== "all") {
-      next = next.filter((m) => m.tags && m.tags.includes(filters.tag));
-    }
-    if (filters.billingType !== "all") {
-      next = next.filter((m) => m.billing_type === filters.billingType);
-    }
-    setFilteredModels(next);
-  };
-
   return (
-    <SiteShell>
-      <div className="relative overflow-hidden bg-neutral-950 py-20 text-white">
-        <div className="mx-auto max-w-7xl px-6 relative z-10">
-          <div className="flex flex-col items-center text-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-4 py-1.5 text-xs font-bold text-blue-400 border border-blue-500/20">
-              <Sparkles className="h-3 w-3" />
-              探索模型
-            </div>
-            <h1 className="mt-6 text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
-              模型广场
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg text-neutral-400 leading-relaxed">
-              探索平台上所有可用的 AI 模型。从语言处理到图像生成，我们为您提供了最前沿的技术支持与极具竞争力的定价。
-            </p>
+    <PublicLayout>
+      <div className="max-w-[1440px] mx-auto px-10 py-16">
+        <div className="text-center mb-8"><h1 className="text-4xl font-bold text-[var(--foreground)]">模型广场</h1><p className="mt-2 text-base text-[var(--text-secondary)]">浏览所有可用 AI 模型，选择最适合您需求的模型</p></div>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[var(--line)] rounded-md w-[280px]">
+            <Search className="w-4 h-4 text-[var(--text-muted)]" />
+            <span className="text-sm text-[var(--text-muted)]">搜索模型名称...</span>
           </div>
+          {['全部', 'OpenAI', 'Anthropic', 'Google', 'DeepSeek'].map((f, i) => (
+            <button key={f} className={`px-4 py-1.5 text-sm rounded-full border ${i === 0 ? 'bg-[var(--accent)] text-white border-transparent' : 'border-[var(--line)] text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]'}`}>{f}</button>
+          ))}
+          <div className="flex-1" />
+          <div className="flex gap-2">{['流式', '工具调用', '视觉'].map((t) => (
+            <button key={t} className="px-3 py-1.5 text-xs rounded-full border border-[var(--line)] text-[var(--text-secondary)]">{t}</button>
+          ))}</div>
         </div>
-
-        {/* Background Gradients */}
-        <div className="absolute top-0 left-1/4 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-blue-600/20 blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 h-[400px] w-[400px] translate-x-1/2 rounded-full bg-indigo-600/10 blur-[100px]" />
+        {models.map((row, ri) => (
+          <div key={ri} className="flex gap-5 mb-5">
+            {row.map((m) => (
+              <div key={m.name} className="flex-1 bg-white border border-[var(--line)] rounded-xl p-6 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-shadow">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: m.color }} />
+                  <h3 className="text-base font-semibold text-[var(--foreground)]">{m.name}</h3>
+                </div>
+                <p className="text-sm text-[var(--text-secondary)] mb-3">{m.provider} · {m.ctx} context</p>
+                <div className="flex gap-2 mb-3">{m.tags.map((t) => (
+                  <span key={t} className="px-2 py-0.5 text-xs bg-[var(--surface-soft)] text-[var(--text-secondary)] rounded">{t}</span>
+                ))}</div>
+                <p className="text-sm font-medium text-[var(--foreground)]">输入 {m.price.split(' / ')[0]} / 输出 {m.price.split(' / ')[1]}</p>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
-
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex-1">
-            <ModelFilterBar providers={providers} onFilterChange={handleFilterChange} />
-          </div>
-          <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-1">
-            <button
-              onClick={() => setView("grid")}
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-lg transition",
-                view === "grid" ? "bg-white text-blue-600 shadow-sm" : "text-neutral-400 hover:text-neutral-600"
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setView("list")}
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-lg transition",
-                view === "list" ? "bg-white text-blue-600 shadow-sm" : "text-neutral-400 hover:text-neutral-600"
-              )}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-[280px] w-full rounded-2xl" />
-            ))}
-          </div>
-        ) : filteredModels.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="h-20 w-20 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
-              <Sparkles className="h-10 w-10" />
-            </div>
-            <h3 className="mt-4 text-xl font-bold text-neutral-900">未找到匹配模型</h3>
-            <p className="mt-2 text-neutral-500">尝试调整您的筛选条件或搜索词。</p>
-          </div>
-        ) : (
-          <div
-            className={cn(
-              "grid gap-6",
-              view === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
-            )}
-          >
-            {filteredModels.map((m) => (
-              <ModelCard
-                key={m.id || m.name}
-                model={m}
-                onClick={() => setSelectedModel(m.name)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="bg-neutral-50 py-20">
-        <div className="mx-auto max-w-4xl px-6 text-center">
-          <h2 className="text-3xl font-bold text-neutral-900">未找到您需要的模型？</h2>
-          <p className="mt-4 text-lg text-neutral-500 leading-relaxed">
-            我们正在不断增加对新模型和供应商的支持。如果您有特定的需求，或者希望我们接入某个特定模型，请随时联系我们。
-          </p>
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Button size="lg" className="h-12 px-8 font-bold">
-              联系技术支持
-            </Button>
-            <Button variant="secondary" size="lg" className="h-12 px-8 font-bold">
-              查看开发文档
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <ModelDetailDrawer
-        modelName={selectedModel}
-        open={selectedModel !== null}
-        onClose={() => setSelectedModel(null)}
-      />
-    </SiteShell>
-  );
+    </PublicLayout>
+  )
 }

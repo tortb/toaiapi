@@ -1,229 +1,54 @@
-"use client";
-
-/**
- * 用户注册页面
- *
- * 验证码采用 embed 嵌入式「一点即过」模式。
- */
-
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { usePublicConfig } from "@/providers/public-config-provider";
-import { withCaptchaHeaders } from "@/components/AliyunCaptcha";
-import { buildApiUrl } from "@/lib/http";
+import Link from 'next/link'
+import { Zap, Shield, BarChart3, Gift } from 'lucide-react'
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const { config, loading: configLoading } = usePublicConfig();
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [emailCode, setEmailCode] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [captchaParam, setCaptchaParam] = useState<string | null>(null);
-  const captchaInited = useRef(false);
-
-  const needInviteCode = config.invite_code_required;
-  const needEmailVerify = config.email_verify;
-  const needCaptcha =
-    config.captcha_register_enabled &&
-    !!config.captcha_register_scene_id &&
-    !!config.captcha_identity;
-
-  useEffect(() => {
-    if (!needCaptcha || captchaInited.current) return;
-    captchaInited.current = true;
-
-    const init = async () => {
-      window.AliyunCaptchaConfig = {
-        region: config.captcha_region || "cn",
-        prefix: config.captcha_identity,
-      };
-
-      if (!document.querySelector('script[src*="AliyunCaptcha.js"]')) {
-        const s = document.createElement("script");
-        s.src = "https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js";
-        s.async = true;
-        document.head.appendChild(s);
-        await new Promise<void>((ok, fail) => { s.onload = () => ok(); s.onerror = fail; });
-      }
-
-      for (let i = 0; i < 30 && !window.initAliyunCaptcha; i++) {
-        await new Promise((r) => setTimeout(r, 100));
-      }
-      if (!window.initAliyunCaptcha) return;
-
-      for (let i = 0; i < 50; i++) {
-        if (document.querySelector("#reg-captcha-element")) break;
-        await new Promise((r) => setTimeout(r, 100));
-      }
-      if (!document.querySelector("#reg-captcha-element")) return;
-
-      window.initAliyunCaptcha({
-        SceneId: config.captcha_register_scene_id,
-        mode: "embed",
-        element: "#reg-captcha-element",
-        button: "#reg-captcha-element",
-        success: (param: string) => setCaptchaParam(param),
-        fail: () => setCaptchaParam(null),
-        getInstance: () => {},
-        server: ["captcha-esa-open.aliyuncs.com", "captcha-esa-open-b.aliyuncs.com"],
-        slideStyle: { width: 360, height: 40 },
-        language: "cn",
-      });
-    };
-
-    init().catch(console.error);
-  }, [needCaptcha, config.captcha_register_scene_id, config.captcha_identity, config.captcha_region]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!email.trim() || !password) { setError("请填写邮箱和密码"); return; }
-    if (password !== confirmPassword) { setError("两次输入的密码不一致"); return; }
-    if (password.length < 8) { setError("密码长度至少 8 位"); return; }
-    if (needCaptcha && !captchaParam) return;
-
-    setIsSubmitting(true);
-    try {
-      const url = buildApiUrl("/api/v1/auth/register");
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...withCaptchaHeaders({}, captchaParam || undefined),
-        },
-        body: JSON.stringify({
-          email: email.trim(), password,
-          displayName: displayName.trim() || undefined,
-          inviteCode: inviteCode.trim() || undefined,
-          emailCode: emailCode.trim() || undefined,
-        }),
-        credentials: "include",
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(json?.message || `注册失败 (${res.status})`);
-
-      const data = json?.data ?? json;
-      if (data?.tokens) {
-        localStorage.setItem("toaiapi_access_token", data.tokens.accessToken);
-        localStorage.setItem("toaiapi_refresh_token", data.tokens.refreshToken);
-        localStorage.setItem("toaiapi_user", JSON.stringify(data.user));
-      }
-      router.push("/dashboard");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "注册失败");
-      setCaptchaParam(null);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (configLoading) {
-    return <div className="min-h-screen bg-[#FAFBFC] flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
-  }
-
-  if (config.allow_register === false) {
-    return (
-      <div className="min-h-screen bg-[#FAFBFC] flex items-center justify-center px-6">
-        <div className="text-center">
-          <h1 className="text-[24px] font-bold text-gray-900 mb-2">注册已关闭</h1>
-          <p className="text-[14px] text-gray-500 mb-6">暂时无法注册新账号</p>
-          <Link href="/" className="text-primary hover:underline text-sm">← 返回首页</Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#FAFBFC] flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-[420px]">
-        <div className="flex items-center gap-2 mb-8 justify-center">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
-          </div>
-          <span className="text-lg font-bold text-gray-900">{config.site_name || "ToAiAPI"}</span>
+    <div className="min-h-screen flex">
+      <div className="w-[500px] bg-[var(--accent)] p-12 flex flex-col gap-6">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="text-2xl text-white">◆</span>
+          <span className="text-xl font-bold text-white">ToAIAPI</span>
+        </Link>
+        <div className="mt-8">
+          <h1 className="text-4xl font-extrabold text-white">开始构建</h1>
+          <h2 className="text-4xl font-extrabold text-[#C7D2FE]">你的 AI 应用</h2>
+          <p className="mt-2 text-sm text-[#DDD6FE]">注册即送 ¥5 体验金，无需绑定支付方式即可开始。</p>
         </div>
+        <div className="space-y-3 mt-4">
+          {[{ icon: Zap, text: '50+ 模型随意调用' }, { icon: Gift, text: '新用户 ¥5 体验金' }, { icon: Shield, text: '无需绑卡，用多少充多少' }].map((f) => {
+            const Icon = f.icon
+            return <div key={f.text} className="flex items-center gap-2 text-sm text-[#E8E4FF]"><Icon className="w-4 h-4" /><span>{f.text}</span></div>
+          })}
+        </div>
+        <div className="mt-auto text-sm font-medium text-[#DDD6FE]">已有账号？<Link href="/login" className="underline">立即登录</Link></div>
+      </div>
 
-        <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">创建账号</h2>
-        <p className="text-sm text-gray-500 mb-6 text-center">注册 {config.site_name || "ToAiAPI"} 账号</p>
-
-        {config.register_notice && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: config.register_notice }} />
-        )}
-        {error && <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">显示名称</label>
-            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="可选"
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+      <div className="flex-1 flex items-center justify-center bg-white">
+        <div className="w-[420px] flex flex-col gap-5">
+          <div><h2 className="text-2xl font-bold text-[var(--foreground)]">创建账号</h2><p className="text-sm text-[var(--text-secondary)] mt-1">注册后即可获得 API Key 并开始调用</p></div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[var(--foreground)]">邮箱</label>
+            <div className="px-3 py-2.5 bg-white border border-[var(--line)] rounded-md text-sm text-[var(--text-muted)]">请输入邮箱地址</div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">邮箱地址</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-          </div>
-
-          {needEmailVerify && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">邮箱验证码</label>
-              <div className="flex gap-2">
-                <input type="text" value={emailCode} onChange={(e) => setEmailCode(e.target.value)} placeholder="输入验证码" maxLength={6}
-                  className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                <button type="button" className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-50 whitespace-nowrap">发送验证码</button>
-              </div>
+          <div className="flex gap-2">
+            <div className="flex-1 flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-[var(--foreground)]">验证码</label>
+              <div className="px-3 py-2.5 bg-white border border-[var(--line)] rounded-md text-sm text-[var(--text-muted)]">验证码</div>
             </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">密码</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少 8 位" required minLength={8}
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            <button className="mt-6 px-4 py-2.5 bg-[var(--accent-light)] text-[var(--accent)] text-sm font-medium rounded-md whitespace-nowrap">发送验证码</button>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">确认密码</label>
-            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="再次输入密码" required
-              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[var(--foreground)]">密码</label>
+            <div className="px-3 py-2.5 bg-white border border-[var(--line)] rounded-md text-sm text-[var(--text-muted)]">8-128位，含大小写字母和数字</div>
           </div>
-
-          {needInviteCode && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">邀请码</label>
-              <input type="text" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="输入邀请码" required
-                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-            </div>
-          )}
-
-          {/* 嵌入式验证码 — 一点即过 */}
-          {needCaptcha && (
-            <div>
-              <div id="reg-captcha-element" className="w-full min-h-[44px]" />
-              {captchaParam && <p className="mt-1 text-[12px] text-green-600">✅ 验证通过</p>}
-            </div>
-          )}
-
-          <button type="submit"
-            disabled={isSubmitting || (needCaptcha && !captchaParam)}
-            className="w-full py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">
-            {isSubmitting
-              ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 注册中...</>
-              : "注册"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-gray-500">
-          已有账号？ <Link href="/login" className="text-primary hover:underline">登录</Link> | <Link href="/" className="hover:text-primary">← 返回首页</Link>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[var(--foreground)]">邀请码（选填）</label>
+            <div className="px-3 py-2.5 bg-white border border-[var(--line)] rounded-md text-sm text-[var(--text-muted)]">请输入邀请码</div>
+          </div>
+          <button className="w-full py-3 bg-[var(--accent)] text-white font-semibold rounded-md hover:bg-[var(--accent)]/90 transition-colors">注册</button>
+          <div className="flex justify-center gap-1 text-sm"><span className="text-[var(--text-secondary)]">已有账号？</span><Link href="/login" className="font-semibold text-[var(--accent)] hover:underline">立即登录</Link></div>
         </div>
       </div>
     </div>
-  );
+  )
 }

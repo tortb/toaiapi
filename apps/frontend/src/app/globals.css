@@ -1,14 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: #fafafa;
-    --foreground: #171717;
-    --surface: #ffffff;
-    --surface-soft: #f5f5f5;
-    --line: #ececec;
+    --background: #FFFFFF;
+    --foreground: #37352F;
+    --surface: #FFFFFF;
+    --surface-soft: #F7F6F3;
+    --surface-hover: #EBE9E4;
+    --line: #E9E9E7;
+    --accent: #2383E2;
+    --accent-light: #EBF2FF;
+    --text-secondary: #9B9A97;
+    --text-muted: #BAB9B5;
   }
 
   .dark {
@@ -27,7 +34,8 @@
     min-height: 100%;
     background: var(--background);
     text-rendering: optimizeLegibility;
-    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
@@ -35,13 +43,11 @@
     margin: 0;
     background: var(--background);
     color: var(--foreground);
-    font-family: Inter, "Noto Sans SC", -apple-system, BlinkMacSystemFont,
-      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue",
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont,
+      'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue',
       Arial, sans-serif;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
 
   a {
@@ -49,90 +55,72 @@
     text-decoration: none;
   }
 
-  button,
-  input,
-  optgroup,
-  select,
-  textarea {
+  button, input, optgroup, select, textarea {
     font: inherit;
   }
 
-  button {
-    cursor: pointer;
-  }
-
-  button:disabled,
-  [aria-disabled="true"] {
-    cursor: not-allowed;
-  }
+  button { cursor: pointer; }
+  button:disabled, [aria-disabled="true"] { cursor: not-allowed; }
 
   ::selection {
-    background: rgba(23, 23, 23, 0.12);
-    color: #0a0a0a;
+    background: var(--accent-light);
+    color: var(--accent);
   }
 
   :focus-visible {
-    outline: 2px solid rgba(23, 23, 23, 0.18);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+}
+
+@layer components {
+  .sidebar-item {
+    @apply flex items-center gap-2.5 px-3 py-2 rounded text-sm text-[var(--text-secondary)] transition-colors duration-150 cursor-pointer select-none;
+  }
+  .sidebar-item:hover {
+    @apply bg-[var(--surface-hover)] text-[var(--foreground)];
+  }
+  .sidebar-item-active {
+    @apply sidebar-item bg-[var(--accent-light)] text-[var(--accent)] font-medium;
   }
 
-  ::-webkit-scrollbar-track {
-    background: transparent;
+  .notion-card {
+    @apply bg-white border border-[var(--line)] rounded-lg;
   }
 
-  ::-webkit-scrollbar-thumb {
-    background: #d4d4d4;
-    border: 3px solid transparent;
-    border-radius: 999px;
-    background-clip: content-box;
+  .notion-btn {
+    @apply inline-flex items-center justify-center font-medium transition-all duration-150 rounded-md;
+  }
+  .notion-btn-primary {
+    @apply notion-btn bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90 active:scale-[0.98];
+  }
+  .notion-btn-secondary {
+    @apply notion-btn border border-[var(--line)] text-[var(--foreground)] hover:bg-[var(--surface-soft)] active:scale-[0.98];
+  }
+  .notion-btn-ghost {
+    @apply notion-btn text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)];
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: #a3a3a3;
-    border: 3px solid transparent;
-    background-clip: content-box;
+  .page-title {
+    @apply text-2xl font-bold text-[var(--foreground)];
+  }
+  .page-subtitle {
+    @apply text-sm text-[var(--text-secondary)] mt-1;
   }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  .text-pretty {
-    text-wrap: pretty;
-  }
-
-  .isometric-bg {
-    background-image:
-      linear-gradient(60deg, transparent 49.5%, rgba(23, 23, 23, 0.07) 49.5%, rgba(23, 23, 23, 0.07) 50.5%, transparent 50.5%),
-      linear-gradient(-60deg, transparent 49.5%, rgba(23, 23, 23, 0.07) 49.5%, rgba(23, 23, 23, 0.07) 50.5%, transparent 50.5%),
-      linear-gradient(0deg, transparent 49.5%, rgba(23, 23, 23, 0.04) 49.5%, rgba(23, 23, 23, 0.04) 50.5%, transparent 50.5%);
-    background-size: 40px 70px;
-  }
-
-  .card-hover {
-    transition:
-      transform 180ms cubic-bezier(0.25, 0.1, 0.25, 1),
-      box-shadow 180ms cubic-bezier(0.25, 0.1, 0.25, 1),
-      border-color 180ms cubic-bezier(0.25, 0.1, 0.25, 1);
-  }
-
-  .card-hover:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;

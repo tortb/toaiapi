@@ -27,9 +27,11 @@ const config: Config = {
       colors: {
         neutral,
         accent: {
-          DEFAULT: "#000000",
+          DEFAULT: "#2383E2",
           foreground: "#FFFFFF",
-          muted: "#171717",
+          light: "#EBF2FF",
+          hover: "#1A6FC4",
+          muted: "#1A6FC4",
         },
         success: {
           DEFAULT: "#22C55E",
