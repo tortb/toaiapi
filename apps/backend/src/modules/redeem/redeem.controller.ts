@@ -16,7 +16,7 @@ import { RedeemService } from './redeem.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 import { RedeemCodeDto, GenerateCodesDto, UpdateCodeDto } from './dto/redeem.dto';
 
 /**
@@ -51,10 +51,10 @@ export class RedeemController {
     },
   })
   async redeemCode(
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: CurrentUserInfo,
     @Body() dto: RedeemCodeDto,
   ) {
-    return this.redeemService.redeemCode(user.userId, dto.code);
+    return this.redeemService.redeemCode(user.id, dto.code);
   }
 
   /**
@@ -77,11 +77,11 @@ export class RedeemController {
     },
   })
   async generateCodes(
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: CurrentUserInfo,
     @Body() dto: GenerateCodesDto,
   ) {
     return this.redeemService.generateCodes(
-      user.userId,
+      user.id,
       dto.type,
       dto.value,
       dto.count,

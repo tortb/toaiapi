@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -132,12 +133,10 @@ export class ApiKeyController {
     description: '生成新的 key 值，保留原有配置。旧 key 立即失效。完整 key 只在此次返回。',
   })
   @ApiOkResponse({ type: ApiKeyResponseDto })
-  async rotateApiKey(
-    @CurrentUser() user: CurrentUserInfo,
-    @Param('id') keyId: string,
-  ): Promise<ApiKeyResponseDto> {
-    return this.apiKeyService.rotateApiKey(user.id, keyId);
+  async rotateApiKey(): Promise<never> {
+    throw new ForbiddenException("API Key 轮换功能已关闭");
   }
+
 
   /**
    * 获取 API Key 用量统计

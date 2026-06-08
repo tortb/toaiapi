@@ -100,6 +100,7 @@ export class SmtpConfigService {
 
   /**
    * 切换启用状态
+   * 无配置时自动创建默认配置并启用
    */
   async toggle(): Promise<SmtpConfig> {
     const config = await this.prisma.smtpConfig.findUnique({
@@ -107,7 +108,11 @@ export class SmtpConfigService {
     });
 
     if (!config) {
-      throw new NotFoundException('SMTP config not found');
+      const created = await this.prisma.smtpConfig.create({
+        data: { name: 'default', is_enabled: true },
+      });
+      this.logger.log('SMTP config created and enabled (was missing)');
+      return this.maskSensitiveFields(created);
     }
 
     const updated = await this.prisma.smtpConfig.update({

@@ -7,7 +7,7 @@ import {
 import { ApiTags, ApiOperation, ApiSecurity, ApiOkResponse } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 import { AnalyticsQueryDto } from './dto/analytics-query.dto';
 
 /**
@@ -53,10 +53,10 @@ export class AnalyticsController {
     },
   })
   async getAnalytics(
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: CurrentUserInfo,
     @Query() query: AnalyticsQueryDto,
   ) {
-    return this.analyticsService.getAnalytics(user.userId, query.days);
+    return this.analyticsService.getAnalytics(user.id, query.days);
   }
 
   /**
@@ -73,10 +73,10 @@ export class AnalyticsController {
     description: '调用趋势数据',
   })
   async getCallTrend(
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: CurrentUserInfo,
     @Query() query: AnalyticsQueryDto,
   ) {
-    return this.analyticsService.getCallTrend(user.userId, query.days);
+    return this.analyticsService.getCallTrend(user.id, query.days);
   }
 
   /**
@@ -93,9 +93,9 @@ export class AnalyticsController {
     description: '模型排行数据',
   })
   async getModelRanking(
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: CurrentUserInfo,
     @Query() query: AnalyticsQueryDto,
   ) {
-    return this.analyticsService.getModelRanking(user.userId, query.days, query.limit);
+    return this.analyticsService.getModelRanking(user.id, query.days, query.limit);
   }
 }

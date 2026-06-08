@@ -57,12 +57,38 @@ export interface ChannelStatus {
   todayRequests: number;
 }
 
+export interface PerformanceHealth {
+  successRate: number | null;
+  avgLatencyMs: number | null;
+  throughput24h: number | null;
+  totalRequests24h: number;
+  totalConsumption24h: number;
+  totalTokens24h: number;
+}
+
+export interface ApiInfo {
+  totalModels: number;
+  totalChannels: number;
+  totalProviders: number;
+  activeChannels: number;
+}
+
+export interface PlatformAnnouncement {
+  title: string;
+  content: string;
+  updatedAt: string;
+}
+
 export interface DashboardData {
   metrics: MetricCardData;
   callStats: CallStatsPoint[];
   modelDistribution: ModelDistribution[];
   recentOrders: RecentOrder[];
   channelStatus: ChannelStatus[];
+  performance: PerformanceHealth;
+  apiInfo: ApiInfo;
+  announcements: PlatformAnnouncement[];
+  faq: Array<{ question: string; answer: string }>;
 }
 
 // ──────────────────────────────────────────────
@@ -799,6 +825,16 @@ export interface CreateChannelPayload {
   apiKey: string;
   weight?: number;
   priority?: number;
+  groupId?: string;
+  tags?: string;
+  notes?: string;
+  modelMapping?: string;
+  statusCodeMapping?: string;
+  paramOverrides?: string;
+  headerOverrides?: string;
+  proxy?: string;
+  systemPrompt?: string;
+  autoDisableOnFailure?: boolean;
 }
 
 export interface UpdateChannelPayload {
@@ -807,6 +843,16 @@ export interface UpdateChannelPayload {
   apiKey?: string;
   weight?: number;
   priority?: number;
+  groupId?: string;
+  tags?: string;
+  notes?: string;
+  modelMapping?: string;
+  statusCodeMapping?: string;
+  paramOverrides?: string;
+  headerOverrides?: string;
+  proxy?: string;
+  systemPrompt?: string;
+  autoDisableOnFailure?: boolean;
 }
 
 export interface ChannelListParams {

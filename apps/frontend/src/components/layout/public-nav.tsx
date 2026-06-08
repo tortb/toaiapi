@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const navLinks = [
-  { label: '产品', href: '#' },
+  { label: '首页', href: '/' },
   { label: '模型', href: '/models' },
   { label: '价格', href: '/pricing' },
   { label: '排行榜', href: '/leaderboard' },

@@ -1,43 +1,50 @@
-import { PublicLayout } from '@/components/layout/public-layout'
-import { Circle } from 'lucide-react'
+import { PublicLayout } from "@/components/layout/public-layout";
+import { getStatus } from "@/lib/api";
 
-const channels = [
-  ['OpenAI', 'openai-main', 'ACTIVE', '245ms', '152.3K', '0.02%'],
-  ['OpenAI', 'openai-eu', 'ACTIVE', '312ms', '89.1K', '0.03%'],
-  ['Anthropic', 'anthropic-main', 'ACTIVE', '412ms', '98.7K', '0.01%'],
-  ['Google', 'google-main', 'RATE_LIMITED', '523ms', '45.2K', '0.15%'],
-  ['DeepSeek', 'deepseek-main', 'ACTIVE', '189ms', '67.8K', '0.05%'],
-]
+function formatNumber(value?: number) {
+  if (!value) return "0";
+  if (value >= 100000000) return `${(value / 100000000).toFixed(1)}亿`;
+  if (value >= 10000) return `${(value / 10000).toFixed(1)}万`;
+  return value.toLocaleString("zh-CN");
+}
 
-export default function StatusPage() {
+export default async function StatusPage() {
+  const channels = await getStatus().catch(() => []);
+  const healthyCount = channels.filter((channel) => channel.healthy).length;
+  const failedCount = channels.length - healthyCount;
+
   return (
     <PublicLayout>
-      <div className="max-w-[1440px] mx-auto px-10 py-16">
+      <div className="max-w-[1440px] mx-auto px-6 lg:px-10 py-16">
         <div className="mb-8"><h1 className="text-4xl font-bold text-[var(--foreground)]">服务状态</h1><p className="mt-2 text-base text-[var(--text-secondary)]">各渠道实时运行状态和性能指标</p></div>
-        <div className="flex items-center gap-4 p-5 mb-6 bg-[var(--success-bg)] rounded-xl">
-          <div className="w-3 h-3 rounded-full bg-[var(--success)]" />
-          <span className="text-base font-semibold text-[var(--success)]">所有系统运行正常</span>
-          <span className="text-sm text-[var(--text-secondary)] flex-1 text-right">12 个渠道在线 · 0 个异常</span>
+        <div className={`flex items-center gap-4 p-5 mb-6 rounded-lg ${failedCount === 0 ? "bg-[var(--success-bg)]" : "bg-[var(--warning-bg)]"}`}>
+          <div className={`w-3 h-3 rounded-full ${failedCount === 0 ? "bg-[var(--success)]" : "bg-[var(--warning)]"}`} />
+          <span className={`text-base font-semibold ${failedCount === 0 ? "text-[var(--success)]" : "text-[var(--warning)]"}`}>{failedCount === 0 ? "所有系统运行正常" : "部分渠道需要关注"}</span>
+          <span className="text-sm text-[var(--text-secondary)] flex-1 text-right">{healthyCount} 个渠道在线 · {failedCount} 个异常</span>
         </div>
-        <div className="bg-white border border-[var(--line)] rounded-xl overflow-hidden">
-          <div className="flex px-4 py-3.5 bg-[var(--surface-soft)] text-xs font-semibold text-[var(--text-muted)]">
-            {['提供商', '渠道', '状态', '平均延迟', '总请求数', '失败率'].map((h) => <div key={h} className="flex-1">{h}</div>)}
-          </div>
-          {channels.map((ch) => (
-            <div key={ch[1]} className="flex px-4 py-3.5 text-sm items-center border-b border-[var(--line)] last:border-b-0">
-              <div className="flex-1 text-[var(--foreground)]">{ch[0]}</div>
-              <div className="flex-1 text-[var(--text-secondary)]">{ch[1]}</div>
-              <div className="flex-1 flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${ch[2] === 'ACTIVE' ? 'bg-[var(--success)]' : 'bg-[var(--warning)]'}`} />
-                <span className={ch[2] === 'ACTIVE' ? 'text-[var(--success)]' : 'text-[var(--warning)]'}>{ch[2] === 'ACTIVE' ? '正常' : '限流'}</span>
-              </div>
-              <div className="flex-1 text-[var(--foreground)]">{ch[3]}</div>
-              <div className="flex-1 text-[var(--foreground)]">{ch[4]}</div>
-              <div className="flex-1 text-[var(--text-secondary)]">{ch[5]}</div>
+        <div className="bg-white border border-[var(--line)] rounded-lg overflow-x-auto">
+          <div className="min-w-[860px]">
+            <div className="grid grid-cols-6 px-4 py-3.5 bg-[var(--surface-soft)] text-xs font-semibold text-[var(--text-muted)]">
+              {["提供商", "渠道", "状态", "平均延迟", "总请求数", "失败率"].map((header) => <div key={header}>{header}</div>)}
             </div>
-          ))}
+            {channels.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-[var(--text-secondary)]">暂无渠道状态数据</div>
+            ) : channels.map((channel) => (
+              <div key={`${channel.provider || ""}-${channel.name}`} className="grid grid-cols-6 px-4 py-3.5 text-sm items-center border-b border-[var(--line)] last:border-b-0">
+                <div className="text-[var(--foreground)] truncate pr-3">{channel.provider || "-"}</div>
+                <div className="text-[var(--text-secondary)] truncate pr-3">{channel.channel || channel.name}</div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${channel.healthy ? "bg-[var(--success)]" : "bg-[var(--warning)]"}`} />
+                  <span className={channel.healthy ? "text-[var(--success)]" : "text-[var(--warning)]"}>{channel.healthy ? "正常" : channel.status || "异常"}</span>
+                </div>
+                <div className="text-[var(--foreground)]">{channel.avgLatencyMs == null ? "-" : `${channel.avgLatencyMs}ms`}</div>
+                <div className="text-[var(--foreground)]">{formatNumber(channel.totalRequests)}</div>
+                <div className="text-[var(--text-secondary)]">{channel.failureRate == null ? "-" : `${channel.failureRate}%`}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </PublicLayout>
-  )
+  );
 }

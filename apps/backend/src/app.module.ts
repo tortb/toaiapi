@@ -11,7 +11,7 @@ import { BalanceModule } from './modules/balance/balance.module';
 import { RequestLogModule } from './modules/request-log/request-log.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PaymentModule } from './modules/payment/payment.module';
-import { CheckinModule } from './modules/checkin/checkin.module';
+
 import { RedeemModule } from './modules/redeem/redeem.module';
 import { InviteModule } from './modules/invite/invite.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -51,7 +51,6 @@ import { AppService } from './app.service';
     RequestLogModule,
     AdminModule,
     PaymentModule,
-    CheckinModule,
     RedeemModule,
     InviteModule,
     NotificationModule,

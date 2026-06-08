@@ -224,7 +224,7 @@ export async function getPublicModels(): Promise<Model[]>
 
 **请求**: `GET /api/v1/models/public`
 
-**用途**: 首页模型展示、定价页、模型详情页
+**用途**: 首页模型展示、定价页、模型详情页（详情页从列表中按模型名匹配）
 
 **返回字段** (`Model`):
 
@@ -248,15 +248,9 @@ export async function getPublicModels(): Promise<Model[]>
 export async function getModelDetail(name: string): Promise<ModelDetail>
 ```
 
-**请求**: `GET /api/v1/models/public/:name`
+**实现**: 后端当前只提供 `GET /api/v1/models/public` 列表接口，前端从公开模型列表中按 `id` 或 `name` 匹配详情，不调用不存在的单模型接口。
 
-**返回** (`ModelDetail`):
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| (继承 Model) | | |
-| groupPricing | ModelGroupPricing[] | 分组价格列表 |
-| apiEndpoints | ModelApiEndpoint[] | API 端点示例 |
+**返回** (`ModelDetail`): 继承 `Model`，并附加 OpenAI 兼容调用端点示例。
 
 ### 4.3 获取服务状态
 
@@ -454,30 +448,6 @@ interface NotificationConfig {
 }
 ```
 
-### 5.5 实名认证（前端接口已定义，后端需配合）
-
-| 函数 | 请求 | 说明 |
-|------|------|------|
-| `getVerificationStatus()` | `GET /api/v1/verification/status` | 查询认证状态 |
-| `submitVerification(data)` | `POST /api/v1/verification` | 提交认证 |
-| `uploadVerificationImage(file)` | `POST /api/v1/verification/upload` | 上传证件照 |
-
-**`VerificationStatus`**:
-
-```typescript
-interface VerificationStatus {
-  status: "none" | "pending" | "verified" | "rejected";
-  name?: string;
-  idNumber?: string;
-  frontUrl?: string;
-  backUrl?: string;
-  rejectReason?: string;
-  verifiedAt?: string;
-}
-```
-
-> ⚠️ **注意**: 实名认证接口在后端控制器中暂未找到对应实现，前端已预先定义接口。
-
 ---
 
 ## 6. 支付接口模块 (payment-api)
@@ -495,9 +465,9 @@ interface VerificationStatus {
 
 ```typescript
 interface BalanceInfo {
-  amount: number;    // 总余额（分）
-  frozen: number;    // 冻结金额（分）
-  available: number; // 可用余额（分）
+  amount: number;    // 总余额（元）
+  frozen: number;    // 冻结金额（元）
+  available: number; // 可用余额（元）
 }
 ```
 
@@ -587,7 +557,7 @@ interface BillItem {
   cachedTokens: number;
   reasoningTokens: number;
   totalTokens: number;
-  cost: number;           // 分
+  cost: number;           // 元（balance/bills 后端已转换）
   statusCode: number;
   latencyMs: number;
   modelId: string;
@@ -599,10 +569,8 @@ interface BillItem {
 
 | 函数 | 请求 | 说明 |
 |------|------|------|
-| `redeemCode(code)` | `POST /api/v1/payment/redeem` | ⚠️ 前端调用的是 `/payment/redeem`，后端实际路径是 `/redeem` |
+| `redeemCode(code)` | `POST /api/v1/redeem` | 兑换码充值 |
 | `getInviteStats()` | `GET /api/v1/invite/stats` | 邀请奖励统计 |
-
-> ⚠️ **兑换码接口路径不匹配**: 前端 payment-api.ts 调用 `POST /api/v1/payment/redeem`，但后端实际路由是 `POST /api/v1/redeem`，需确认代理配置或调整路径。
 
 **`InviteStats`**:
 
@@ -981,14 +949,14 @@ code ≠ 0 → 抛出 ApiError(message, status, code, payload)
 
 ## 11. 前后端对接注意事项
 
-### 11.1 已知路径不匹配
+### 11.1 当前对接状态
 
-| 前端调用 | 后端实际路由 | 建议处理 |
-|----------|-------------|----------|
-| `POST /api/v1/payment/redeem` | `POST /api/v1/redeem` | 添加 `/payment/redeem` 到 `/redeem` 的重定向或确认后端是否已处理 |
-| `GET /api/v1/verification/status` | ❌ 后端无此路由 | 前端已定义但后端未实现实名认证模块 |
-| `POST /api/v1/verification` | ❌ 后端无此路由 | 同上 |
-| `POST /api/v1/verification/upload` | ❌ 后端无此路由 | 同上 |
+| 模块 | 当前处理 |
+|------|----------|
+| 兑换码 | 前端已改为 `POST /api/v1/redeem`，与后端路由一致 |
+| 实名认证 | 前端已移除无后端支持的接口封装，旧页面跳转到个人设置 |
+| 模型详情 | 后端只提供公开模型列表，前端从 `/models/public` 列表派生详情 |
+| 签到 | 前端已接入 `/checkin/config`、`/checkin/stats`、`/checkin/history` 和 `POST /checkin` |
 
 ### 11.2 字段命名兼容性
 
@@ -1004,7 +972,9 @@ code ≠ 0 → 抛出 ApiError(message, status, code, payload)
 
 | 场景 | 后端单位 | 前端展示 | 转换 |
 |------|---------|---------|------|
-| 余额/消费/充值 | 分 (fen) | 元 | `yuan = fen / 100` |
+| 余额接口 | 元 | 元 | 直接使用 |
+| 请求日志费用 | 分 (fen) | 元 | `yuan = fen / 100` |
+| 消费明细/每日账单 | 元 | 元 | 后端已转换，直接使用 |
 | 模型定价设置 | 元/百万 token | 元/百万 token | 直接使用 |
 | 充值金额输入 | 元 | 元 | 后端 `amount` 以元为单位 |
 
@@ -1050,7 +1020,7 @@ PaginatedResponse<T> 直接声明
 | 模块 | 函数 | HTTP | 路径 | 认证 |
 |------|------|------|------|------|
 | public | `getPublicModels` | GET | `/models/public` | ❌ |
-| public | `getModelDetail` | GET | `/models/public/:name` | ❌ |
+| public | `getModelDetail` | 派生 | `/models/public` 列表匹配 | ❌ |
 | public | `getStatus` | GET | `/status` | ❌ |
 | config | `usePublicConfig` | GET | `/public-config` | ❌ |
 | auth | `login` | POST | `/auth/login` | ❌ |
@@ -1074,9 +1044,6 @@ PaginatedResponse<T> 直接声明
 | user | `getNotificationConfig` | GET | `/users/me/notifications` | JWT |
 | user | `updateNotificationConfig` | PUT | `/users/me/notifications` | JWT |
 | user | `sendTestNotification` | POST | `/users/me/notifications/test` | JWT |
-| user | `getVerificationStatus` | GET | `/verification/status` | JWT |
-| user | `submitVerification` | POST | `/verification` | JWT |
-| user | `uploadVerificationImage` | POST | `/verification/upload` | JWT |
 | payment | `getBalance` | GET | `/balance` | JWT |
 | payment | `getBalanceStats` | GET | `/balance/stats` | JWT |
 | payment | `getPaymentMethods` | GET | `/payment/methods` | ❌ |
@@ -1086,7 +1053,7 @@ PaginatedResponse<T> 直接声明
 | payment | `getOrderStatus` | GET | `/payment/orders/:orderNo` | JWT |
 | payment | `getBills` | GET | `/balance/bills` | JWT |
 | payment | `getDailyBills` | GET | `/balance/bills/daily` | JWT |
-| payment | `redeemCode` | POST | `/payment/redeem` | ⚠️ |
+| payment | `redeemCode` | POST | `/redeem` | JWT |
 | payment | `getInviteStats` | GET | `/invite/stats` | JWT |
 | admin | `getDashboard` | GET | `/admin/dashboard` | JWT+admin |
 | admin | `getUsers` | GET | `/admin/users` | JWT+admin |
@@ -1112,14 +1079,15 @@ PaginatedResponse<T> 直接声明
 
 ```
 100 分 = 1 元
-余额余额接口返回分 → 前端 display: fen / 100
+余额接口返回元 → 前端直接展示
+请求日志费用返回分 → 前端 display: fen / 100
+消费明细和每日账单费用返回元 → 前端直接展示
 充值接口 amount 参数以元为单位
 模型定价以 "元/百万 token" 为单位
 ```
 
 ### C. 关键发现问题
 
-1. **兑换码路径不匹配**: 前端 `POST /api/v1/payment/redeem` → 后端 `POST /api/v1/redeem`
-2. **实名认证未实现**: 前端已定义 3 个接口，后端无对应路由
-3. **前端无签到/签到的 API 封装**: 后端有 `checkin` 模块，但前端无对应 `checkin-api.ts`
-4. **字段命名不一致**: 部分模块需要手动转换 `snake_case` ↔ `camelCase`
+1. **公开模型详情**: 后端只提供公开模型列表，前端详情页从列表按模型名派生。
+2. **字段命名不一致**: 部分模块需要手动转换 `snake_case` ↔ `camelCase`。
+3. **金额单位差异**: 余额和消费明细返回元，请求日志费用返回分。

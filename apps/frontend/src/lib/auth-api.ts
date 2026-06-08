@@ -43,7 +43,15 @@ export interface RegisterPayload {
   displayName?: string;
   inviteCode?: string;
   captchaToken?: string;
+  captchaVerifyParam?: string;
   emailCode?: string;
+}
+
+
+export interface SendVerificationCodePayload {
+  email: string;
+  purpose?: string;
+  captchaVerifyParam?: string;
 }
 
 // ──────────────────────────────────────────────
@@ -141,22 +149,28 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // Auth API
 // ──────────────────────────────────────────────
 
-/**
- * 管理员登录
- */
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   const data = await authFetch<AuthResponse>(`${API_PREFIX}/auth/login`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 
-  // 验证是否为管理员角色
+  setAuthData(data);
+  return data;
+}
+
+/**
+ * 管理员登录
+ */
+export async function adminLogin(payload: LoginPayload): Promise<AuthResponse> {
+  const data = await login(payload);
+
   const adminRoles = ["admin", "super_admin"];
   if (!adminRoles.includes(data.user.role.toLowerCase())) {
+    clearAuthData();
     throw new Error("权限不足：仅管理员可访问后台");
   }
 
-  setAuthData(data);
   return data;
 }
 
@@ -164,13 +178,32 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
  * 用户注册
  */
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {
+  const body = { ...payload };
+  const captchaVerifyParam = body.captchaVerifyParam;
+  delete body.captchaVerifyParam;
+  delete body.captchaToken;
+
   const data = await authFetch<AuthResponse>(`${API_PREFIX}/auth/register`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    headers: captchaVerifyParam ? { "captcha-verify-param": captchaVerifyParam } : undefined,
+    body: JSON.stringify(body),
   });
 
   setAuthData(data);
   return data;
+}
+
+
+/**
+ * 发送邮箱验证码
+ */
+export async function sendVerificationCode(payload: SendVerificationCodePayload): Promise<{ message: string }> {
+  const body = { email: payload.email, purpose: payload.purpose || "注册" };
+  return authFetch<{ message: string }>(`${API_PREFIX}/auth/send-verification-code`, {
+    method: "POST",
+    headers: payload.captchaVerifyParam ? { "captcha-verify-param": payload.captchaVerifyParam } : undefined,
+    body: JSON.stringify(body),
+  });
 }
 
 /**

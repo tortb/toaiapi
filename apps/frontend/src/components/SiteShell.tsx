@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePublicConfig } from "@/providers/public-config-provider";
 import { useAuthStore } from "@/stores/auth-store";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 import {
   ToAiAPILogo,
   IconChevronDown,
@@ -166,7 +167,7 @@ export function Footer() {
         {config.footer_content && (
           <div
             className="border-t border-gray-200 pt-4 mb-4 text-[12.5px] text-gray-500 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: config.footer_content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(config.footer_content) }}
           />
         )}
 

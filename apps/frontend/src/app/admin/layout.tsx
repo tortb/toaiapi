@@ -12,6 +12,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
+import AdminShell from "@/components/admin/AdminShell";
 
 // 不需要认证的路径
 const PUBLIC_PATHS = ["/admin/login"];
@@ -72,6 +73,6 @@ export default function AdminLayout({
     return null;
   }
 
-  // 已认证的管理员 → 渲染子页面
-  return <>{children}</>;
+  // 已认证的管理员 → 渲染统一后台布局
+  return <AdminShell>{children}</AdminShell>;
 }

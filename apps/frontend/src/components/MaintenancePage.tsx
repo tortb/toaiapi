@@ -2,6 +2,7 @@
 
 import React from "react";
 import { usePublicConfig } from "@/providers/public-config-provider";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 /**
  * 维护模式页面
@@ -33,7 +34,7 @@ export default function MaintenancePage() {
         {config.maintenance_notice && (
           <div
             className="bg-white rounded-lg border border-gray-200 p-6 text-left text-[14px] text-gray-700 leading-relaxed prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: config.maintenance_notice }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(config.maintenance_notice) }}
           />
         )}
 

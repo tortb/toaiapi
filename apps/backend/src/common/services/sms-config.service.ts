@@ -98,6 +98,7 @@ export class SmsConfigService {
 
   /**
    * 切换启用状态
+   * 无配置时自动创建默认配置并启用
    */
   async toggle(): Promise<SmsConfig> {
     const config = await this.prisma.smsConfig.findUnique({
@@ -105,7 +106,11 @@ export class SmsConfigService {
     });
 
     if (!config) {
-      throw new NotFoundException('SMS config not found');
+      const created = await this.prisma.smsConfig.create({
+        data: { name: 'default', display_name: '阿里云短信', is_enabled: true },
+      });
+      this.logger.log('SMS config created and enabled (was missing)');
+      return this.maskSensitiveFields(created);
     }
 
     const updated = await this.prisma.smsConfig.update({

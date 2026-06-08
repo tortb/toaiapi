@@ -11,7 +11,7 @@ import {
 import { ApiTags, ApiOperation, ApiSecurity, ApiOkResponse } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 import { UpdateNotificationConfigDto, TestNotificationDto } from './dto/notification-config.dto';
 
 /**
@@ -47,8 +47,8 @@ export class NotificationController {
       },
     },
   })
-  async getConfig(@CurrentUser() user: { userId: string }) {
-    return this.notificationService.getConfig(user.userId);
+  async getConfig(@CurrentUser() user: CurrentUserInfo) {
+    return this.notificationService.getConfig(user.id);
   }
 
   /**
@@ -65,10 +65,10 @@ export class NotificationController {
     description: '更新后的配置',
   })
   async updateConfig(
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: CurrentUserInfo,
     @Body() dto: UpdateNotificationConfigDto,
   ) {
-    return this.notificationService.updateConfig(user.userId, dto);
+    return this.notificationService.updateConfig(user.id, dto);
   }
 
   /**
@@ -92,9 +92,9 @@ export class NotificationController {
     },
   })
   async sendTestNotification(
-    @CurrentUser() user: { userId: string; email: string },
+    @CurrentUser() user: CurrentUserInfo,
     @Body() dto: TestNotificationDto,
   ) {
-    return this.notificationService.sendTestNotification(user.userId, user.email, dto.channel);
+    return this.notificationService.sendTestNotification(user.id, user.email, dto.channel);
   }
 }

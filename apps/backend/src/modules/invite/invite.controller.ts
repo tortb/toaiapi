@@ -10,7 +10,7 @@ import {
 import { ApiTags, ApiOperation, ApiSecurity, ApiOkResponse } from '@nestjs/swagger';
 import { InviteService } from './invite.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser, CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 
 /**
  * 邀请奖励控制器
@@ -41,8 +41,8 @@ export class InviteController {
       },
     },
   })
-  async getInviteCode(@CurrentUser() user: { userId: string }) {
-    return this.inviteService.getInviteCode(user.userId);
+  async getInviteCode(@CurrentUser() user: CurrentUserInfo) {
+    return this.inviteService.getInviteCode(user.id);
   }
 
   /**
@@ -79,8 +79,8 @@ export class InviteController {
       ],
     },
   })
-  async getInviteRecords(@CurrentUser() user: { userId: string }) {
-    return this.inviteService.getInviteRecords(user.userId);
+  async getInviteRecords(@CurrentUser() user: CurrentUserInfo) {
+    return this.inviteService.getInviteRecords(user.id);
   }
 
   /**
@@ -105,7 +105,7 @@ export class InviteController {
       },
     },
   })
-  async getInviteStats(@CurrentUser() user: { userId: string }) {
-    return this.inviteService.getInviteStats(user.userId);
+  async getInviteStats(@CurrentUser() user: CurrentUserInfo) {
+    return this.inviteService.getInviteStats(user.id);
   }
 }

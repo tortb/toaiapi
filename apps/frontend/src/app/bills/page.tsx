@@ -1,3 +1,5 @@
-export default function Page() {
-  return <div className="p-8 text-[var(--text-secondary)]">内容开发中</div>
+import { redirect } from "next/navigation";
+
+export default function BillsRedirectPage() {
+  redirect("/dashboard/bills");
 }

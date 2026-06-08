@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, IsUrl, Min, Max, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsBoolean, IsUrl, Min, Max, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
@@ -34,4 +34,54 @@ export class UpdateChannelDto {
   @Min(0)
   @Max(100)
   readonly priority?: number;
+
+  @ApiPropertyOptional({ description: '组织ID' })
+  @IsOptional()
+  @IsString()
+  readonly groupId?: string;
+
+  @ApiPropertyOptional({ description: '标签（逗号分隔）' })
+  @IsOptional()
+  @IsString()
+  readonly tags?: string;
+
+  @ApiPropertyOptional({ description: '内部备注' })
+  @IsOptional()
+  @IsString()
+  readonly notes?: string;
+
+  @ApiPropertyOptional({ description: '模型映射（JSON 字符串）' })
+  @IsOptional()
+  @IsString()
+  readonly modelMapping?: string;
+
+  @ApiPropertyOptional({ description: '状态码映射（JSON 字符串）' })
+  @IsOptional()
+  @IsString()
+  readonly statusCodeMapping?: string;
+
+  @ApiPropertyOptional({ description: '参数覆盖（JSON 字符串）' })
+  @IsOptional()
+  @IsString()
+  readonly paramOverrides?: string;
+
+  @ApiPropertyOptional({ description: '请求头覆盖（JSON 字符串）' })
+  @IsOptional()
+  @IsString()
+  readonly headerOverrides?: string;
+
+  @ApiPropertyOptional({ description: '代理地址' })
+  @IsOptional()
+  @IsString()
+  readonly proxy?: string;
+
+  @ApiPropertyOptional({ description: '系统提示词' })
+  @IsOptional()
+  @IsString()
+  readonly systemPrompt?: string;
+
+  @ApiPropertyOptional({ description: '失败时自动禁用' })
+  @IsOptional()
+  @IsBoolean()
+  readonly autoDisableOnFailure?: boolean;
 }

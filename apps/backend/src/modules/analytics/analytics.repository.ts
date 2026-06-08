@@ -59,27 +59,27 @@ export class AnalyticsRepository {
 
     const ranking = await this.prisma.$queryRaw<
       Array<{
-        model: string;
+        model_id: string | null;
         requests: bigint;
         tokens: bigint;
         cost: bigint;
       }>
     >`
       SELECT
-        model,
+        model_id,
         COUNT(*) as requests,
         SUM(total_tokens) as tokens,
         SUM(cost) as cost
       FROM request_logs
       WHERE user_id = ${userId}
         AND created_at >= ${startDate}
-      GROUP BY model
+      GROUP BY model_id
       ORDER BY cost DESC
       LIMIT ${limit}
     `;
 
     return ranking.map((item) => ({
-      model: item.model,
+      model: item.model_id ?? "Unknown",
       requests: Number(item.requests),
       tokens: Number(item.tokens),
       cost: Number(item.cost),

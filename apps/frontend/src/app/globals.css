@@ -97,7 +97,7 @@
     @apply inline-flex items-center justify-center font-medium transition-all duration-150 rounded-md;
   }
   .notion-btn-primary {
-    @apply notion-btn bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90 active:scale-[0.98];
+    @apply notion-btn bg-[var(--accent)] text-white active:scale-[0.98];
   }
   .notion-btn-secondary {
     @apply notion-btn border border-[var(--line)] text-[var(--foreground)] hover:bg-[var(--surface-soft)] active:scale-[0.98];

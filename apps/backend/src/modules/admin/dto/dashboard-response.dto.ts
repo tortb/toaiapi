@@ -110,6 +110,71 @@ export class ChannelStatusDto {
 }
 
 /**
+ * 性能健康指标
+ */
+export class PerformanceHealthDto {
+  @ApiProperty({ description: '成功率 (%)', nullable: true })
+  successRate!: number | null;
+
+  @ApiProperty({ description: '平均延迟（毫秒）', nullable: true })
+  avgLatencyMs!: number | null;
+
+  @ApiProperty({ description: '24 小时吞吐量', nullable: true })
+  throughput24h!: number | null;
+
+  @ApiProperty({ description: '24 小时请求总数' })
+  totalRequests24h!: number;
+
+  @ApiProperty({ description: '24 小时总消耗（分）' })
+  totalConsumption24h!: number;
+
+  @ApiProperty({ description: '24 小时总 Token 数' })
+  totalTokens24h!: number;
+}
+
+/**
+ * API 信息
+ */
+export class ApiInfoDto {
+  @ApiProperty({ description: '模型总数' })
+  totalModels!: number;
+
+  @ApiProperty({ description: '渠道总数' })
+  totalChannels!: number;
+
+  @ApiProperty({ description: '供应商总数' })
+  totalProviders!: number;
+
+  @ApiProperty({ description: '活跃渠道数' })
+  activeChannels!: number;
+}
+
+/**
+ * 公告
+ */
+export class AnnouncementDto {
+  @ApiProperty({ description: '标题' })
+  title!: string;
+
+  @ApiProperty({ description: '内容' })
+  content!: string;
+
+  @ApiProperty({ description: '更新时间' })
+  updatedAt!: string;
+}
+
+/**
+ * FAQ 条目
+ */
+export class FaqDto {
+  @ApiProperty({ description: '问题' })
+  question!: string;
+
+  @ApiProperty({ description: '答案' })
+  answer!: string;
+}
+
+/**
  * Dashboard 完整响应
  */
 export class DashboardResponseDto {
@@ -127,4 +192,16 @@ export class DashboardResponseDto {
 
   @ApiProperty({ type: [ChannelStatusDto] })
   channelStatus!: ChannelStatusDto[];
+
+  @ApiProperty({ type: PerformanceHealthDto })
+  performance!: PerformanceHealthDto;
+
+  @ApiProperty({ type: ApiInfoDto })
+  apiInfo!: ApiInfoDto;
+
+  @ApiProperty({ type: [AnnouncementDto] })
+  announcements!: AnnouncementDto[];
+
+  @ApiProperty({ type: [FaqDto] })
+  faq!: FaqDto[];
 }

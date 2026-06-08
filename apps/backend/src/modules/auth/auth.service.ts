@@ -18,7 +18,7 @@ import { SystemSettingService } from '../../common/services/system-setting.servi
 import { CaptchaService } from './captcha.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes, createHash, randomInt } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { InviteService } from '../invite/invite.service';
 
@@ -427,32 +427,54 @@ export class AuthService {
    * @param email - 目标邮箱
    * @param purpose - 用途（如 "注册"、"找回密码"）
    */
-  async sendVerificationCode(email: string, purpose: string = '验证'): Promise<void> {
-    // 防刷检查：60 秒内只能发送一次
-    const cooldownKey = `email-code-cooldown:${email}:${purpose}`;
+  async sendVerificationCode(
+    email: string,
+    purpose: string = "验证",
+    captchaVerifyParam?: string,
+    clientIp?: string,
+  ): Promise<void> {
+    await this.verifyCaptchaIfEnabled("captcha_send_email_code_enabled", "captcha_send_email_code_scene_id", captchaVerifyParam);
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPurpose = purpose.trim() || "验证";
+    const ttlSeconds = Math.max(60, Math.min(1800, Number((await this.systemSettingService.getTypedByKey<number>("email_code_ttl_seconds", 300)) ?? 300)));
+    const cooldownSeconds = Math.max(10, Math.min(3600, Number((await this.systemSettingService.getTypedByKey<number>("email_code_cooldown_seconds", 60)) ?? 60)));
+    const emailHourlyLimit = Math.max(1, Math.min(100, Number((await this.systemSettingService.getTypedByKey<number>("email_code_email_limit_per_hour", 5)) ?? 5)));
+    const ipHourlyLimit = Math.max(1, Math.min(500, Number((await this.systemSettingService.getTypedByKey<number>("email_code_ip_limit_per_hour", 20)) ?? 20)));
+
+    const cooldownKey = `email-code-cooldown:${normalizedEmail}:${normalizedPurpose}`;
     const hasCooldown = await this.redis.exists(cooldownKey);
     if (hasCooldown) {
-      throw new BadRequestException('验证码发送过于频繁，请 60 秒后再试');
+      throw new BadRequestException(`验证码发送过于频繁，请 ${cooldownSeconds} 秒后再试`);
     }
 
-    // 生成 6 位随机验证码
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailLimitKey = `email-code-hour-email:${normalizedEmail}`;
+    const emailCount = await this.redis.incr(emailLimitKey);
+    if (emailCount === 1) await this.redis.expire(emailLimitKey, 3600);
+    if (emailCount > emailHourlyLimit) {
+      throw new BadRequestException("该邮箱验证码请求过于频繁，请稍后再试");
+    }
 
-    // 存入 Redis，TTL 5 分钟
-    const codeKey = `email-code:${email}:${purpose}`;
-    await this.redis.set(codeKey, code, 300);
+    const safeIp = (clientIp || "unknown").replace(/[^a-zA-Z0-9:._-]/g, "_");
+    const ipLimitKey = `email-code-hour-ip:${safeIp}`;
+    const ipCount = await this.redis.incr(ipLimitKey);
+    if (ipCount === 1) await this.redis.expire(ipLimitKey, 3600);
+    if (ipCount > ipHourlyLimit) {
+      throw new BadRequestException("当前网络验证码请求过于频繁，请稍后再试");
+    }
 
-    // 设置冷却时间，60 秒
-    await this.redis.set(cooldownKey, '1', 60);
-
-    // 发送邮件
-    const sent = await this.emailService.sendVerificationCodeEmail(email, code, purpose);
+    const code = randomInt(100000, 1000000).toString();
+    const sent = await this.emailService.sendVerificationCodeEmail(normalizedEmail, code, normalizedPurpose);
     if (!sent) {
-      this.logger.warn(`Failed to send verification code to ${email}`);
+      this.logger.warn("Failed to send verification code email");
+      throw new BadRequestException("邮件服务未配置或发送失败，请联系管理员");
     }
 
-    this.logger.log(`Verification code sent to ${email} for ${purpose}`);
+    await this.redis.set(`email-code:${normalizedEmail}:${normalizedPurpose}`, code, ttlSeconds);
+    await this.redis.set(cooldownKey, "1", cooldownSeconds);
+    this.logger.log(`Verification code sent for ${normalizedPurpose}`);
   }
+
 
   /**
    * 验证邮箱验证码
@@ -465,7 +487,9 @@ export class AuthService {
    * @returns 是否验证成功
    */
   async verifyEmailCode(email: string, code: string, purpose: string = '验证'): Promise<boolean> {
-    const codeKey = `email-code:${email}:${purpose}`;
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPurpose = purpose.trim() || '验证';
+    const codeKey = `email-code:${normalizedEmail}:${normalizedPurpose}`;
     const storedCode = await this.redis.get(codeKey);
 
     if (!storedCode || storedCode !== code) {

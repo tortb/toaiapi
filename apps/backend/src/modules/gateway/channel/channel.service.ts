@@ -1,6 +1,6 @@
 import {
   Injectable,
-  NotFoundException,
+  ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
 import { ChannelRepository } from './channel.repository';
@@ -52,7 +52,7 @@ export class ChannelService {
     const channels = await this.channelRepo.findAvailableChannels(modelName);
 
     if (channels.length === 0) {
-      throw new NotFoundException(
+      throw new ServiceUnavailableException(
         `No available channel for model: ${modelName}`,
       );
     }
@@ -60,7 +60,7 @@ export class ChannelService {
     // 按优先级分组
     const firstChannel = channels[0];
     if (!firstChannel) {
-      throw new NotFoundException(`No available channel for model: ${modelName}`);
+      throw new ServiceUnavailableException(`No available channel for model: ${modelName}`);
     }
     const maxPriority = firstChannel.channel.priority;
     const topPriority = channels.filter(
@@ -70,7 +70,7 @@ export class ChannelService {
     // 在最高优先级中按权重选择
     const selected = this.selectByWeight(topPriority);
     if (!selected) {
-      throw new NotFoundException(`No available channel for model: ${modelName}`);
+      throw new ServiceUnavailableException(`No available channel for model: ${modelName}`);
     }
 
     // SECURITY: 解密 API Key
@@ -109,7 +109,7 @@ export class ChannelService {
     const channels = await this.channelRepo.findAvailableChannels(modelName);
 
     if (channels.length === 0) {
-      throw new NotFoundException(
+      throw new ServiceUnavailableException(
         `No available channel for model: ${modelName}`,
       );
     }

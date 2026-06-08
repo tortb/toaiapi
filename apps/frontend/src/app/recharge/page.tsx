@@ -1,1 +1,5 @@
-export default function Page() { return <div className="p-8">充值中心 - 开发中</div> }
+import { redirect } from "next/navigation";
+
+export default function RechargeRedirectPage() {
+  redirect("/dashboard/recharge");
+}

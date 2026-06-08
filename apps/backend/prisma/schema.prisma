@@ -44,7 +44,6 @@ model User {
   realNameVerification     RealNameVerification?
   twoFactorAuth            TwoFactorAuth?
   passkeys                 Passkey[]
-  checkInRecords           CheckInRecord[]
   accountBindings          AccountBinding[]
   invitedBy                InviteRecord?             @relation("InviteeRelation")
   inviteRecords            InviteRecord[]            @relation("InviterRelation")
@@ -447,6 +446,7 @@ model RequestLog {
   @@index([model_id, created_at])
   @@index([channel_id, created_at])
   @@index([created_at])
+  @@map("request_logs")
 }
 
 /// 支付渠道配置表
@@ -663,36 +663,6 @@ model SystemSetting {
   @@index([category])
 }
 
-// ──────────────────────────────────────────────
-// 签到功能
-// ──────────────────────────────────────────────
-
-/// 签到配置表
-model CheckInConfig {
-  id         String   @id @default(cuid())
-  is_enabled Boolean  @default(true)
-  min_reward Int      @default(1000)  // 最小奖励（分）
-  max_reward Int      @default(5000)  // 最大奖励（分）
-  updated_at DateTime @updatedAt
-  created_at DateTime @default(now())
-
-  @@map("check_in_config")
-}
-
-/// 签到记录表
-model CheckInRecord {
-  id         String   @id @default(cuid())
-  user_id    String   @map("user_id")
-  check_date DateTime @map("check_date")  // 签到日期（精确到天）
-  reward     Int                          // 奖励额度（分）
-  created_at DateTime @default(now())
-
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([user_id, check_date])
-  @@index([user_id])
-  @@map("check_in_records")
-}
 
 // ──────────────────────────────────────────────
 // 通知配置

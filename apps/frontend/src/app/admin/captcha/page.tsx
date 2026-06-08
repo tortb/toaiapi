@@ -1,3 +1,5 @@
-export default function Page() {
-  return <div className="p-8 text-[var(--text-secondary)]">内容开发中 - captcha</div>
+import { SettingsCategoryForm } from "@/components/admin/settings/SettingsForm";
+
+export default function AdminCaptchaPage() {
+  return <SettingsCategoryForm route="captcha" />;
 }

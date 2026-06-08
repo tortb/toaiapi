@@ -123,7 +123,11 @@ export class AdminRepository {
   }
 
   async deleteChannel(id: string) {
-    return this.prisma.channel.delete({ where: { id } });
+    // 先删除关联记录，再删除渠道
+    return this.prisma.$transaction([
+      this.prisma.channelModel.deleteMany({ where: { channel_id: id } }),
+      this.prisma.channel.delete({ where: { id } }),
+    ]);
   }
 
   /**
@@ -193,7 +197,12 @@ export class AdminRepository {
   }
 
   async deleteModel(id: string) {
-    return this.prisma.model.delete({ where: { id } });
+    // 先删除关联记录（pricing、channel 关联），再删除模型
+    return this.prisma.$transaction([
+      this.prisma.modelPricing.deleteMany({ where: { model_id: id } }),
+      this.prisma.channelModel.deleteMany({ where: { model_id: id } }),
+      this.prisma.model.delete({ where: { id } }),
+    ]);
   }
 
   async upsertModelPricing(modelId: string, data: Prisma.ModelPricingCreateWithoutModelInput) {
@@ -1157,5 +1166,53 @@ export class AdminRepository {
       },
     });
     return `INV-${dateStr}-${String(count + 1).padStart(6, "0")}`;
+  }
+
+  // ──────────────────────────────────────────────
+  // Enhanced Dashboard Metrics
+  // ──────────────────────────────────────────────
+
+  /**
+   * 获取过去 24 小时的性能指标
+   */
+  async getPerformanceHealth() {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const [stats, successCount, totalCount] = await Promise.all([
+      this.prisma.requestLog.aggregate({
+        where: { created_at: { gte: since } },
+        _avg: { latency_ms: true },
+        _sum: { cost: true, prompt_tokens: true, completion_tokens: true },
+      }),
+      this.prisma.requestLog.count({
+        where: { created_at: { gte: since }, status_code: { lt: 400 } },
+      }),
+      this.prisma.requestLog.count({
+        where: { created_at: { gte: since } },
+      }),
+    ]);
+
+    return {
+      successRate: totalCount > 0 ? Math.round((successCount / totalCount) * 10000) / 100 : null,
+      avgLatencyMs: stats._avg.latency_ms != null ? Math.round(stats._avg.latency_ms) : null,
+      throughput24h: totalCount,
+      totalRequests24h: totalCount,
+      totalConsumption24h: Math.round(stats._sum.cost ?? 0),
+      totalTokens24h: Math.round((stats._sum.prompt_tokens ?? 0) + (stats._sum.completion_tokens ?? 0)),
+    };
+  }
+
+  /**
+   * 获取 API 配置信息
+   */
+  async getApiInfo() {
+    const [totalModels, totalChannels, totalProviders, activeChannels] = await Promise.all([
+      this.prisma.model.count({ where: { is_active: true } }),
+      this.prisma.channel.count(),
+      this.prisma.provider.count(),
+      this.prisma.channel.count({ where: { is_active: true } }),
+    ]);
+
+    return { totalModels, totalChannels, totalProviders, activeChannels };
   }
 }

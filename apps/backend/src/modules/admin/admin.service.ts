@@ -88,6 +88,8 @@ export class AdminService {
       modelDistribution,
       recentOrders,
       channelStatus,
+      performance,
+      apiInfo,
     ] = await Promise.all([
       this.adminRepo.getUserStats(start, end),
       this.adminRepo.getRechargeStats(start, end),
@@ -98,6 +100,8 @@ export class AdminService {
       this.adminRepo.getModelDistribution(start, end),
       this.adminRepo.getRecentOrders(10),
       this.adminRepo.getChannelStatus(),
+      this.adminRepo.getPerformanceHealth(),
+      this.adminRepo.getApiInfo(),
     ]);
 
     // 计算增长率
@@ -122,6 +126,10 @@ export class AdminService {
       modelDistribution,
       recentOrders,
       channelStatus,
+      performance,
+      apiInfo,
+      announcements: [],
+      faq: [],
     };
   }
 
@@ -889,6 +897,16 @@ export class AdminService {
     if (dto.apiKey !== undefined) updateData['api_key'] = encrypt(dto.apiKey);
     if (dto.weight !== undefined) updateData['weight'] = dto.weight;
     if (dto.priority !== undefined) updateData['priority'] = dto.priority;
+    if (dto.groupId !== undefined) updateData['org_id'] = dto.groupId;
+    if (dto.tags !== undefined) updateData['tags'] = dto.tags;
+    if (dto.notes !== undefined) updateData['internal_note'] = dto.notes;
+    if (dto.modelMapping !== undefined) updateData['model_mapping'] = dto.modelMapping;
+    if (dto.statusCodeMapping !== undefined) updateData['status_mapping'] = dto.statusCodeMapping;
+    if (dto.paramOverrides !== undefined) updateData['param_override'] = dto.paramOverrides;
+    if (dto.headerOverrides !== undefined) updateData['header_override'] = dto.headerOverrides;
+    if (dto.proxy !== undefined) updateData['proxy'] = dto.proxy;
+    if (dto.systemPrompt !== undefined) updateData['system_prompt'] = dto.systemPrompt;
+    if (dto.autoDisableOnFailure !== undefined) updateData['auto_disable'] = dto.autoDisableOnFailure;
 
     const channel = await this.adminRepo.updateChannel(id, updateData);
 

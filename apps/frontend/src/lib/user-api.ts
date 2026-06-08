@@ -1,8 +1,7 @@
 /**
  * 用户端 API 客户端
  *
- * 封装用户个人信息、API Key 管理等请求。
- * 自动附加 JWT Token。
+ * 封装用户个人信息、API Key、分析、排行榜、通知等请求。
  */
 
 import { getAccessToken, refreshTokens, clearAuthData } from "./auth-api";
@@ -10,9 +9,18 @@ import { buildApiUrl } from "./http";
 
 const API_PREFIX = "/api/v1";
 
-// ──────────────────────────────────────────────
-// HTTP 请求封装
-// ──────────────────────────────────────────────
+type JsonRecord = Record<string, any>;
+
+async function readErrorMessage(res: Response): Promise<string> {
+  const text = await res.text().catch(() => "");
+  try {
+    const payload = JSON.parse(text);
+    if (payload?.message) return String(payload.message);
+  } catch {
+    // fallback below
+  }
+  return text || `API Error ${res.status}`;
+}
 
 async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = buildApiUrl(path);
@@ -23,10 +31,7 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...(init?.headers as Record<string, string>),
   };
 
-  if (init?.body) {
-    headers["Content-Type"] = "application/json";
-  }
-
+  if (init?.body) headers["Content-Type"] = "application/json";
   headers["Authorization"] = `Bearer ${token}`;
 
   let res = await fetch(url, { ...init, headers, credentials: "include" });
@@ -39,16 +44,12 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
       res = await fetch(url, { ...init, headers, credentials: "include" });
     } catch {
       clearAuthData();
-      window.location.href = "/login";
+      if (typeof window !== "undefined") window.location.href = "/login";
       throw new Error("登录已过期");
     }
   }
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`API Error ${res.status}: ${text}`);
-  }
-
+  if (!res.ok) throw new Error(await readErrorMessage(res));
   if (res.status === 204) return undefined as T;
 
   const json = await res.json();
@@ -59,15 +60,44 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return json as T;
 }
 
-// ──────────────────────────────────────────────
-// 类型定义
-// ──────────────────────────────────────────────
+async function publicFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = buildApiUrl(path);
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.headers as Record<string, string>),
+    },
+    credentials: "omit",
+  });
+
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (res.status === 204) return undefined as T;
+
+  const json = await res.json();
+  if (json && typeof json === "object" && "code" in json && "data" in json) {
+    if (json.code !== 0) throw new Error(json.message || "API Error");
+    return json.data as T;
+  }
+  return json as T;
+}
+
+function periodToDays(period: string): number {
+  const normalized = period.toLowerCase();
+  if (normalized === "24h" || normalized === "today") return 1;
+  if (normalized === "30d" || normalized === "month") return 30;
+  if (normalized === "90d") return 90;
+  if (normalized === "year") return 365;
+  return 7;
+}
 
 export interface UserApiKey {
   id: string;
   name: string | null;
   keyPrefix: string;
+  key?: string;
   isActive: boolean;
+  status?: string;
   expiresAt: string | null;
   rateLimit: number | null;
   tokenLimit: number | null;
@@ -76,42 +106,45 @@ export interface UserApiKey {
   lastUsedAt: string | null;
   totalRequests: number;
   createdAt: string;
-  // 增强字段（后端需配合返回）
-  usageToday?: number;   // 今日消费(分)
-  usage30d?: number;     // 近30天消费(分)
-  group?: { id: string; name: string } | null; // 所属分组
-  rpmLimit?: number;     // RPM 限制
-  tpmLimit?: number;     // TPM 限制
+  usageToday?: number;
+  usage30d?: number;
+  group?: { id: string; name: string } | null;
+  rpmLimit?: number | null;
+  tpmLimit?: number | null;
 }
 
-export interface CreateApiKeyResult {
-  id: string;
-  name: string | null;
-  key: string; // 仅在创建时返回完整 key
-  keyPrefix: string;
-  isActive: boolean;
-  createdAt: string;
+export interface CreateApiKeyResult extends UserApiKey {
+  key: string;
+  keys?: UserApiKey[];
 }
 
 export interface UserProfile {
   id: string;
   email: string;
+  phone: string | null;
   displayName: string | null;
   avatarUrl: string | null;
   role: string;
+  status?: string;
   createdAt: string;
+  realNameVerification?: RealNameVerification | null;
 }
 
-// ──────────────────────────────────────────────
-// 用户信息 API
-// ──────────────────────────────────────────────
+export interface RealNameVerification {
+  status: "PENDING" | "APPROVED" | "REJECTED" | string;
+  type?: string | null;
+  realName?: string | null;
+  name?: string | null;
+  idCard?: string | null;
+  idCardNumber?: string | null;
+  verifiedAt?: string | null;
+  rejectReason?: string | null;
+}
 
-/** 获取当前用户信息 */
 export async function getUserProfile(): Promise<UserProfile> {
   return authFetch<UserProfile>(`${API_PREFIX}/users/me`);
 }
 
-/** 更新用户信息 */
 export async function updateUserProfile(data: {
   displayName?: string;
   avatarUrl?: string;
@@ -122,55 +155,36 @@ export async function updateUserProfile(data: {
   });
 }
 
-/** 修改密码 */
 export async function changePassword(data: {
   oldPassword: string;
   newPassword: string;
 }): Promise<void> {
   return authFetch<void>(`${API_PREFIX}/auth/change-password`, {
     method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-// ──────────────────────────────────────────────
-// API Key 管理
-// ──────────────────────────────────────────────
-
-/** 获取用户的 API Key 列表 */
-export async function getUserApiKeys(): Promise<UserApiKey[]> {
-  return authFetch<UserApiKey[]>(`${API_PREFIX}/api-keys`);
-}
-
-/** 创建 API Key */
-export async function createApiKey(params: {
-  name?: string;
-  count?: number;
-  unlimitedQuota?: boolean;
-  rpmLimit?: number;
-  tpmLimit?: number;
-  expiresAt?: string;
-  groupId?: string;
-  ipWhitelist?: string;
-  modelLimit?: string;
-}): Promise<CreateApiKeyResult> {
-  return authFetch<CreateApiKeyResult>(`${API_PREFIX}/api-keys`, {
-    method: "POST",
     body: JSON.stringify({
-      name: params.name || undefined,
-      count: params.count,
-      unlimited_quota: params.unlimitedQuota,
-      rpm_limit: params.rpmLimit,
-      tpm_limit: params.tpmLimit,
-      expires_at: params.expiresAt || undefined,
-      group_id: params.groupId || undefined,
-      ip_whitelist: params.ipWhitelist || undefined,
-      model_limit: params.modelLimit || undefined,
+      currentPassword: data.oldPassword,
+      newPassword: data.newPassword,
     }),
   });
 }
 
-/** 更新 API Key 配置 */
+export async function getUserApiKeys(): Promise<UserApiKey[]> {
+  const items = await authFetch<JsonRecord[]>(`${API_PREFIX}/api-keys`);
+  return items.map(normalizeApiKey);
+}
+
+export async function createApiKey(params: {
+  name?: string;
+}): Promise<CreateApiKeyResult> {
+  const result = await authFetch<JsonRecord>(`${API_PREFIX}/api-keys`, {
+    method: "POST",
+    body: JSON.stringify({
+      name: params.name || undefined,
+    }),
+  });
+  return normalizeApiKey(result) as CreateApiKeyResult;
+}
+
 export async function updateApiKey(
   id: string,
   data: {
@@ -182,43 +196,28 @@ export async function updateApiKey(
     ipWhitelist?: string[];
   },
 ): Promise<UserApiKey> {
-  return authFetch<UserApiKey>(`${API_PREFIX}/api-keys/${id}`, {
+  const result = await authFetch<JsonRecord>(`${API_PREFIX}/api-keys/${id}`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
+  return normalizeApiKey(result);
 }
 
-/** 启用 API Key */
 export async function enableApiKey(id: string): Promise<UserApiKey> {
-  return authFetch<UserApiKey>(`${API_PREFIX}/api-keys/${id}/enable`, {
-    method: "PATCH",
-  });
+  return normalizeApiKey(await authFetch<JsonRecord>(`${API_PREFIX}/api-keys/${id}/enable`, { method: "PATCH" }));
 }
 
-/** 禁用 API Key */
 export async function disableApiKey(id: string): Promise<UserApiKey> {
-  return authFetch<UserApiKey>(`${API_PREFIX}/api-keys/${id}/disable`, {
-    method: "PATCH",
-  });
+  return normalizeApiKey(await authFetch<JsonRecord>(`${API_PREFIX}/api-keys/${id}/disable`, { method: "PATCH" }));
 }
 
-/** 删除 API Key */
 export async function deleteApiKey(id: string): Promise<void> {
-  return authFetch<void>(`${API_PREFIX}/api-keys/${id}`, {
-    method: "DELETE",
-  });
+  return authFetch<void>(`${API_PREFIX}/api-keys/${id}`, { method: "DELETE" });
 }
 
-/** 轮换 API Key */
-export async function rotateApiKey(id: string): Promise<CreateApiKeyResult> {
-  return authFetch<CreateApiKeyResult>(`${API_PREFIX}/api-keys/${id}/rotate`, {
-    method: "POST",
-  });
+export async function deleteCurrentUser(): Promise<void> {
+  return authFetch<void>(`${API_PREFIX}/users/me`, { method: "DELETE" });
 }
-
-// ──────────────────────────────────────────────
-// 数据分析 API
-// ──────────────────────────────────────────────
 
 export interface AnalyticsSummary {
   totalUsers: number;
@@ -238,12 +237,14 @@ export interface ModelCallItem {
   model: string;
   calls: number;
   tokens: number;
+  cost?: number;
 }
 
 export interface CallTrendItem {
   date: string;
   calls: number;
   tokens: number;
+  cost?: number;
 }
 
 export interface AnalyticsResponse {
@@ -253,24 +254,46 @@ export interface AnalyticsResponse {
   callTrend: CallTrendItem[];
 }
 
-/** 获取模型调用分析数据 */
 export async function getAnalytics(period: string = "7d"): Promise<AnalyticsResponse> {
-  return authFetch<AnalyticsResponse>(`${API_PREFIX}/balance/analytics?period=${period}`);
+  const raw = await authFetch<JsonRecord>(`${API_PREFIX}/balance/analytics?days=${periodToDays(period)}`);
+  const ranking = raw.model_ranking ?? raw.modelRanking ?? raw.modelCallAnalysis ?? [];
+  return {
+    summary: {
+      totalUsers: raw.summary?.totalUsers ?? 0,
+      totalQuota: raw.summary?.totalQuota ?? raw.overview?.total_cost ?? 0,
+      totalTokens: raw.summary?.totalTokens ?? raw.overview?.total_tokens ?? 0,
+      avgRpm: raw.summary?.avgRpm ?? 0,
+      avgTpm: raw.summary?.avgTpm ?? 0,
+    },
+    costDistribution: (raw.costDistribution ?? ranking).map((item: JsonRecord) => ({
+      model: item.model,
+      cost: item.cost ?? 0,
+      percentage: item.percentage ?? 0,
+    })),
+    modelCallAnalysis: ranking.map((item: JsonRecord) => ({
+      model: item.model ?? item.modelId ?? item.model_id ?? "-",
+      calls: item.calls ?? item.requests ?? 0,
+      tokens: item.tokens ?? 0,
+      cost: item.cost ?? 0,
+    })),
+    callTrend: (raw.callTrend ?? raw.call_trend ?? []).map(normalizeCallTrend),
+  };
 }
 
-/** 获取调用趋势 */
 export async function getCallTrend(period: string = "7d"): Promise<CallTrendItem[]> {
-  return authFetch<CallTrendItem[]>(`${API_PREFIX}/balance/analytics/call-trend?period=${period}`);
+  const raw = await authFetch<JsonRecord[]>(`${API_PREFIX}/balance/analytics/call-trend?days=${periodToDays(period)}`);
+  return raw.map(normalizeCallTrend);
 }
 
-/** 获取模型调用排行 */
 export async function getModelRanking(period: string = "7d"): Promise<ModelCallItem[]> {
-  return authFetch<ModelCallItem[]>(`${API_PREFIX}/balance/analytics/model-ranking?period=${period}`);
+  const raw = await authFetch<JsonRecord[]>(`${API_PREFIX}/balance/analytics/model-ranking?days=${periodToDays(period)}`);
+  return raw.map((item) => ({
+    model: item.model ?? item.modelId ?? item.model_id ?? "-",
+    calls: item.calls ?? item.requests ?? 0,
+    tokens: item.tokens ?? 0,
+    cost: item.cost ?? 0,
+  }));
 }
-
-// ──────────────────────────────────────────────
-// 排行榜 API
-// ──────────────────────────────────────────────
 
 export interface LeaderboardModel {
   rank: number;
@@ -278,7 +301,7 @@ export interface LeaderboardModel {
   vendor: string;
   requests: number;
   tokens: number;
-  change: number; // 排名变化，正数上升，负数下降
+  change: number;
 }
 
 export interface VendorMarketShare {
@@ -290,7 +313,7 @@ export interface VendorMarketShare {
 export interface TrendingModel {
   model: string;
   vendor: string;
-  change: number; // 百分比变化
+  change: number;
   currentRank: number;
 }
 
@@ -302,14 +325,21 @@ export interface LeaderboardResponse {
   falling: TrendingModel[];
 }
 
-/** 获取排行榜数据 */
 export async function getLeaderboard(period: string = "week"): Promise<LeaderboardResponse> {
-  return authFetch<LeaderboardResponse>(`${API_PREFIX}/leaderboard?period=${period}`);
+  const raw = await publicFetch<JsonRecord>(`${API_PREFIX}/leaderboard?period=${encodeURIComponent(period.toUpperCase())}`);
+  const hotModels = (raw.hotModels ?? raw.hot_models ?? []).map(normalizeLeaderboardModel);
+  const marketShare = (raw.marketShare ?? raw.vendorShare ?? raw.vendor_share ?? []).map(normalizeVendorShare);
+  const trending = raw.trending ?? {};
+  const rising = (raw.rising ?? trending.rising ?? []).map(normalizeTrendingModel);
+  const falling = (raw.falling ?? trending.falling ?? []).map(normalizeTrendingModel);
+  return {
+    hotModels,
+    leaderboard: raw.leaderboard ? raw.leaderboard.map(normalizeLeaderboardModel) : hotModels,
+    marketShare,
+    rising,
+    falling,
+  };
 }
-
-// ──────────────────────────────────────────────
-// 通知配置 API
-// ──────────────────────────────────────────────
 
 export interface NotificationChannel {
   enabled: boolean;
@@ -329,7 +359,7 @@ export interface NotificationConfig {
     announcements: boolean;
     priceChanges: boolean;
   };
-  lowBalanceThreshold: number; // 单位: 分
+  lowBalanceThreshold: number;
   channels: {
     email: NotificationChannel;
     webhook: NotificationChannel;
@@ -340,20 +370,20 @@ export interface NotificationConfig {
   };
 }
 
-/** 获取通知配置 */
 export async function getNotificationConfig(): Promise<NotificationConfig> {
-  return authFetch<NotificationConfig>(`${API_PREFIX}/users/me/notifications`);
+  const raw = await authFetch<JsonRecord>(`${API_PREFIX}/users/me/notifications`);
+  return normalizeNotificationConfig(raw);
 }
 
-/** 更新通知配置 */
 export async function updateNotificationConfig(config: Partial<NotificationConfig>): Promise<NotificationConfig> {
-  return authFetch<NotificationConfig>(`${API_PREFIX}/users/me/notifications`, {
+  const payload = denormalizeNotificationConfig(config);
+  const raw = await authFetch<JsonRecord>(`${API_PREFIX}/users/me/notifications`, {
     method: "PUT",
-    body: JSON.stringify(config),
+    body: JSON.stringify(payload),
   });
+  return normalizeNotificationConfig(raw);
 }
 
-/** 发送测试通知 */
 export async function sendTestNotification(channel: string): Promise<void> {
   return authFetch<void>(`${API_PREFIX}/users/me/notifications/test`, {
     method: "POST",
@@ -361,63 +391,98 @@ export async function sendTestNotification(channel: string): Promise<void> {
   });
 }
 
-// ──────────────────────────────────────────────
-// 实名认证 API
-// ──────────────────────────────────────────────
-
-export interface VerificationStatus {
-  status: "none" | "pending" | "verified" | "rejected";
-  name?: string;
-  idNumber?: string;
-  frontUrl?: string;
-  backUrl?: string;
-  rejectReason?: string;
-  verifiedAt?: string;
+function normalizeApiKey(item: JsonRecord): UserApiKey {
+  return {
+    ...item,
+    id: item.id,
+    name: item.name ?? null,
+    keyPrefix: item.keyPrefix ?? item.key_prefix ?? "",
+    key: item.key,
+    isActive: item.isActive ?? item.is_active ?? item.status === "ACTIVE",
+    status: item.status,
+    expiresAt: item.expiresAt ?? item.expires_at ?? null,
+    rateLimit: item.rateLimit ?? item.rate_limit ?? null,
+    tokenLimit: item.tokenLimit ?? item.token_limit ?? null,
+    modelLimit: Array.isArray(item.modelLimit ?? item.model_limit) ? item.modelLimit ?? item.model_limit : [],
+    ipWhitelist: Array.isArray(item.ipWhitelist ?? item.ip_whitelist) ? item.ipWhitelist ?? item.ip_whitelist : [],
+    lastUsedAt: item.lastUsedAt ?? item.last_used_at ?? null,
+    totalRequests: item.totalRequests ?? item.total_requests ?? 0,
+    createdAt: item.createdAt ?? item.created_at ?? "",
+    usageToday: item.usageToday ?? item.usage_today,
+    usage30d: item.usage30d ?? item.usage_30d,
+    group: item.group ?? null,
+    rpmLimit: item.rpmLimit ?? item.rpm_limit ?? null,
+    tpmLimit: item.tpmLimit ?? item.tpm_limit ?? null,
+  };
 }
 
-/** 查询认证状态 */
-export async function getVerificationStatus(): Promise<VerificationStatus> {
-  return authFetch<VerificationStatus>(`${API_PREFIX}/verification/status`);
+function normalizeCallTrend(item: JsonRecord): CallTrendItem {
+  return {
+    date: item.date,
+    calls: item.calls ?? item.requests ?? 0,
+    tokens: item.tokens ?? 0,
+    cost: item.cost ?? 0,
+  };
 }
 
-/** 提交实名认证 */
-export async function submitVerification(data: {
-  name: string;
-  idNumber: string;
-  frontImageId: string;
-  backImageId: string;
-}): Promise<VerificationStatus> {
-  return authFetch<VerificationStatus>(`${API_PREFIX}/verification`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
+function normalizeLeaderboardModel(item: JsonRecord, index: number): LeaderboardModel {
+  return {
+    rank: item.rank ?? index + 1,
+    model: item.model ?? item.name ?? "-",
+    vendor: item.vendor ?? item.provider ?? "-",
+    requests: item.requests ?? 0,
+    tokens: item.tokens ?? 0,
+    change: item.change ?? item.rankChange ?? item.rank_change ?? 0,
+  };
 }
 
-/** 上传证件照片，返回文件 ID */
-export async function uploadVerificationImage(file: File): Promise<{ id: string; url: string }> {
-  const token = getAccessToken();
-  if (!token) throw new Error("未登录");
+function normalizeVendorShare(item: JsonRecord): VendorMarketShare {
+  const total = item.tokens ?? item.requests ?? 0;
+  return {
+    vendor: item.vendor ?? item.provider ?? "-",
+    tokens: total,
+    percentage: item.percentage ?? item.share ?? 0,
+  };
+}
 
-  const formData = new FormData();
-  formData.append("file", file);
+function normalizeTrendingModel(item: JsonRecord, index: number): TrendingModel {
+  return {
+    model: item.model ?? item.name ?? "-",
+    vendor: item.vendor ?? item.provider ?? "-",
+    change: item.change ?? item.changePercent ?? item.change_percent ?? 0,
+    currentRank: item.currentRank ?? item.current_rank ?? index + 1,
+  };
+}
 
-  const url = buildApiUrl(`${API_PREFIX}/verification/upload`);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-    credentials: "include",
-  });
+function normalizeNotificationConfig(raw: JsonRecord): NotificationConfig {
+  return {
+    email: raw.email ?? null,
+    subscriptions: {
+      lowBalance: raw.subscriptions?.lowBalance ?? raw.email_enabled ?? true,
+      promotions: raw.subscriptions?.promotions ?? false,
+      periodic: raw.subscriptions?.periodic ?? false,
+      announcements: raw.subscriptions?.announcements ?? false,
+      priceChanges: raw.subscriptions?.priceChanges ?? false,
+    },
+    lowBalanceThreshold: raw.lowBalanceThreshold ?? raw.low_balance_threshold ?? 1000,
+    channels: {
+      email: { enabled: raw.channels?.email?.enabled ?? raw.email_enabled ?? true },
+      webhook: { enabled: raw.channels?.webhook?.enabled ?? raw.webhook_enabled ?? false, url: raw.webhook_url ?? raw.channels?.webhook?.url },
+      wxpusher: { enabled: raw.channels?.wxpusher?.enabled ?? raw.wxpusher_enabled ?? false, uid: raw.wxpusher_uid ?? raw.channels?.wxpusher?.uid },
+      wechatWork: { enabled: raw.channels?.wechatWork?.enabled ?? false },
+      dingtalk: { enabled: raw.channels?.dingtalk?.enabled ?? false },
+      feishu: { enabled: raw.channels?.feishu?.enabled ?? false },
+    },
+  };
+}
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`上传失败 ${res.status}: ${text}`);
-  }
-
-  const json = await res.json();
-  if (json && typeof json === "object" && "code" in json && "data" in json) {
-    if (json.code !== 0) throw new Error(json.message || "上传失败");
-    return json.data;
-  }
-  return json;
+function denormalizeNotificationConfig(config: Partial<NotificationConfig>): JsonRecord {
+  return {
+    email_enabled: config.channels?.email?.enabled ?? config.subscriptions?.lowBalance,
+    webhook_enabled: config.channels?.webhook?.enabled,
+    webhook_url: config.channels?.webhook?.url,
+    wxpusher_enabled: config.channels?.wxpusher?.enabled,
+    wxpusher_uid: config.channels?.wxpusher?.uid,
+    low_balance_threshold: config.lowBalanceThreshold,
+  };
 }

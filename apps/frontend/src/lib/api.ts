@@ -3,20 +3,41 @@ import { buildApiUrl } from "./http";
 export type Model = {
   id: string;
   name: string;
+  displayName?: string;
+  providerId?: string;
+  maxContext?: number | null;
+  supportsStreaming?: boolean;
+  supportsTools?: boolean;
+  supportsVision?: boolean;
+  pricing?: {
+    inputPrice?: number | null;
+    outputPrice?: number | null;
+    cachedPrice?: number | null;
+    reasoningPrice?: number | null;
+    multiplier?: number | null;
+  } | null;
   vendor?: string;
   input_price?: number | null;
   output_price?: number | null;
-  cache_price?: number | null; // 缓存命中价格
+  cache_price?: number | null;
+  reasoning_price?: number | null;
   description?: string | null;
-  tags?: string[];       // 标签：对话、工具、识图、绘画、视频、音乐
-  type?: string;         // 模型类型：text、image、audio、video
-  billing_type?: string; // 计费类型：token、request
-  context_window?: number | null; // 上下文窗口大小
+  tags?: string[];
+  type?: string;
+  billing_type?: string;
+  context_window?: number | null;
 };
 
 export type ChannelStatus = {
   name: string;
   healthy: boolean;
+  provider?: string;
+  channel?: string;
+  status?: string;
+  avgLatencyMs?: number;
+  totalRequests?: number;
+  failedRequests?: number;
+  failureRate?: number;
   message?: string | null;
   last_checked?: string | null;
 };
@@ -28,10 +49,8 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     method: init?.method ?? "GET",
     headers: { "Content-Type": "application/json", ...(init?.headers as any) },
-    // 不携带用户凭证到公开页面的后端请求
     credentials: "omit",
-    // 在服务端组件中使用 next.js 的 revalidate 支持（安全且可缓存）
-    // @ts-ignore-next-line
+    // @ts-ignore-next-line Next.js fetch extension
     next: { revalidate: 60 },
     ...init,
   });
@@ -43,7 +62,6 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
 
   const json = await res.json().catch(() => null);
 
-  // 后端返回格式: { code, message, data }
   if (json && typeof json === "object" && "code" in json && "data" in json) {
     if (json.code !== 0) {
       throw new Error(json.message || "API Error");
@@ -55,12 +73,9 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getPublicModels(): Promise<Model[]> {
-  const result = await fetchJSON<{ data: Model[] }>("/models/public");
-  // API 返回 { data: [...] } 格式
-  if (result && typeof result === "object" && "data" in result) {
-    return result.data;
-  }
-  return result as unknown as Model[];
+  const result = await fetchJSON<{ data: Model[] } | Model[]>("/models/public");
+  const items = Array.isArray(result) ? result : result?.data ?? [];
+  return items.map(normalizeModel);
 }
 
 export interface ModelGroupPricing {
@@ -82,16 +97,59 @@ export interface ModelDetail extends Model {
   apiEndpoints?: ModelApiEndpoint[];
 }
 
-/** 获取单个模型详情（含分组价格+API端点） */
 export async function getModelDetail(name: string): Promise<ModelDetail> {
-  return fetchJSON<ModelDetail>(`/models/public/${encodeURIComponent(name)}`);
+  const models = await getPublicModels();
+  const decoded = decodeURIComponent(name);
+  const found = models.find((model) => model.id === decoded || model.name === decoded);
+  if (!found) {
+    throw new Error("模型不存在或未公开");
+  }
+
+  return {
+    ...found,
+    apiEndpoints: [
+      { method: "POST", path: "/api/v1/chat/completions", label: "OpenAI Chat Completions" },
+      { method: "GET", path: "/api/v1/models", label: "OpenAI Models" },
+    ],
+  };
 }
 
 export async function getStatus(): Promise<ChannelStatus[]> {
-  const result = await fetchJSON<{ data: ChannelStatus[] }>("/status");
-  // API 返回 { data: [...] } 格式
-  if (result && typeof result === "object" && "data" in result) {
-    return result.data;
-  }
-  return result as unknown as ChannelStatus[];
+  const result = await fetchJSON<{ data: ChannelStatus[] } | ChannelStatus[]>("/status");
+  const items = Array.isArray(result) ? result : result?.data ?? [];
+  return items.map(normalizeStatus);
+}
+
+function normalizeModel(model: Model): Model {
+  const pricing = model.pricing;
+  const tags = model.tags ?? [
+    model.supportsStreaming ? "流式" : null,
+    model.supportsTools ? "工具" : null,
+    model.supportsVision ? "视觉" : null,
+  ].filter((tag): tag is string => Boolean(tag));
+
+  return {
+    ...model,
+    name: model.displayName || model.name || model.id,
+    vendor: model.vendor || model.providerId || "unknown",
+    input_price: model.input_price ?? pricing?.inputPrice ?? null,
+    output_price: model.output_price ?? pricing?.outputPrice ?? null,
+    cache_price: model.cache_price ?? pricing?.cachedPrice ?? null,
+    reasoning_price: model.reasoning_price ?? pricing?.reasoningPrice ?? null,
+    context_window: model.context_window ?? model.maxContext ?? null,
+    tags,
+    type: model.type ?? (model.supportsVision ? "multimodal" : "text"),
+    billing_type: model.billing_type ?? "token",
+  };
+}
+
+function normalizeStatus(status: ChannelStatus): ChannelStatus {
+  const rawStatus = status.status?.toUpperCase();
+  const healthy = status.healthy ?? rawStatus === "ACTIVE";
+  return {
+    ...status,
+    name: status.name || status.channel || status.provider || "未知渠道",
+    healthy,
+    message: status.message ?? (healthy ? "运行正常" : rawStatus || "异常"),
+  };
 }

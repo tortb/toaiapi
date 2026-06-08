@@ -9,6 +9,7 @@
 import React from "react";
 import { usePublicConfig } from "@/providers/public-config-provider";
 import MaintenancePage from "@/components/MaintenancePage";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 export default function HomeWrapper({ children }: { children: React.ReactNode }) {
   const { config, loading } = usePublicConfig();
@@ -32,7 +33,7 @@ export default function HomeWrapper({ children }: { children: React.ReactNode })
       {config.home_notice && (
         <div
           className="bg-primary-50 border-b border-primary-100 px-6 py-3 text-center text-[13px] text-primary-700"
-          dangerouslySetInnerHTML={{ __html: config.home_notice }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(config.home_notice) }}
         />
       )}
       {children}

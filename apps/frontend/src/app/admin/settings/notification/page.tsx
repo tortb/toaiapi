@@ -1,3 +1,5 @@
-export default function Page() {
-  return <div className="p-8 text-[var(--text-secondary)]">内容开发中 - settings/notification</div>
+import { SettingsCategoryForm } from "@/components/admin/settings/SettingsForm";
+
+export default function AdminSettingsPage() {
+  return <SettingsCategoryForm route="notification" />;
 }
