@@ -24,10 +24,12 @@ export default function RegisterPage() {
   const [cooldown, setCooldown] = useState(0);
 
   const emailVerifyEnabled = config.email_verify === true;
-  const registerCaptchaEnabled = config.captcha_register_enabled === true;
-  const sendCodeCaptchaEnabled = config.captcha_send_email_code_enabled === true;
-  const canUseSendCaptcha = sendCodeCaptchaEnabled && !!config.captcha_identity && !!config.captcha_send_email_code_scene_id;
-  const canUseRegisterCaptcha = registerCaptchaEnabled && !!config.captcha_identity && !!config.captcha_register_scene_id;
+  // 验证码基础配置是否完整（有 Identity 才有验证码能力）
+  const captchaConfigured = !!config.captcha_identity;
+  // 发送验证码前是否需要验证码 — 开关开启且基础配置和场景 ID 齐全才启用
+  const sendCodeCaptchaEnabled = config.captcha_send_email_code_enabled === true && captchaConfigured && !!config.captcha_send_email_code_scene_id;
+  // 注册是否需要验证码 — 同上
+  const registerCaptchaEnabled = config.captcha_register_enabled === true && captchaConfigured && !!config.captcha_register_scene_id;
   const emailValue = email.trim();
   const canSubmit =
     emailValue.length > 0 &&
@@ -134,20 +136,16 @@ export default function RegisterPage() {
               <div className="flex gap-2">
                 <input value={emailCode} onChange={(event) => setEmailCode(event.target.value)} className="min-w-0 flex-1 px-3 py-2.5 bg-white border border-[var(--line)] rounded-md text-sm outline-none focus:border-[var(--accent)]" placeholder="6 位验证码" />
                 {sendCodeCaptchaEnabled ? (
-                  canUseSendCaptcha ? (
-                    <AliyunCaptcha
-                      sceneId={config.captcha_send_email_code_scene_id}
-                      identity={config.captcha_identity}
-                      region={config.captcha_region || "cn"}
-                      mode={(config.captcha_mode as "popup" | "embed") || "popup"}
-                      onSuccess={(value) => void handleSendCode(value)}
-                      buttonClassName="px-3 py-2.5 border border-[var(--line)] rounded-md text-sm whitespace-nowrap disabled:opacity-60"
-                      buttonText={cooldown > 0 ? `${cooldown}s` : sendingCode ? "发送中" : "获取验证码"}
-                      disabled={!emailValue || sendingCode || cooldown > 0}
-                    />
-                  ) : (
-                    <button type="button" disabled className="px-3 py-2.5 border border-[var(--line)] rounded-md text-sm text-[var(--text-muted)] whitespace-nowrap">未配置验证</button>
-                  )
+                  <AliyunCaptcha
+                    sceneId={config.captcha_send_email_code_scene_id}
+                    identity={config.captcha_identity}
+                    region={config.captcha_region || "cn"}
+                    mode={(config.captcha_mode as "popup" | "embed") || "popup"}
+                    onSuccess={(value) => void handleSendCode(value)}
+                    buttonClassName="px-3 py-2.5 border border-[var(--line)] rounded-md text-sm whitespace-nowrap disabled:opacity-60"
+                    buttonText={cooldown > 0 ? `${cooldown}s` : sendingCode ? "发送中" : "获取验证码"}
+                    disabled={!emailValue || sendingCode || cooldown > 0}
+                  />
                 ) : (
                   <button type="button" onClick={() => void handleSendCode()} disabled={!emailValue || sendingCode || cooldown > 0} className="px-3 py-2.5 border border-[var(--line)] rounded-md text-sm whitespace-nowrap disabled:opacity-60">{cooldown > 0 ? `${cooldown}s` : sendingCode ? "发送中" : "获取验证码"}</button>
                 )}
@@ -164,24 +162,16 @@ export default function RegisterPage() {
           </label>
           {registerCaptchaEnabled && (
             <div className="flex flex-col gap-2">
-              {canUseRegisterCaptcha ? (
-                <AliyunCaptcha
-                  sceneId={config.captcha_register_scene_id}
-                  identity={config.captcha_identity}
-                  region={config.captcha_region || "cn"}
-                  mode={(config.captcha_mode as "popup" | "embed") || "popup"}
-                  onSuccess={setRegisterCaptcha}
-                  buttonClassName="w-full py-2.5 border border-[var(--line)] rounded-md text-sm disabled:opacity-60"
-                  buttonText={registerCaptcha ? "人机验证已完成" : "完成人机验证"}
-                  disabled={!!registerCaptcha}
-                />
-              ) : (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                  <p className="font-medium">验证码服务未完成配置</p>
-                  <p className="mt-1 text-xs">请在后台「系统设置 → 验证码配置」中填写阿里云验证码 Identity 和注册 Scene ID</p>
-                  <Link href="/admin/captcha" className="mt-1 inline-block text-xs text-amber-800 underline">前往配置 →</Link>
-                </div>
-              )}
+              <AliyunCaptcha
+                sceneId={config.captcha_register_scene_id}
+                identity={config.captcha_identity}
+                region={config.captcha_region || "cn"}
+                mode={(config.captcha_mode as "popup" | "embed") || "popup"}
+                onSuccess={setRegisterCaptcha}
+                buttonClassName="w-full py-2.5 border border-[var(--line)] rounded-md text-sm disabled:opacity-60"
+                buttonText={registerCaptcha ? "人机验证已完成" : "完成人机验证"}
+                disabled={!!registerCaptcha}
+              />
             </div>
           )}
           {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
