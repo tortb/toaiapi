@@ -20,6 +20,10 @@ export interface JwtPayload {
   type: TokenType;
   /** JWT ID，可选 */
   jti?: string;
+  /** 签发方 */
+  iss?: string;
+  /** 接收方 */
+  aud?: string;
   /** 签发时间戳 */
   iat?: number;
   /** 过期时间戳 */
@@ -40,12 +44,22 @@ export interface TokenPair {
  * 认证配置
  */
 export interface AuthConfig {
-  /** JWT 访问令牌密钥（必须至少 32 字节） */
-  jwtSecret: string;
-  /** JWT 刷新令牌密钥（必须与 jwtSecret 不同） */
-  jwtRefreshSecret: string;
+  /** JWT 私钥（PEM，RS256/ES256）。配置后优先使用非对称签名。 */
+  jwtPrivateKey?: string;
+  /** JWT 公钥（PEM，RS256/ES256）。配置后优先使用非对称签名。 */
+  jwtPublicKey?: string;
+  /** JWT 访问令牌密钥（旧版 HS256 兼容）。 */
+  jwtSecret?: string;
+  /** JWT 刷新令牌密钥（旧版 HS256 兼容）。 */
+  jwtRefreshSecret?: string;
+  /** JWT 算法 */
+  jwtAlgorithm?: 'RS256' | 'ES256' | 'HS256';
+  /** JWT 签发方 */
+  jwtIssuer?: string;
+  /** JWT 接收方 */
+  jwtAudience?: string;
   /** 访问令牌过期时间，格式如 '15m'、'1h' */
-  accessTokenExpiry: string;
+  accessTokenExpiry?: string;
   /** 刷新令牌过期时间，格式如 '7d'、'30d' */
-  refreshTokenExpiry: string;
+  refreshTokenExpiry?: string;
 }

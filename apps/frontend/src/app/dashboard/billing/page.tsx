@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getUserOrders, getOrderStatusLabel, getPaymentMethodLabel, type OrderInfo } from "@/lib/payment-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 function yuan(value: number) {
   return `¥${value.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -9,7 +10,7 @@ function yuan(value: number) {
 
 export default function BillingPage() {
   const [orders, setOrders] = useState<OrderInfo[]>([]);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +28,6 @@ export default function BillingPage() {
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div><h1 className="page-title">账单中心</h1><p className="page-subtitle">查看充值订单和支付状态</p></div>
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       <div className="bg-white border border-[var(--line)] rounded-lg overflow-x-auto">
         <div className="min-w-[860px]">
           <div className="grid grid-cols-6 px-4 py-3 bg-[var(--surface-soft)] text-xs font-semibold text-[var(--text-muted)]"><div>订单号</div><div>金额</div><div>支付方式</div><div>状态</div><div>支付时间</div><div>创建时间</div></div>

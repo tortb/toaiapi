@@ -1,15 +1,45 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { StrategyOptions } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
+
+function buildJwtStrategyOptions(configService: ConfigService) {
+  const publicKey = configService.get<string>('JWT_PUBLIC_KEY');
+  const issuer = configService.get<string>('JWT_ISSUER');
+  const audience = configService.get<string>('JWT_AUDIENCE');
+
+  const asymmetricAlgorithms: StrategyOptions['algorithms'] = [configService.get<'RS256' | 'ES256'>('JWT_ALGORITHM', 'RS256')];
+  const hmacAlgorithms: StrategyOptions['algorithms'] = ['HS256'];
+
+  if (publicKey) {
+    return {
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: publicKey.replace(/\\n/g, '\n'),
+      algorithms: asymmetricAlgorithms,
+      ...(issuer ? { issuer } : {}),
+      ...(audience ? { audience } : {}),
+    };
+  }
+
+  return {
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    ignoreExpiration: false,
+    secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+    algorithms: hmacAlgorithms,
+    ...(issuer ? { issuer } : {}),
+    ...(audience ? { audience } : {}),
+  };
+}
 
 /**
  * JWT 策略
  *
  * 从 Authorization 头中提取 Bearer Token，验证 JWT 签名和有效期。
  * 验证通过后返回用户信息，附加到 request.user。
- * SECURITY: 显式指定 HS256 算法，防止算法混淆攻击
+ * SECURITY: 优先使用 RS256/ES256；未配置公私钥时兼容旧版 HS256。
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -17,12 +47,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
-      algorithms: ['HS256'], // SECURITY: 显式指定算法
-    });
+    super(buildJwtStrategyOptions(configService));
   }
 
   /**

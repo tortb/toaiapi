@@ -6,6 +6,8 @@ import { AdminResourceList, type AdminResourceColumn } from "@/components/admin/
 import { Modal } from "@/components/ui/modal";
 import { getProviders, updateProvider, createProvider, getProviderStatusLabel, type ProviderData, type UpdateProviderPayload, type CreateProviderPayload } from "@/lib/admin-api";
 import { formatTableDate } from "@/lib/utils";
+import { confirmAction, notifyError } from "@/lib/feedback/events";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 export default function AdminProvidersPage() {
   const [editItem, setEditItem] = useState<ProviderData | null>(null);
@@ -13,7 +15,7 @@ export default function AdminProvidersPage() {
   const [form, setForm] = useState({ displayName: "", baseUrl: "", name: "" });
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
 
   const loadData = useCallback((params: { page: number; pageSize: number; search?: string }) => getProviders(params), []);
 
@@ -56,17 +58,17 @@ export default function AdminProvidersPage() {
       await updateProvider(item.id, { isActive: !item.isActive });
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "操作失败");
+      notifyError(err, "操作失败");
     }
   }
 
   async function handleDelete(item: ProviderData) {
-    if (!confirm(`确定删除服务商「${item.displayName}」吗？有关联渠道时无法删除。`)) return;
+    if (!(await confirmAction({ title: "删除服务商", message: `确定删除服务商「${item.displayName}」吗？有关联渠道时无法删除。`, confirmText: "删除", variant: "danger" }))) return;
     try {
       await (await import("@/lib/admin-api")).deleteProvider(item.id);
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "删除失败");
+      notifyError(err, "删除失败");
     }
   }
 
@@ -107,7 +109,6 @@ export default function AdminProvidersPage() {
       />
 
       <Modal open={isOpen} onClose={() => { setEditItem(null); setShowCreate(false); }} title={editItem ? "编辑服务商" : "新建服务商"}>
-        {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         <div className="space-y-4">
           {showCreate && (
             <div>

@@ -98,9 +98,8 @@ export interface DashboardData {
 async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = buildApiUrl(path);
   let token = getAccessToken();
-
   if (!token) {
-    throw new Error("未登录");
+    token = (await refreshTokens()).accessToken;
   }
 
   const headers: Record<string, string> = {

@@ -29,7 +29,7 @@ const isValid = await verify(passwordHash, password);
 
 | 项目 | 规范 |
 |------|------|
-| 算法 | HS256 |
+| 算法 | RS256 / ES256 |
 | Access Token 有效期 | 15 分钟 |
 | Refresh Token 有效期 | 7 天 |
 | 存储 | HttpOnly Cookie (前端) / Redis (Refresh) |
@@ -151,7 +151,10 @@ export class CreateUserDto {
 
 ```bash
 # 必须设置的密钥
-JWT_SECRET=           # 至少 32 字节随机字符串
+JWT_PRIVATE_KEY=      # RS256/ES256 私钥 PEM，禁止进 Git
+JWT_PUBLIC_KEY=       # 对应公钥 PEM
+JWT_ISSUER=           # JWT 签发方
+JWT_AUDIENCE=         # JWT 接收方
 ENCRYPTION_KEY=       # AES-256 密钥，32 字节
 DATABASE_URL=         # PostgreSQL 连接字符串
 REDIS_URL=            # Redis 连接字符串

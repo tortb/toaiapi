@@ -6,6 +6,7 @@ import {
   HttpStatus,
   UseGuards,
   Req,
+  Res,
   Headers,
 } from "@nestjs/common";
 import {
@@ -15,7 +16,7 @@ import {
   ApiOkResponse,
   ApiCreatedResponse,
 } from "@nestjs/swagger";
-import { FastifyRequest } from "fastify";
+import { FastifyReply, FastifyRequest } from "fastify";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -35,7 +36,36 @@ import { CurrentUser, CurrentUserInfo } from "../../common/decorators/current-us
 @ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
+  private static readonly REFRESH_COOKIE = "toaiapi_refresh_token";
+
   constructor(private readonly authService: AuthService) {}
+
+  private setRefreshCookie(reply: FastifyReply, refreshToken: string, expiresInSeconds: number): void {
+    const secure = process.env['NODE_ENV'] === 'production';
+    reply.header('Set-Cookie', `${AuthController.REFRESH_COOKIE}=${encodeURIComponent(refreshToken)}; HttpOnly; Path=/api/v1/auth; Max-Age=${expiresInSeconds}; SameSite=Lax${secure ? '; Secure' : ''}`);
+  }
+
+  private clearRefreshCookie(reply: FastifyReply): void {
+    const secure = process.env['NODE_ENV'] === 'production';
+    reply.header('Set-Cookie', `${AuthController.REFRESH_COOKIE}=; HttpOnly; Path=/api/v1/auth; Max-Age=0; SameSite=Lax${secure ? '; Secure' : ''}`);
+  }
+
+  private readRefreshToken(req?: FastifyRequest): string | undefined {
+    const bodyToken = (req?.body as { refreshToken?: string } | undefined)?.refreshToken;
+    if (bodyToken) return bodyToken;
+
+    const cookieHeader = req?.headers.cookie;
+    if (!cookieHeader) return undefined;
+
+    for (const item of cookieHeader.split(';')) {
+      const [rawName, ...rawValue] = item.trim().split('=');
+      if (rawName === AuthController.REFRESH_COOKIE) {
+        return decodeURIComponent(rawValue.join('='));
+      }
+    }
+
+    return undefined;
+  }
 
   /**
    * 用户注册
@@ -47,9 +77,12 @@ export class AuthController {
   @ApiCreatedResponse({ type: AuthResponseDto })
   async register(
     @Body() dto: RegisterDto,
-    @Headers("captcha-verify-param") captchaVerifyParam?: string,
+    @Headers("captcha-verify-param") captchaVerifyParam: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AuthResponseDto> {
-    return this.authService.register(dto, captchaVerifyParam);
+    const auth = await this.authService.register(dto, captchaVerifyParam);
+    this.setRefreshCookie(reply, auth.tokens.refreshToken, auth.tokens.refreshExpiresIn);
+    return auth;
   }
 
   /**
@@ -61,9 +94,12 @@ export class AuthController {
   @ApiOkResponse({ type: AuthResponseDto })
   async login(
     @Body() dto: LoginDto,
-    @Headers("captcha-verify-param") captchaVerifyParam?: string,
+    @Headers("captcha-verify-param") captchaVerifyParam: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AuthResponseDto> {
-    return this.authService.login(dto, captchaVerifyParam);
+    const auth = await this.authService.login(dto, captchaVerifyParam);
+    this.setRefreshCookie(reply, auth.tokens.refreshToken, auth.tokens.refreshExpiresIn);
+    return auth;
   }
 
   /**
@@ -77,9 +113,13 @@ export class AuthController {
   })
   @ApiOkResponse({ type: TokenResponseDto })
   async refresh(
-    @Body("refreshToken") refreshToken: string,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<TokenResponseDto> {
-    return this.authService.refreshTokens(refreshToken);
+    const refreshToken = this.readRefreshToken(req);
+    const tokens = await this.authService.refreshTokens(refreshToken);
+    this.setRefreshCookie(reply, tokens.refreshToken, tokens.refreshExpiresIn);
+    return tokens;
   }
 
   /**
@@ -90,8 +130,12 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "登出", description: "撤销当前用户的 Refresh Token" })
-  async logout(@CurrentUser() user: CurrentUserInfo): Promise<void> {
+  async logout(
+    @CurrentUser() user: CurrentUserInfo,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<void> {
     await this.authService.logout(user.id);
+    this.clearRefreshCookie(reply);
   }
 
   /**

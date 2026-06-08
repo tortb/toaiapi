@@ -6,6 +6,8 @@ import { AdminResourceList, type AdminResourceColumn } from "@/components/admin/
 import { Modal } from "@/components/ui/modal";
 import { getChannelStatusLabel, getChannels, updateChannel, createChannel, enableChannel, disableChannel, deleteChannel, testChannel, getProviders, type ChannelData, type UpdateChannelPayload, type CreateChannelPayload, type ProviderData } from "@/lib/admin-api";
 import { formatTableDate } from "@/lib/utils";
+import { confirmAction, notify, notifyError } from "@/lib/feedback/events";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 // 默认表单值
 const defaultForm = {
@@ -24,7 +26,7 @@ export default function AdminChannelsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const loadData = useCallback((params: { page: number; pageSize: number; search?: string }) => getChannels(params), []);
@@ -76,7 +78,7 @@ export default function AdminChannelsPage() {
         payload.autoDisableOnFailure = form.autoDisableOnFailure;
         await updateChannel(editItem.id, payload);
       } else {
-        if (!form.providerId) { setError("请选择所属 Provider"); setSaving(false); return; }
+        if (!form.providerId) { notifyError("请选择所属 Provider", "保存失败"); setSaving(false); return; }
         await createChannel({
           providerId: form.providerId,
           name: form.name, baseUrl: form.baseUrl, apiKey: form.apiKey,
@@ -102,23 +104,29 @@ export default function AdminChannelsPage() {
   }
 
   async function handleEnable(item: ChannelData) {
-    try { await enableChannel(item.id); setRefreshKey((k) => k + 1); } catch (err) { alert(err instanceof Error ? err.message : "操作失败"); }
+    try { await enableChannel(item.id); setRefreshKey((k) => k + 1); } catch (err) { notifyError(err, "操作失败"); }
   }
   async function handleDisable(item: ChannelData) {
-    try { await disableChannel(item.id); setRefreshKey((k) => k + 1); } catch (err) { alert(err instanceof Error ? err.message : "操作失败"); }
+    try { await disableChannel(item.id); setRefreshKey((k) => k + 1); } catch (err) { notifyError(err, "操作失败"); }
   }
   async function handleTest(item: ChannelData) {
     setTesting(true);
     try {
       const result = await testChannel(item.id);
-      alert(`测试结果: ${result.success ? "✅ 成功" : "❌ 失败"}\n延迟: ${result.latencyMs}ms\n消息: ${result.message}`);
+      notify({
+        variant: result.success ? "success" : "error",
+        title: result.success ? "通道测试成功" : "通道测试失败",
+        message: result.message || "测试完成",
+        detail: `通道：${item.name}\n延迟：${result.latencyMs}ms`,
+        duration: result.success ? 5200 : 0,
+      });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "测试失败");
+      notifyError(err, "测试失败");
     } finally { setTesting(false); }
   }
   async function handleDelete(item: ChannelData) {
-    if (!confirm(`确定删除通道「${item.name}」吗？`)) return;
-    try { await deleteChannel(item.id); setRefreshKey((k) => k + 1); } catch (err) { alert(err instanceof Error ? err.message : "删除失败"); }
+    if (!(await confirmAction({ title: "删除通道", message: `确定删除通道「${item.name}」吗？`, confirmText: "删除", variant: "danger" }))) return;
+    try { await deleteChannel(item.id); setRefreshKey((k) => k + 1); } catch (err) { notifyError(err, "删除失败"); }
   }
 
   const actions = useCallback((item: ChannelData) => (
@@ -164,7 +172,6 @@ export default function AdminChannelsPage() {
       />
 
       <Modal open={isOpen} onClose={() => { setEditItem(null); setShowCreate(false); }} title={editItem ? "编辑通道" : "新建通道"} width="640px">
-        {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
         <div className="space-y-5 max-h-[65vh] overflow-y-auto pr-1">
           {/* ===== 基本信息 ===== */}

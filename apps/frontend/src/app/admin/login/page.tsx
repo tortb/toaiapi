@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Bot, DollarSign, Settings, Users } from "lucide-react";
 import { adminLogin } from "@/lib/auth-api";
 import { useAuthStore } from "@/stores/auth-store";
+import { notifyError } from "@/lib/feedback/events";
 
 const features = [
   { icon: Users, text: "用户与权限管理" },
@@ -18,7 +19,6 @@ export default function AdminLoginPage() {
   const restoreSession = useAuthStore((state) => state.restoreSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !submitting;
@@ -27,13 +27,12 @@ export default function AdminLoginPage() {
     event.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);
-    setError("");
     try {
       await adminLogin({ email: email.trim(), password });
       restoreSession();
       router.replace("/admin");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登录失败");
+      notifyError(err, "登录失败");
     } finally {
       setSubmitting(false);
     }
@@ -63,7 +62,6 @@ export default function AdminLoginPage() {
             <span className="text-sm font-medium text-[var(--foreground)]">密码</span>
             <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" className="px-3 py-2.5 bg-white border border-[var(--line)] rounded-md text-sm outline-none focus:border-[var(--accent)]" placeholder="请输入密码" />
           </label>
-          {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
           <button disabled={!canSubmit} className="w-full py-3 bg-[var(--accent)] text-white font-semibold rounded-md hover:bg-[var(--accent)]/90 transition-colors disabled:opacity-60">
             {submitting ? "登录中..." : "登录管理后台"}
           </button>

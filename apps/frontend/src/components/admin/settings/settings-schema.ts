@@ -76,7 +76,6 @@ export const SETTINGS_FIELDS: Record<string, SettingFieldDef[]> = {
     { key: "allow_organization", label: "允许组织功能", type: "boolean" },
   ],
   register: [
-    { key: "email_verify", label: "邮箱验证", type: "boolean", tip: "注册时需要邮箱验证码" },
     { key: "invite_code_required", label: "邀请码注册", type: "boolean" },
     { key: "whitelist_enabled", label: "白名单注册", type: "boolean" },
     { key: "whitelist_emails", label: "白名单邮箱", type: "textarea", placeholder: "每行一个邮箱或用逗号分隔" },

@@ -1,3 +1,4 @@
+import { redactToString } from '../../common/utils/redact.util';
 import {
   Controller,
   Get,
@@ -139,7 +140,7 @@ export class PaymentController {
   }
 
   private async handleEpayNotify(params: Record<string, any>) {
-    this.logger.log(`EPay notify received: ${JSON.stringify(params)}`);
+    this.logger.log(`EPay notify received: ${redactToString(params)}`);
     try {
       await this.paymentService.handlePaymentNotify('epay', params);
       this.logger.log(`EPay notify processed successfully for order: ${params['out_trade_no']}`);
@@ -168,7 +169,7 @@ export class PaymentController {
   }
 
   private async handleAlipayNotify(params: Record<string, any>) {
-    this.logger.log(`Alipay notify received: ${JSON.stringify(params)}`);
+    this.logger.log(`Alipay notify received: ${redactToString(params)}`);
     try {
       await this.paymentService.handlePaymentNotify('alipay', params);
       this.logger.log(`Alipay notify processed successfully`);

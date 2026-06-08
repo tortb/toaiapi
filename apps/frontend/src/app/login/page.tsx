@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BarChart3, Shield, Zap } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { notifyError } from "@/lib/feedback/events";
 
 const features = [
   { icon: Zap, text: "高可用架构 · 智能故障转移" },
@@ -17,7 +18,6 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !submitting;
@@ -26,12 +26,11 @@ export default function LoginPage() {
     event.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);
-    setError("");
     try {
       await login({ email: email.trim(), password });
       router.replace("/dashboard/overview");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登录失败");
+      notifyError(err, "登录失败");
     } finally {
       setSubmitting(false);
     }
@@ -92,7 +91,6 @@ export default function LoginPage() {
               placeholder="请输入密码"
             />
           </label>
-          {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
           <div className="flex justify-end">
             <Link href="/forgot-password" className="text-sm text-[var(--accent)] font-medium hover:underline">忘记密码？</Link>
           </div>

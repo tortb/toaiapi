@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { getUser, type UserDetailData } from "@/lib/admin-api";
 import { formatTableDate, formatYuan } from "@/lib/utils";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 export default function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [data, setData] = useState<UserDetailData | null>(null);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,7 +23,6 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ id: 
   }, [params]);
 
   if (loading) return <div className="text-sm text-[var(--text-secondary)]">加载中...</div>;
-  if (error) return <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>;
   if (!data) return <div className="text-sm text-[var(--text-secondary)]">用户不存在</div>;
 
   return (

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Copy, Gift, Link as LinkIcon, Users } from "lucide-react";
 import { getInviteStats, type InviteStats } from "@/lib/payment-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 function yuanFromFen(value: number) {
   return `¥${(value / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -10,7 +11,7 @@ function yuanFromFen(value: number) {
 
 export default function InvitePage() {
   const [stats, setStats] = useState<InviteStats | null>(null);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
 
   useEffect(() => {
     getInviteStats().then(setStats).catch((err) => setError(err instanceof Error ? err.message : "加载失败"));
@@ -19,7 +20,6 @@ export default function InvitePage() {
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div><h1 className="page-title">邀请奖励</h1><p className="page-subtitle">分享邀请链接，查看奖励和邀请人数</p></div>
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Stat icon={Users} label="邀请人数" value={String(stats?.inviteCount ?? 0)} />
         <Stat icon={Gift} label="累计奖励" value={yuanFromFen(stats?.totalReward ?? 0)} />

@@ -22,7 +22,8 @@ export interface UserInfo {
 
 export interface TokenResponse {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
+  refreshExpiresIn?: number;
   tokenType: string;
   expiresIn: number;
 }
@@ -58,18 +59,19 @@ export interface SendVerificationCodePayload {
 // Token 存储
 // ──────────────────────────────────────────────
 
+export const AUTH_SYNC_EVENT = "toaiapi-auth-sync";
+
 const TOKEN_KEY = "toaiapi_access_token";
-const REFRESH_TOKEN_KEY = "toaiapi_refresh_token";
 const USER_KEY = "toaiapi_user";
+
+function emitAuthSync(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(AUTH_SYNC_EVENT));
+}
 
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
-}
-
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export function getStoredUser(): UserInfo | null {
@@ -85,14 +87,14 @@ export function getStoredUser(): UserInfo | null {
 
 export function setAuthData(auth: AuthResponse): void {
   localStorage.setItem(TOKEN_KEY, auth.tokens.accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, auth.tokens.refreshToken);
   localStorage.setItem(USER_KEY, JSON.stringify(auth.user));
+  emitAuthSync();
 }
 
 export function clearAuthData(): void {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  emitAuthSync();
 }
 
 // ──────────────────────────────────────────────
@@ -122,27 +124,34 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`API Error ${res.status}: ${text}`);
-  }
-
-  // 204 No Content
   if (res.status === 204) {
     return undefined as T;
   }
 
-  const json = await res.json();
+  const contentType = res.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json")
+    ? await res.json().catch(() => null)
+    : await res.text().catch(() => "");
 
-  // 后端返回格式: { code, message, data }
-  if (json && typeof json === "object" && "code" in json && "data" in json) {
-    if (json.code !== 0) {
-      throw new Error(json.message || "API Error");
-    }
-    return json.data as T;
+  if (!res.ok) {
+    const message =
+      payload && typeof payload === "object" && "message" in payload
+        ? String((payload as { message?: unknown }).message || `API Error ${res.status}`)
+        : typeof payload === "string" && payload
+          ? payload
+          : `API Error ${res.status}`;
+    throw new Error(message);
   }
 
-  return json as T;
+  // 后端返回格式: { code, message, data }
+  if (payload && typeof payload === "object" && "code" in payload && "data" in payload) {
+    if ((payload as { code: number | string }).code !== 0) {
+      throw new Error(String((payload as { message?: unknown }).message || "API Error"));
+    }
+    return (payload as { data: T }).data;
+  }
+
+  return payload as T;
 }
 
 // ──────────────────────────────────────────────
@@ -223,18 +232,12 @@ export async function logout(): Promise<void> {
  * 刷新 Token
  */
 export async function refreshTokens(): Promise<TokenResponse> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    throw new Error("No refresh token available");
-  }
-
   const data = await authFetch<TokenResponse>(`${API_PREFIX}/auth/refresh`, {
     method: "POST",
-    body: JSON.stringify({ refreshToken }),
   });
 
   localStorage.setItem(TOKEN_KEY, data.accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+  emitAuthSync();
 
   return data;
 }

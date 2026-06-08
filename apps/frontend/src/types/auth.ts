@@ -14,7 +14,8 @@ export interface UserProfile extends UserInfo {
 
 export interface TokenResponse {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
+  refreshExpiresIn?: number;
   tokenType: string;
   expiresIn: number;
 }

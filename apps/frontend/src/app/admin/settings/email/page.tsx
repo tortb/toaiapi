@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { Save, CheckCircle, Send, Eye, EyeOff, Power, PowerOff, RefreshCw, ArrowLeft } from "lucide-react";
 import { getSmtpConfig, updateSmtpConfig, toggleSmtpConfig, testSmtpConnection, sendTestEmail, type SmtpConfigData, type UpdateSmtpConfigPayload } from "@/lib/admin-api";
 import Link from "next/link";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 export default function AdminEmailSettingsPage() {
   const [config, setConfig] = useState<SmtpConfigData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [success, setSuccess] = useState("");
 
   // 表单字段
@@ -142,8 +143,6 @@ export default function AdminEmailSettingsPage() {
           <RefreshCw className="h-4 w-4" />刷新
         </button>
       </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {success && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{success}</div>}
 
       {/* 服务状态 */}

@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, Save, CheckCircle, Send, Power, PowerOff } from "lucide-react";
 import { getSmsConfig, updateSmsConfig, toggleSmsConfig, testSmsConnection, sendTestSms, type SmsConfigData, type UpdateSmsConfigPayload } from "@/lib/admin-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 export default function AdminSmsPage() {
   const [config, setConfig] = useState<SmsConfigData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [success, setSuccess] = useState("");
 
   // 表单字段
@@ -125,8 +126,6 @@ export default function AdminSmsPage() {
           <RefreshCw className="h-4 w-4" />刷新
         </button>
       </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {success && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{success}</div>}
 
       {/* 状态卡片 */}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Activity, AlertTriangle, BarChart3, Clock, DollarSign, Globe, Mail, Server, Shield, TrendingUp, Zap, Settings } from "lucide-react";
 import { getDashboard, getOrderStatusLabel, getSmtpConfig, type DashboardData, type SmtpConfigData } from "@/lib/admin-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 function yuan(fen: number) {
   return `¥${(fen / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -20,7 +21,7 @@ function formatPct(value: number | null | undefined) {
 
 export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
 
   // 邮件服务状态
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfigData | null>(null);
@@ -57,8 +58,6 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-bold text-[var(--foreground)]">控制台</h1>
         <span className="text-sm text-[var(--text-muted)] flex-1">系统概览与关键指标</span>
       </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       {/* 基础指标 */}
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">

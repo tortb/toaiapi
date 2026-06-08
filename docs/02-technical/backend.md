@@ -101,13 +101,15 @@ Header: Authorization: Bearer {access_token}
 
 Access Token:
   - 有效期: 15 分钟
-  - Payload: { sub: userId, email, role }
-  - 签名: HS256 (JWT_SECRET)
+  - Payload: { sub: userId, email, role, iss, aud }
+  - 签名: RS256/ES256 (JWT_PRIVATE_KEY)
+  - 校验: JWT_PUBLIC_KEY + iss/aud/exp
 
 Refresh Token:
   - 有效期: 7 天
-  - 存储: Redis
-  - Key: refresh_token:{userId}
+  - 传输: HttpOnly Cookie (SameSite=Lax)
+  - 服务端存储: Redis 中仅保存 SHA-256 指纹
+  - Key: refresh:{userId}
 ```
 
 ### API Key 认证（Gateway）
@@ -159,9 +161,13 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/toaiapi
 REDIS_URL=redis://localhost:6379
 
 # JWT
-JWT_SECRET=your-jwt-secret
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=7d
+JWT_ALGORITHM=RS256
+JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+JWT_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+JWT_ISSUER=toaiapi
+JWT_AUDIENCE=toaiapi-web
+JWT_EXPIRATION=15m
+JWT_REFRESH_EXPIRATION=7d
 
 # Server
 PORT=3001

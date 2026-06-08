@@ -76,11 +76,20 @@ async function bootstrap() {
   );
 
   // CORS
+  const allowedOrigins = (process.env['ALLOWED_ORIGINS'] || 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  if (allowedOrigins.includes('*')) {
+    throw new Error('[SECURITY] ALLOWED_ORIGINS 禁止使用 *');
+  }
+
   app.enableCors({
-    origin: process.env['ALLOWED_ORIGINS']?.split(',') || ['http://localhost:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'captcha-verify-param'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'captcha-verify-param', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id'],
   });
 
   // Port

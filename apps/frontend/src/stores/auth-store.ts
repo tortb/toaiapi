@@ -33,6 +33,7 @@ interface AuthState {
   logout: () => Promise<void>;
   clearError: () => void;
   restoreSession: () => void;
+  syncAuthState: () => void;
 }
 
 // ──────────────────────────────────────────────
@@ -120,6 +121,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: authenticated,
       isAdmin: admin,
       isLoading: false,
+    });
+  },
+
+  syncAuthState: () => {
+    const authenticated = isAuthenticated();
+    const admin = isAdmin();
+    const user = getCurrentUser();
+
+    set({
+      user,
+      isAuthenticated: authenticated,
+      isAdmin: admin,
+      isLoading: false,
+      error: null,
     });
   },
 }));

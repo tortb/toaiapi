@@ -25,7 +25,9 @@ async function readErrorMessage(res: Response): Promise<string> {
 async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = buildApiUrl(path);
   let token = getAccessToken();
-  if (!token) throw new Error("未登录");
+  if (!token) {
+    token = (await refreshTokens()).accessToken;
+  }
 
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string>),

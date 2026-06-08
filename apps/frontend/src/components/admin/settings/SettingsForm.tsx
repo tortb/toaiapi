@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSystemSettingsByCategory, updateSystemSettings, type SystemSettingData } from "@/lib/admin-api";
 import { SETTINGS_FIELDS, getCategoryByRoute, type SettingFieldDef } from "./settings-schema";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 export function SettingsCategoryForm({ route }: { route: string }) {
   const category = getCategoryByRoute(route);
@@ -10,7 +11,7 @@ export function SettingsCategoryForm({ route }: { route: string }) {
   const fields = useMemo<SettingFieldDef[]>(() => SETTINGS_FIELDS[categoryKey] || [], [categoryKey]);
   const [settings, setSettings] = useState<SystemSettingData[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +40,10 @@ export function SettingsCategoryForm({ route }: { route: string }) {
     setError("");
     setMessage("");
     try {
-      await updateSystemSettings(categoryKey, Object.entries(values).map(([key, value]) => ({ key, value: value === "" ? null : value })));
+      await updateSystemSettings(categoryKey, visibleFields.map((field) => {
+        const value = values[field.key] ?? "";
+        return { key: field.key, value: value === "" ? null : value };
+      }));
       setMessage("设置已保存");
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存失败");
@@ -51,7 +55,6 @@ export function SettingsCategoryForm({ route }: { route: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5 max-w-4xl">
       <div><h1 className="text-2xl font-bold text-[var(--foreground)]">{category?.label || categoryKey}</h1><p className="mt-1 text-sm text-[var(--text-secondary)]">{category?.description || "系统设置"}</p></div>
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {message && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div>}
       <section className="bg-white border border-[var(--line)] rounded-lg p-5 space-y-4">
         {loading ? <div className="text-sm text-[var(--text-secondary)]">加载中...</div> : visibleFields.length === 0 ? <div className="text-sm text-[var(--text-secondary)]">该分类暂无设置项</div> : visibleFields.map((field) => <label key={field.key} className="block"><span className="text-sm font-medium text-[var(--foreground)]">{field.label}</span><FieldControl field={field} value={values[field.key] ?? ""} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} />{field.tip && <span className="mt-1 block text-xs text-[var(--text-muted)]">{field.tip}</span>}</label>)}

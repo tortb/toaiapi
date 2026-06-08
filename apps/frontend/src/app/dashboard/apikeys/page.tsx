@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Copy, Key, Plus, Trash2, X } from "lucide-react";
 import { createApiKey, deleteApiKey, disableApiKey, enableApiKey, getUserApiKeys, type UserApiKey } from "@/lib/user-api";
+import { confirmAction, notifyError } from "@/lib/feedback/events";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 function formatDate(value: string | null) {
   if (!value) return "永不过期";
@@ -14,7 +16,7 @@ export default function ApiKeysPage() {
   const [secret, setSecret] = useState("");
   const [draftName, setDraftName] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -64,7 +66,7 @@ export default function ApiKeysPage() {
   }
 
   async function remove(item: UserApiKey) {
-    if (!window.confirm(`确认删除 ${item.name || item.keyPrefix}？`)) return;
+    if (!(await confirmAction({ title: "删除 API 密钥", message: `确认删除 ${item.name || item.keyPrefix}？`, confirmText: "删除", variant: "danger" }))) return;
     setError("");
     try {
       await deleteApiKey(item.id);
@@ -83,7 +85,6 @@ export default function ApiKeysPage() {
         </div>
         <button onClick={() => setCreateOpen(true)} className="notion-btn-primary px-4 py-2.5 text-sm self-start sm:self-auto"><Plus className="w-4 h-4 mr-2" />创建密钥</button>
       </div>
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {secret && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <div className="text-sm font-medium text-green-800">新密钥仅显示一次</div>

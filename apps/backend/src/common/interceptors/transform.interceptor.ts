@@ -20,14 +20,17 @@ import { map } from 'rxjs/operators';
 @Injectable()
 export class TransformInterceptor<T> implements NestInterceptor<T, unknown> {
   intercept(
-    _context: ExecutionContext,
+    context: ExecutionContext,
     next: CallHandler,
   ): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<{ requestId?: string }>();
+
     return next.handle().pipe(
       map((data: T) => ({
         code: 0,
         message: 'success',
         data,
+        requestId: request.requestId,
       })),
     );
   }

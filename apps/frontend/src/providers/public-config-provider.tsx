@@ -90,7 +90,7 @@ const DEFAULT_CONFIG: PublicConfig = {
   allow_webhook: false,
   allow_organization: false,
   allow_delete_account: false,
-  email_verify: false,
+  email_verify: true,
   captcha_enabled: false,
   invite_code_required: false,
   whitelist_enabled: false,

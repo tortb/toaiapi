@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { encrypt } from '../../src/common/utils/crypto.util';
 
 /**
  * Channel 种子数据
@@ -20,7 +21,15 @@ export async function seedChannels(prisma: PrismaClient): Promise<void> {
   let channelCount = 0;
 
   for (const provider of providers) {
-    // 为每个 provider 创建一个渠道
+    const rawApiKey = process.env[`${provider.name.toUpperCase()}_API_KEY`]?.trim();
+    if (!rawApiKey) {
+      console.log(`  - Skipping ${provider.display_name}: API key env not configured`);
+      continue;
+    }
+
+    const encryptedApiKey = encrypt(rawApiKey);
+
+    // 为每个 provider 创建一个渠道，API Key 必须加密存储。
     const channel = await prisma.channel.upsert({
       where: {
         // 使用 provider_id + name 作为唯一标识
@@ -29,14 +38,14 @@ export async function seedChannels(prisma: PrismaClient): Promise<void> {
       update: {
         name: `${provider.display_name} Official`,
         base_url: provider.base_url,
-        api_key: process.env[`${provider.name.toUpperCase()}_API_KEY`] || 'sk-placeholder',
+        api_key: encryptedApiKey,
       },
       create: {
         id: `seed-${provider.name}`,
         provider_id: provider.id,
         name: `${provider.display_name} Official`,
         base_url: provider.base_url,
-        api_key: process.env[`${provider.name.toUpperCase()}_API_KEY`] || 'sk-placeholder',
+        api_key: encryptedApiKey,
         weight: 1,
         priority: 0,
       },

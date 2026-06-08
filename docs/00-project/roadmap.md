@@ -35,7 +35,7 @@
 
 **安全修复（P0 严重漏洞）：**
 - [x] JWT 密钥强制配置（移除硬编码默认值，缺失时终止进程）
-- [x] JWT 算法限制（显式 HS256，防止算法混淆攻击）
+- [x] JWT 算法限制（仅 RS256/ES256，校验 iss/aud/exp）
 - [x] Token 类型区分（access/refresh payload 字段）
 - [x] Refresh Token 指纹改用 SHA-256 哈希
 - [x] 密码重置 Token 不再写入日志

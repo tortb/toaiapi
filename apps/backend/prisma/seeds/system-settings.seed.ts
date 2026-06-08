@@ -55,12 +55,12 @@ const SEED_DATA: Record<string, Array<{ key: string; value: string; type?: strin
 
   // ─── 注册设置 ───
   register: [
-    { key: 'email_verify', value: 'false', type: 'boolean' },
+    { key: 'email_verify', value: 'true', type: 'boolean' },
     { key: 'captcha_enabled', value: 'false', type: 'boolean' },
     { key: 'invite_code_required', value: 'false', type: 'boolean' },
     { key: 'whitelist_enabled', value: 'false', type: 'boolean' },
     { key: 'whitelist_emails', value: '' },
-    { key: 'default_balance', value: '5', type: 'number' },         // 5 元
+    { key: 'default_balance', value: '0', type: 'number' },
     { key: 'default_quota', value: '1000000', type: 'number' },     // 100 万 Token
     { key: 'default_group', value: 'default' },
     { key: 'default_role', value: 'USER' },

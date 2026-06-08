@@ -5,6 +5,7 @@ import { Check, CreditCard, Gift, Wallet } from "lucide-react";
 import alipayLogo from "../../../../../../assets/payment/AliPay.svg";
 import wechatPayLogo from "../../../../../../assets/payment/WeChatPay.svg";
 import { createOrder, getActivePromotions, getBalance, getPaymentMethods, redeemCode, type ActivePromotion, type BalanceInfo, type PaymentMethod } from "@/lib/payment-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 const PRESET_AMOUNTS = [10, 20, 50, 100, 300, 500] as const;
 
@@ -40,7 +41,7 @@ export default function RechargePage() {
   const [method, setMethod] = useState("");
   const [redeem, setRedeem] = useState("");
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -141,8 +142,6 @@ export default function RechargePage() {
         <h1 className="page-title">充值中心</h1>
         <p className="page-subtitle">充值余额或使用兑换码</p>
       </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {message && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div>}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">

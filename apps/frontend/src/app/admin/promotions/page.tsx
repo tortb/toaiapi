@@ -6,6 +6,8 @@ import { AdminResourceList, type AdminResourceColumn } from "@/components/admin/
 import { Modal } from "@/components/ui/modal";
 import { getBonusTypeLabel, getPromotions, updatePromotion, createPromotion, togglePromotion, deletePromotion, type PromotionData, type UpdatePromotionPayload, type CreatePromotionPayload } from "@/lib/admin-api";
 import { formatTableDate, formatYuan } from "@/lib/utils";
+import { confirmAction, notifyError } from "@/lib/feedback/events";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 export default function AdminPromotionsPage() {
   const [editItem, setEditItem] = useState<PromotionData | null>(null);
@@ -16,7 +18,7 @@ export default function AdminPromotionsPage() {
   });
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
 
   const loadData = useCallback((params: { page: number; pageSize: number; search?: string }) => getPromotions({ page: params.page, pageSize: params.pageSize }), []);
 
@@ -83,12 +85,12 @@ export default function AdminPromotionsPage() {
   }
 
   async function handleToggle(item: PromotionData) {
-    try { await togglePromotion(item.id); setRefreshKey((k) => k + 1); } catch (err) { alert(err instanceof Error ? err.message : "操作失败"); }
+    try { await togglePromotion(item.id); setRefreshKey((k) => k + 1); } catch (err) { notifyError(err, "操作失败"); }
   }
 
   async function handleDelete(item: PromotionData) {
-    if (!confirm(`确定删除活动「${item.name}」吗？`)) return;
-    try { await deletePromotion(item.id); setRefreshKey((k) => k + 1); } catch (err) { alert(err instanceof Error ? err.message : "删除失败"); }
+    if (!(await confirmAction({ title: "删除充值活动", message: `确定删除活动「${item.name}」吗？`, confirmText: "删除", variant: "danger" }))) return;
+    try { await deletePromotion(item.id); setRefreshKey((k) => k + 1); } catch (err) { notifyError(err, "删除失败"); }
   }
 
   const actions = useCallback((item: PromotionData) => (
@@ -126,7 +128,6 @@ export default function AdminPromotionsPage() {
       />
 
       <Modal open={editItem !== null || showCreate} onClose={() => { setEditItem(null); setShowCreate(false); }} title={editItem ? "编辑活动" : "新建活动"} width="520px">
-        {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[var(--foreground)] mb-1">活动名称</label>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAnalytics, type AnalyticsResponse } from "@/lib/user-api";
 import { getBalanceStats, getBills, getRequestLogs, type BalanceStats, type BillItem, type RequestLogItem } from "@/lib/payment-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 function num(value?: number) {
   return (value ?? 0).toLocaleString("zh-CN");
@@ -31,7 +32,7 @@ export default function UsagePage() {
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
   const [bills, setBills] = useState<BillItem[]>([]);
   const [logs, setLogs] = useState<RequestLogItem[]>([]);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -66,7 +67,6 @@ export default function UsagePage() {
         <h1 className="page-title">用量信息</h1>
         <p className="page-subtitle">查看请求、Token、费用、模型分布和明细记录</p>
       </div>
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       {/* 概览卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

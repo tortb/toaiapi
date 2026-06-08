@@ -1,3 +1,4 @@
+import { redactToString } from '../utils/redact.util';
 import {
   ExceptionFilter,
   Catch,
@@ -53,8 +54,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof Error) {
       message = exception.message;
       this.logger.error(
-        `Unhandled error: ${exception.message}`,
-        exception.stack,
+        `Unhandled error: ${redactToString(exception.message)}`,
+        redactToString(exception.stack),
       );
     }
 
@@ -63,12 +64,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = 'Internal server error';
     }
 
+    const requestId = request.requestId;
+
     response.status(status).send({
       code: status,
-      message,
+      message: redactToString(message),
       data: null,
       timestamp: new Date().toISOString(),
       path: request.url,
+      requestId,
     });
   }
 }

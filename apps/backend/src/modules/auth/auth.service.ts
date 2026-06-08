@@ -8,7 +8,6 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -18,18 +17,18 @@ import { SystemSettingService } from '../../common/services/system-setting.servi
 import { CaptchaService } from './captcha.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { randomBytes, createHash, randomInt } from 'crypto';
+import { randomBytes, createHash, createHmac, randomInt } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { InviteService } from '../invite/invite.service';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private static readonly REGISTER_EMAIL_PURPOSE = '注册';
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
     private readonly systemSettingService: SystemSettingService,
@@ -49,6 +48,8 @@ export class AuthService {
    * @throws ConflictException 邮箱已注册
    */
   async register(dto: RegisterDto, captchaVerifyParam?: string) {
+    const normalizedEmail = this.normalizeEmail(dto.email);
+
     // 功能开关：检查是否允许注册
     const allowRegister = await this.systemSettingService.getTypedByKey<boolean>('allow_register', true);
     if (!allowRegister) {
@@ -63,7 +64,7 @@ export class AuthService {
         .split(/[,;\n]/)
         .map((e) => e.trim().toLowerCase())
         .filter(Boolean);
-      if (whitelist.length > 0 && !whitelist.includes(dto.email.toLowerCase())) {
+      if (whitelist.length > 0 && !whitelist.includes(normalizedEmail)) {
         throw new ForbiddenException('该邮箱不在允许注册的白名单中');
       }
     }
@@ -76,16 +77,13 @@ export class AuthService {
 
     await this.verifyCaptchaIfEnabled('captcha_register_enabled', 'captcha_register_scene_id', captchaVerifyParam);
 
-    // 邮箱验证码检查（默认开启，防止恶意注册刷号）
-    const emailVerify = await this.systemSettingService.getTypedByKey<boolean>('email_verify', true);
-    if (emailVerify) {
-      if (!dto.emailCode) {
-        throw new BadRequestException('请输入邮箱验证码');
-      }
-      const codeValid = await this.verifyEmailCode(dto.email, dto.emailCode, '注册');
-      if (!codeValid) {
-        throw new BadRequestException('验证码错误或已过期');
-      }
+    // 公开注册必须通过邮箱验证码，防止关闭配置或前端篡改导致刷号。
+    if (!dto.emailCode) {
+      throw new BadRequestException('请输入邮箱验证码');
+    }
+    const codeValid = await this.verifyEmailCode(normalizedEmail, dto.emailCode, AuthService.REGISTER_EMAIL_PURPOSE);
+    if (!codeValid) {
+      throw new BadRequestException('验证码错误或已过期');
     }
 
     // SECURITY: 验证密码强度（大小写字母 + 数字 + 长度 8-128）
@@ -96,11 +94,9 @@ export class AuthService {
 
     const passwordHash = await hashPassword(dto.password);
 
-    // 读取默认赠送余额（元）和额度，余额转换为分存储
-    const defaultBalanceYuan = (await this.systemSettingService.getTypedByKey<number>('default_balance', 0)) ?? 0;
-    const defaultBalanceFen = Math.round(defaultBalanceYuan * 100);
-    const defaultQuota = (await this.systemSettingService.getTypedByKey<number>('default_quota', 0)) ?? 0;
-
+    // 公开注册不发放默认余额，避免配置污染导致批量套取额度。
+    const defaultBalanceYuan = 0;
+    const defaultBalanceFen = 0;
     // 读取默认角色和用户组
     const defaultRole = (await this.systemSettingService.getByKey('default_role')) ?? 'USER';
     const defaultGroupName = (await this.systemSettingService.getByKey('default_group')) ?? 'default';
@@ -119,7 +115,7 @@ export class AuthService {
     try {
       const user = await this.prisma.user.create({
         data: {
-          email: dto.email,
+          email: normalizedEmail,
           password_hash: passwordHash,
           display_name: dto.displayName,
           role: defaultRole as any,
@@ -174,8 +170,10 @@ export class AuthService {
   async login(dto: LoginDto, captchaVerifyParam?: string) {
     await this.verifyCaptchaIfEnabled('captcha_login_enabled', 'captcha_login_scene_id', captchaVerifyParam);
 
+    const normalizedEmail = this.normalizeEmail(dto.email);
+
     // SECURITY: 暴力破解防护 - 检查登录失败次数
-    const failKey = `login-fail:${dto.email}`;
+    const failKey = `login-fail:${normalizedEmail}`;
     const failCount = await this.redis.getCounter(failKey);
 
     if (failCount >= 5) {
@@ -186,10 +184,10 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email, deleted_at: null },
+      where: { email: normalizedEmail, deleted_at: null },
     });
     if (!user) {
-      await this.recordLoginFail(dto.email);
+      await this.recordLoginFail(normalizedEmail);
       throw new UnauthorizedException('邮箱或密码错误');
     }
 
@@ -199,7 +197,7 @@ export class AuthService {
 
     const valid = await verifyPassword(user.password_hash, dto.password);
     if (!valid) {
-      await this.recordLoginFail(dto.email);
+      await this.recordLoginFail(normalizedEmail);
       throw new UnauthorizedException('邮箱或密码错误');
     }
 
@@ -231,15 +229,20 @@ export class AuthService {
    * @returns 新的 Token 对
    * @throws UnauthorizedException Token 无效或已撤销
    */
-  async refreshTokens(refreshToken: string) {
+  async refreshTokens(refreshToken?: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh Token 缺失');
+    }
+
     let payload;
     try {
-      payload = verifyToken(
-        refreshToken,
-        this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      );
+      payload = verifyToken(refreshToken, this.getJwtConfig());
     } catch {
       throw new UnauthorizedException('Refresh Token 无效或已过期');
+    }
+
+    if (payload.type !== 'refresh') {
+      throw new UnauthorizedException('Refresh Token 类型无效');
     }
 
     // SECURITY: 使用 SHA-256 哈希比较，而非截断字符串
@@ -435,7 +438,7 @@ export class AuthService {
   ): Promise<void> {
     await this.verifyCaptchaIfEnabled("captcha_send_email_code_enabled", "captcha_send_email_code_scene_id", captchaVerifyParam);
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = this.normalizeEmail(email);
     const normalizedPurpose = purpose.trim() || "验证";
     const ttlSeconds = Math.max(60, Math.min(1800, Number((await this.systemSettingService.getTypedByKey<number>("email_code_ttl_seconds", 300)) ?? 300)));
     const cooldownSeconds = Math.max(10, Math.min(3600, Number((await this.systemSettingService.getTypedByKey<number>("email_code_cooldown_seconds", 60)) ?? 60)));
@@ -463,6 +466,18 @@ export class AuthService {
       throw new BadRequestException("当前网络验证码请求过于频繁，请稍后再试");
     }
 
+    if (this.isRegisterPurpose(normalizedPurpose)) {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail, deleted_at: null },
+        select: { id: true },
+      });
+      if (existingUser) {
+        await this.redis.set(cooldownKey, "1", cooldownSeconds);
+        this.logger.warn('Registration verification code skipped for an existing account');
+        return;
+      }
+    }
+
     const code = randomInt(100000, 1000000).toString();
     const sent = await this.emailService.sendVerificationCodeEmail(normalizedEmail, code, normalizedPurpose);
     if (!sent) {
@@ -470,7 +485,7 @@ export class AuthService {
       throw new BadRequestException("邮件服务未配置或发送失败，请联系管理员");
     }
 
-    await this.redis.set(`email-code:${normalizedEmail}:${normalizedPurpose}`, code, ttlSeconds);
+    await this.redis.set(`email-code:${normalizedEmail}:${normalizedPurpose}`, this.hashVerificationCode(normalizedEmail, normalizedPurpose, code), ttlSeconds);
     await this.redis.set(cooldownKey, "1", cooldownSeconds);
     this.logger.log(`Verification code sent for ${normalizedPurpose}`);
   }
@@ -487,12 +502,13 @@ export class AuthService {
    * @returns 是否验证成功
    */
   async verifyEmailCode(email: string, code: string, purpose: string = '验证'): Promise<boolean> {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = this.normalizeEmail(email);
     const normalizedPurpose = purpose.trim() || '验证';
     const codeKey = `email-code:${normalizedEmail}:${normalizedPurpose}`;
-    const storedCode = await this.redis.get(codeKey);
+    const storedCodeHash = await this.redis.get(codeKey);
+    const submittedCodeHash = this.hashVerificationCode(normalizedEmail, normalizedPurpose, code);
 
-    if (!storedCode || storedCode !== code) {
+    if (!storedCodeHash || storedCodeHash !== submittedCodeHash) {
       return false;
     }
 
@@ -523,12 +539,7 @@ export class AuthService {
   private async generateTokens(userId: string, email: string, role: string) {
     const tokenPair = generateTokenPair(
       { sub: userId, email, role, type: 'access' },
-      {
-        jwtSecret: this.config.getOrThrow<string>('JWT_SECRET'),
-        jwtRefreshSecret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        accessTokenExpiry: this.config.get<string>('JWT_EXPIRATION', '15m'),
-        refreshTokenExpiry: this.config.get<string>('JWT_REFRESH_EXPIRATION', '7d'),
-      },
+      this.getJwtConfig(),
     );
 
     // SECURITY: 使用 SHA-256 哈希存储 Refresh Token 指纹
@@ -547,8 +558,23 @@ export class AuthService {
     return {
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
+      refreshExpiresIn: refreshTtl,
       tokenType: 'Bearer',
       expiresIn: accessTtl,
+    };
+  }
+
+  private getJwtConfig() {
+    return {
+      jwtPrivateKey: this.config.get<string>('JWT_PRIVATE_KEY'),
+      jwtPublicKey: this.config.get<string>('JWT_PUBLIC_KEY'),
+      jwtSecret: this.config.get<string>('JWT_SECRET'),
+      jwtRefreshSecret: this.config.get<string>('JWT_REFRESH_SECRET'),
+      jwtAlgorithm: this.config.get<'RS256' | 'ES256' | 'HS256'>('JWT_ALGORITHM'),
+      jwtIssuer: this.config.get<string>('JWT_ISSUER'),
+      jwtAudience: this.config.get<string>('JWT_AUDIENCE'),
+      accessTokenExpiry: this.config.get<string>('JWT_EXPIRATION', '15m'),
+      refreshTokenExpiry: this.config.get<string>('JWT_REFRESH_EXPIRATION', '7d'),
     };
   }
 
@@ -561,6 +587,26 @@ export class AuthService {
    */
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  private isRegisterPurpose(purpose: string): boolean {
+    return purpose.trim() === AuthService.REGISTER_EMAIL_PURPOSE;
+  }
+
+  private getVerificationCodeSecret(): string {
+    return this.config.get<string>('JWT_PRIVATE_KEY')
+      ?? this.config.get<string>('JWT_REFRESH_SECRET')
+      ?? this.config.getOrThrow<string>('JWT_SECRET');
+  }
+
+  private hashVerificationCode(email: string, purpose: string, code: string): string {
+    return createHmac('sha256', this.getVerificationCodeSecret())
+      .update(`${email}:${purpose}:${code.trim()}`)
+      .digest('hex');
   }
 
   /**

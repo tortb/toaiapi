@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BarChart3, CreditCard, Key, Wallet } from "lucide-react";
 import { getBalanceStats, type BalanceStats } from "@/lib/payment-api";
 import { getUserApiKeys, getUserProfile, type UserApiKey, type UserProfile } from "@/lib/user-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 function yuan(value?: number) {
   return `¥${(value ?? 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -18,7 +19,7 @@ export default function DashboardOverviewPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<BalanceStats | null>(null);
   const [keys, setKeys] = useState<UserApiKey[]>([]);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +44,6 @@ export default function DashboardOverviewPage() {
         <h1 className="page-title">控制台概览</h1>
         <p className="page-subtitle">{profile ? `${profile.email} · ${profile.role}` : "正在加载账户信息"}</p>
       </div>
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Stat icon={Wallet} label="可用余额" value={yuan(stats?.balance?.available)} />
         <Stat icon={CreditCard} label="本月消费" value={yuan(stats?.monthlySpend)} />

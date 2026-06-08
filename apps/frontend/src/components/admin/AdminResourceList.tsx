@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { RefreshCw, Search } from "lucide-react";
 import type { PaginatedResponse } from "@/lib/admin-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 type RowId = { id: string };
 
@@ -53,7 +54,7 @@ export function AdminResourceList<T extends RowId>({
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -114,8 +115,6 @@ export function AdminResourceList<T extends RowId>({
           {toolbarExtra}
         </div>
       </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-white">
         <div className="min-w-[860px]">

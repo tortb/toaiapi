@@ -5,10 +5,12 @@ import { Pencil, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { getPaymentConfigs, updatePaymentConfig, togglePaymentConfig, type PaymentConfigData, type UpdatePaymentConfigPayload } from "@/lib/admin-api";
 import { formatTableDate } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
+import { notifyError } from "@/lib/feedback/events";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 export default function AdminPaymentConfigsPage() {
   const [items, setItems] = useState<PaymentConfigData[]>([]);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [loading, setLoading] = useState(true);
   const [editItem, setEditItem] = useState<PaymentConfigData | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -65,7 +67,7 @@ export default function AdminPaymentConfigsPage() {
       await togglePaymentConfig(item.name);
       load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "操作失败");
+      notifyError(err, "操作失败");
     }
   }
 
@@ -94,8 +96,6 @@ export default function AdminPaymentConfigsPage() {
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />刷新
         </button>
       </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       <div className="space-y-4">
         {loading ? (
@@ -140,7 +140,6 @@ export default function AdminPaymentConfigsPage() {
 
       {/* 编辑弹窗 */}
       <Modal open={editItem !== null} onClose={() => setEditItem(null)} title={`编辑支付配置 - ${editItem?.display_name ?? ""}`} width="600px">
-        {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
           <p className="text-xs text-[var(--text-muted)]">留空的字段将保持原值不变。敏感字段加密存储。</p>
           <div>

@@ -6,6 +6,8 @@ import { AdminResourceList, type AdminResourceColumn } from "@/components/admin/
 import { Modal } from "@/components/ui/modal";
 import { getModelStatusLabel, getModels, updateModel, deleteModel, upsertModelPricing, getProviders, type ModelData, type UpdateModelPayload, type ProviderData, type UpsertPricingPayload } from "@/lib/admin-api";
 import { formatTableDate } from "@/lib/utils";
+import { confirmAction, notifyError } from "@/lib/feedback/events";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 function price(value: number | null | undefined) {
   return value == null ? "-" : "¥" + value;
@@ -20,7 +22,7 @@ export default function AdminModelsPage() {
   const [pricingForm, setPricingForm] = useState({ inputPrice: 0, outputPrice: 0, cachedPrice: 0, reasoningPrice: 0, multiplier: 1 });
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
 
   const loadData = useCallback((params: { page: number; pageSize: number; search?: string }) => getModels(params), []);
 
@@ -112,17 +114,17 @@ export default function AdminModelsPage() {
       await updateModel(item.id, { isActive: !item.isActive });
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "操作失败");
+      notifyError(err, "操作失败");
     }
   }
 
   async function handleDelete(item: ModelData) {
-    if (!confirm(`确定删除模型「${item.displayName}」吗？`)) return;
+    if (!(await confirmAction({ title: "删除模型", message: `确定删除模型「${item.displayName}」吗？`, confirmText: "删除", variant: "danger" }))) return;
     try {
       await deleteModel(item.id);
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "删除失败");
+      notifyError(err, "删除失败");
     }
   }
 
@@ -164,7 +166,6 @@ export default function AdminModelsPage() {
 
       {/* 编辑模型 */}
       <Modal open={editItem !== null || showCreate} onClose={() => { setEditItem(null); setShowCreate(false); }} title={editItem ? "编辑模型" : "新建模型"}>
-        {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         <div className="space-y-4">
           {showCreate && (
             <>
@@ -206,7 +207,6 @@ export default function AdminModelsPage() {
 
       {/* 定价管理 */}
       <Modal open={pricingItem !== null} onClose={() => setPricingItem(null)} title={`定价设置 - ${pricingItem?.displayName ?? ""}`}>
-        {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         <div className="space-y-4">
           <p className="text-xs text-[var(--text-muted)]">价格单位：元/百万 token</p>
           <div className="grid grid-cols-2 gap-4">

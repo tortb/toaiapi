@@ -9,8 +9,11 @@ export class TokenResponseDto {
   @ApiProperty({ description: '访问令牌（15分钟有效）' })
   readonly accessToken!: string;
 
-  @ApiProperty({ description: '刷新令牌（7天有效）' })
+  @ApiProperty({ description: '刷新令牌（仅兼容旧客户端；新客户端使用 HttpOnly Cookie）' })
   readonly refreshToken!: string;
+
+  @ApiProperty({ description: '刷新令牌过期时间（秒）', example: 604800 })
+  readonly refreshExpiresIn!: number;
 
   @ApiProperty({ description: '令牌类型', example: 'Bearer' })
   readonly tokenType!: string;

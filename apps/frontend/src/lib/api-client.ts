@@ -1,9 +1,9 @@
+import { AUTH_SYNC_EVENT } from "./auth-api";
 import { buildApiUrl } from "./http";
 import type { ApiErrorPayload, PaginatedData, QueryParams, QueryValue } from "@/types/api";
 
 const API_PREFIX = "/api/v1";
 const ACCESS_TOKEN_KEY = "toaiapi_access_token";
-const REFRESH_TOKEN_KEY = "toaiapi_refresh_token";
 
 export class ApiError extends Error {
   status: number;
@@ -35,22 +35,22 @@ function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
-function getRefreshToken(): string | null {
-  if (!isBrowser()) return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+function emitAuthSync() {
+  if (!isBrowser()) return;
+  window.dispatchEvent(new Event(AUTH_SYNC_EVENT));
 }
 
-function setTokens(tokens: { accessToken: string; refreshToken: string }) {
+function setTokens(tokens: { accessToken: string }) {
   if (!isBrowser()) return;
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  emitAuthSync();
 }
 
 function clearTokens() {
   if (!isBrowser()) return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem("toaiapi_user");
+  emitAuthSync();
 }
 
 function appendQuery(path: string, query?: QueryParams) {
@@ -120,16 +120,11 @@ let refreshPromise: Promise<string> | null = null;
 async function refreshAccessToken(): Promise<string> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) throw new ApiError("No refresh token available", 401);
-
       const response = await fetch(buildApiUrl(`${API_PREFIX}/auth/refresh`), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ refreshToken }),
       });
-      const tokens = await parseResponse<{ accessToken: string; refreshToken: string }>(response);
+      const tokens = await parseResponse<{ accessToken: string }>(response);
       setTokens(tokens);
       return tokens.accessToken;
     })().finally(() => {

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../../common/services/email.service';
+import { assertSafeOutboundUrl } from '../../common/utils/ssrf.util';
 
 /**
  * 通知分发器
@@ -43,9 +44,8 @@ export class NotificationDispatcherService {
     try {
       const https = await import('https');
       const http = await import('http');
-      const urlModule = await import('url');
 
-      const parsedUrl = new urlModule.URL(url);
+      const parsedUrl = assertSafeOutboundUrl(url);
       const protocol = parsedUrl.protocol === 'https:' ? https : http;
 
       return new Promise<boolean>((resolve) => {

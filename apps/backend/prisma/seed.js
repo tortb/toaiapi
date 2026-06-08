@@ -379,11 +379,11 @@ const SYSTEM_SETTINGS = [
     {
         category: 'register',
         settings: [
-            { key: 'email_verify', value: 'false', type: 'boolean' },
+            { key: 'email_verify', value: 'true', type: 'boolean' },
             { key: 'captcha_enabled', value: 'false', type: 'boolean' },
             { key: 'invite_code_required', value: 'false', type: 'boolean' },
             { key: 'whitelist_enabled', value: 'false', type: 'boolean' },
-            { key: 'default_balance', value: '500', type: 'number' },
+            { key: 'default_balance', value: '0', type: 'number' },
             { key: 'default_quota', value: '1000000', type: 'number' },
             { key: 'default_group', value: 'default' },
             { key: 'default_role', value: 'USER' },

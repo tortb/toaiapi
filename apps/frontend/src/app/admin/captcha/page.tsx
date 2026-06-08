@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Save, RefreshCw, Shield } from "lucide-react";
 import { getSystemSettingsByCategory, updateSystemSettings } from "@/lib/admin-api";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 const CAPTCHA_FIELDS = [
   { key: "captcha_identity", label: "阿里云验证码 Identity", type: "text", placeholder: "必填：阿里云 ESA AI 验证码的身份标识", tip: "在阿里云 ESA 控制台 → AI 验证码中获取" },
@@ -32,7 +33,7 @@ type FieldDef = typeof CAPTCHA_FIELDS[number] | typeof SCENE_FIELDS[number] | ty
 
 export default function AdminCaptchaPage() {
   const [values, setValues] = useState<Record<string, string>>({});
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,8 +109,6 @@ export default function AdminCaptchaPage() {
           <RefreshCw className="h-4 w-4" />刷新
         </button>
       </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {message && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div>}
 
       {/* 基础配置 */}

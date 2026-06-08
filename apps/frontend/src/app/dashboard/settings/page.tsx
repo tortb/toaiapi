@@ -6,6 +6,8 @@ import { Camera, IdCard, LogOut, Mail, Phone, Shield, Trash2, User, X, type Luci
 import { Avatar } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/auth-store";
 import { changePassword, deleteCurrentUser, getUserProfile, updateUserProfile, type RealNameVerification, type UserProfile } from "@/lib/user-api";
+import { confirmAction } from "@/lib/feedback/events";
+import { useErrorToast } from "@/lib/feedback/use-error-toast";
 
 function maskEmail(value?: string | null) {
   if (!value) return "未绑定";
@@ -66,7 +68,7 @@ export default function SettingsPage() {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [, setError] = useErrorToast();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -126,7 +128,7 @@ export default function SettingsPage() {
   }
 
   async function handleDeleteAccount() {
-    if (!window.confirm("确认提交注销申请？账号注销后将进入删除流程，7 天后删除用户数据。")) return;
+    if (!(await confirmAction({ title: "确认注销账号", message: "账号注销后将进入删除流程，7 天后删除用户数据。", confirmText: "提交注销", variant: "danger" }))) return;
     setDeleteSubmitting(true);
     setError("");
     setMessage("");
@@ -150,8 +152,6 @@ export default function SettingsPage() {
         <h1 className="page-title">个人设置</h1>
         <p className="page-subtitle">管理账户资料、安全信息和账号状态</p>
       </div>
-
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {message && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</div>}
 
       {/* 个人信息卡片 */}
