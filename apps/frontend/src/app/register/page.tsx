@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Gift, Shield, Zap } from "lucide-react";
 import AliyunCaptcha from "@/components/AliyunCaptcha";
 import { register, sendVerificationCode } from "@/lib/auth-api";
+import { useAuthStore } from "@/stores/auth-store";
 import { usePublicConfig } from "@/providers/public-config-provider";
 
 export default function RegisterPage() {
@@ -78,13 +79,21 @@ export default function RegisterPage() {
     setError("");
     setMessage("");
     try {
-      await register({
+      const auth = await register({
         email: emailValue,
         password,
         displayName: displayName.trim() || undefined,
         emailCode: emailVerifyEnabled ? emailCode.trim() : undefined,
         inviteCode: inviteCode.trim() || undefined,
         captchaVerifyParam: registerCaptcha || undefined,
+      });
+      // 更新 Zustand store，确保所有页面同步登录状态
+      useAuthStore.setState({
+        user: auth.user,
+        isAuthenticated: true,
+        isAdmin: ["admin", "super_admin"].includes(auth.user.role.toLowerCase()),
+        isLoading: false,
+        error: null,
       });
       router.replace("/dashboard/overview");
     } catch (err) {

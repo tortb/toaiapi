@@ -76,8 +76,8 @@ export class AuthService {
 
     await this.verifyCaptchaIfEnabled('captcha_register_enabled', 'captcha_register_scene_id', captchaVerifyParam);
 
-    // 邮箱验证码检查
-    const emailVerify = await this.systemSettingService.getTypedByKey<boolean>('email_verify', false);
+    // 邮箱验证码检查（默认开启，防止恶意注册刷号）
+    const emailVerify = await this.systemSettingService.getTypedByKey<boolean>('email_verify', true);
     if (emailVerify) {
       if (!dto.emailCode) {
         throw new BadRequestException('请输入邮箱验证码');
